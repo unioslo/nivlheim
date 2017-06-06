@@ -3,7 +3,7 @@
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
 Version:  0.1.0
-Release:  %{version}.%{date}%{?dist}
+Release:  %{date}%{?dist}
 
 Summary:  File collector
 
@@ -57,7 +57,7 @@ This package contains the client component of Nivlheim, the file
 collector for UiO.
 
 %prep
-%autosetup
+%autosetup -n nivlheim-master
 
 %build
 
@@ -85,7 +85,6 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %{_sbindir}/nivlheim_client
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
-
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
