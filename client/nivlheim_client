@@ -1,0 +1,747 @@
+#!/usr/bin/perl -w
+
+# This file is part of Nivlheim.
+#
+# Nivlheim is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Nivlheim is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
+
+use strict;
+use warnings;
+use vars qw($localip);
+
+use IO::File;
+use IO::Socket::SSL;
+use IO::Socket::INET6;
+use Net::DNS;
+use NetAddr::IP;
+use Archive::Tar;
+use HTTP::Request::Common;
+use Sys::Syslog qw(:standard :macros);
+use File::Path;
+use File::Basename;
+use Getopt::Long qw(:config no_ignore_case);
+
+sub http_get($);
+sub http_post($$);
+sub getpassword();
+sub test_without_client_cert();
+sub readconfig($);
+sub printlog($);
+sub shortencmd($);
+sub reverse_dns_lookup($$);
+sub is_private($);
+sub select_ip();
+sub parse_certificate_response($);
+
+# Options with default values
+my %defaultopt = (
+	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf',        # configuration file
+	'server'    => 'https://nivlheim.uio.no/cgi-bin/', # must have trailing slash
+	'ca_file'   => '/etc/ssl/certs/ca-bundle.trust.crt:/etc/ssl/certs/ca-certificates.crt:/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
+	'cert_file' => '/var/nivlheim/my.crt',
+	'key_file'  => '/var/nivlheim/my.key',
+	'debug'     => 0,  # debugging / verbose output
+	'help'      => 0,  # display help output
+	'version'   => 0,  # plugin version info
+	'ip'        => 0  # override the ip address auto detection
+	);
+
+# Version and similar info
+my $NAME    = 'nivlheim_client';
+my $VERSION = '1.06';
+my $AUTHOR  = 'Øyvind Hagberg';
+my $CONTACT = 'oyvind.hagberg@usit.uio.no';
+my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo';
+
+# Usage text
+my $USAGE = <<"END_USAGE";
+Usage: $NAME [OPTION]...
+END_USAGE
+
+# Help text
+my $HELP = <<'END_HELP';
+
+OPTIONS:
+   -c, --config    Specify configuration file
+   -s, --server    Specify server URL
+   --ssl-ca        SSL CA file
+   --ssl-cert      SSL CERT file
+   --ssl-key       SSL key file
+   --ip            IP address to bind to when communicating with the server
+   -d, --debug     Debug output, reports everything
+   -h, --help      Display this help text
+   -V, --version   Display version info
+END_HELP
+
+# Version and license text
+my $LICENSE = <<"END_LICENSE";
+$NAME $VERSION
+Copyright (C) 2015 $RIGHTS
+License GPLv3+: GNU GPL version 3 or later <http://gnu.org/licenses/gpl.html>
+This is free software: you are free to change and redistribute it.
+There is NO WARRANTY, to the extent permitted by law.
+
+Written by $AUTHOR <$CONTACT>
+END_LICENSE
+
+# Get options
+my %opt;
+GetOptions('c|config=s'  => \$opt{config},
+	   's|server=s'  => \$opt{server},
+	   'ssl-ca=s'    => \$opt{ca_file},
+	   'ssl-cert=s'  => \$opt{cert_file},
+	   'ssl-key=s'   => \$opt{key_file},
+	   'ip=s'        => \$opt{ip},
+	   'd|debug'     => \$opt{debug},
+	   'h|help'      => \$opt{help},
+	   'V|version'   => \$opt{version},
+	  ) or do { print $USAGE; exit 1 };
+
+# If user requested help
+if ($opt{help}) {
+    print $USAGE, $HELP;
+    exit 0;
+}
+
+# If user requested version info
+if ($opt{version}) {
+    print $LICENSE;
+    exit 0;
+}
+
+# Logge til stdout eller syslog avhengig av om vi har en tty
+if (!-t STDOUT) {
+	# Vi har ingen TTY. Åpne syslog
+	openlog('nivlheim', '', Sys::Syslog::LOG_DAEMON);
+}
+
+# Lese config
+$opt{config} ||= $defaultopt{config};
+my $configfile;
+foreach my $possible_config_file (split(':', $opt{config})) {
+	if (-f $possible_config_file) {
+		$configfile = $possible_config_file;
+		last;
+	}
+}
+if (!$configfile) {
+	printlog "Unable to locate configuration file\n";
+	exit 1;
+}
+my %config = readconfig($configfile);
+if (!%config) {
+	printlog "Unable to read configuration file $configfile\n";
+	exit 1;
+}
+
+# Sette visse options fra configfilen dersom de ikke allerede er satt
+if (!defined($opt{ca_file}) || $opt{ca_file} eq '') {
+	$opt{ca_file} = $config{'ssl'}{'server_ssl_ca'};
+}
+
+# Bruke default options hvis ikke noe annet er gitt
+foreach (keys %defaultopt) {
+	if ((!defined $opt{$_}) || $opt{$_} eq '') {
+		$opt{$_} = $defaultopt{$_};
+	}
+}
+
+# Vise options
+if ($opt{debug}) {
+	print "Effective settings:\n";
+	foreach (sort keys %opt) {
+		print "\t$_ = $opt{$_}\n";
+	}
+}
+
+# Kontrollere at CA-filen er lesbar
+my $real_ca_file = '';
+foreach my $possible_ca_file (split(':', $opt{ca_file})) {
+	if (-r $possible_ca_file) {
+		$real_ca_file = $possible_ca_file;
+		last;
+	}
+}
+if (!-r $real_ca_file) {
+	printlog "Unable to read a CA file (any of $opt{ca_file}), check the config.";
+	exit 1;
+}
+if ($opt{debug}) {
+	print "Using CA file $real_ca_file\n";
+}
+
+## Avgjøre hvilken lokal ip-adresse som skal brukes. Dette er relevant for
+## maskiner som har flere ip-adresser og flere navn i DNS.
+
+my $myhostname = `hostname -f`;
+$myhostname =~ s/[\r\n]//g;
+my $localip;
+if ($opt{ip}) {
+	$localip = $opt{ip};
+}
+else {
+	$localip = select_ip();
+}
+
+
+# Har vi et sertifikat? Teste om det fungerer
+my $cert_works = 0;
+eval {
+	http_get($opt{server} . 'secure/ping'); # kaller die() hvis sertifikatfeil
+	$cert_works = 1;
+};
+
+if (!$cert_works) {
+	# Får jeg kontakt med serveren i det hele tatt?
+	print "No valid client cert. Checking basic SSL connectivity...\n" if ($opt{debug});
+	my $anyContact = 0;
+	eval {
+		if (test_without_client_cert()) {
+			$anyContact = 1;
+		}
+	};
+	if (!$anyContact) {
+		printlog $@ if $@;
+		printlog "Unable to connect to the server using $opt{server}, giving up.\n";
+		exit 1;
+	}
+}
+
+if (!$cert_works) {
+	eval {
+		printlog "Jeg finner ikke sertifikatet mitt, eller det virker ikke. Ber om et nytt.\n";
+		# Kontrollere at katalogen finnes
+		my $dirname = dirname($opt{cert_file});
+		if (!-d $dirname) {
+			mkpath($dirname, {error => \my $err});
+			if (!-d $dirname) { printlog "The path $dirname doesn't exist, and I am unable to create it.\n"; exit 1; }
+		}
+		my $cert = undef;
+		my $key = undef;
+		# Har jeg et sertifikat? La meg først prøve å fornye det...
+		# (dvs be om et nytt på grunnlag av at jeg har et allerede)
+		if (-f $opt{cert_file} && -f $opt{key_file}) {
+			my $response = http_get($opt{server} . 'secure/renewcert');
+			($cert, $key) = parse_certificate_response($response);
+		}
+		# Virket det?
+		if (defined($cert) && defined($key)) {
+			printlog "Fikk fornyet sertifikatet.\n";
+		}
+		else {
+			# Nei.
+			printlog "Fikk ikke fornyet sertifikatet, ber om et nytt.\n";
+			unlink($opt{cert_file}, $opt{key_file}); # Må slette de gamle filene først, de virker jo ikke.
+			# Be om å få utstedt et nytt sertifikat.
+			my $response = http_get($opt{server} . 'reqcert');
+			($cert, $key) = parse_certificate_response($response);
+		}
+		die "Unable to parse cert and key from server response" unless (defined($cert)&&defined($key));
+		open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
+		print $F "$cert\n";
+		close($F);
+		open($F, ">$opt{key_file}") or die "Unable to write to key file $opt{key_file}";
+		print $F "$key\n";
+		close($F);
+		chmod(0400, $opt{key_file});
+		printlog "Har mottatt et nytt sertifikat.\n";
+	};
+	if ($@) {
+		printlog $@;
+		exit 1;
+	}
+}
+
+# Determine which files to send
+my @filelist = keys %{$config{'files'}};
+
+# Create tar archive
+my $tar = Archive::Tar->new();
+
+# Add all the files
+for my $filename (@filelist) {
+	# if I am unable to read a file, skip it
+	next if (!-r $filename);
+	# Read files manually, because we want to follow symlinks, not store them as symlinks in the tar file.
+	# Must use IO::File to handle zero-size "special" files like /proc/*
+	my $fh = IO::File->new;
+	if ($fh->open($filename)) {
+		binmode($fh);
+		my $data = do { local $/; <$fh>; };
+		close($fh);
+		# Every file in the archive should be below the top directory "files/".
+		$tar->add_data("files$filename", $data);
+	}
+}
+
+# Run all the commands, collect the output and store it
+my @cmdlist = keys %{$config{'commands'}};
+foreach my $cmd (@cmdlist) {
+	# if it got parsed erroneously and is split on /=/, re-assemble it
+	if (defined($config{'commands'}{$cmd})) {
+		$cmd .= '=' . $config{'commands'}{$cmd};
+	}
+	# remove trailing whitespace
+	$cmd =~ s/\s+$//;
+	# run
+	if (open(my $F, "$cmd 2>&1 |")) {
+		my $cmdresult = join('',<$F>);
+		close($F);
+		# the command should be the first line of the output file
+		$cmdresult = $cmd . "\n" . $cmdresult;
+		# generate a file name
+		my $cmdfname = "commands/" . shortencmd($cmd);
+		# add the file to the tar file
+		$tar->add_data($cmdfname, $cmdresult);
+	}
+}
+
+# Run all the aliased commands
+my @aliaslist = keys %{$config{'commandalias'}};
+foreach my $alias (@aliaslist) {
+	my $cmd = $config{'commandalias'}{$alias};
+	# remove trailing whitespace
+	$cmd =~ s/\s+$//;
+	# run the command
+	if (open(my $F, "$cmd 2>&1 |")) {
+		my $cmdresult = join('',<$F>);
+		close($F);
+		# the command should be the first line of the output file
+		$cmdresult = $alias . "\n" . $cmdresult;
+		# generate a file name
+		my $saveAs = "commands/" . shortencmd($alias);
+		# add the file to the tar file
+		$tar->add_data($saveAs, $cmdresult);
+	}
+}
+
+# Compress and save the tar file
+my $tarfile = "/tmp/filelog.tgz";
+unlink($tarfile); # In case it already exists
+$tar->write($tarfile, Archive::Tar::COMPRESS_GZIP());
+
+# Create a signature for the tar file
+my $signaturefile = "$tarfile.sign";
+unlink($signaturefile); # In case it already exists
+open(my $F, "| openssl dgst -sha256 -sign $opt{key_file} -passin stdin -out $signaturefile $tarfile");
+print $F getpassword();
+close($F);
+
+# POST all of it
+my %postdata = (
+	'hostname' => $myhostname,
+	'archive' => [$tarfile],
+	'signature' => [$signaturefile],
+	'version' => $VERSION
+);
+eval {
+	my $result = http_post($opt{server} . 'secure/post', \%postdata);
+	if ($result =~ /OK/) {
+		# touch a file
+		my $file = "/var/run/nivlheim_client_last_run";
+		if (!-e $file) { open($F, ">$file"); close($F); }
+		utime(undef,undef,$file);
+		# make sure that file is readable for everyone
+		chmod 0644, $file;
+	}
+};
+printlog $@ if ($@);
+
+# Clean up
+unlink($tarfile);
+unlink($signaturefile);
+if (!-t STDOUT) {
+	closelog();
+}
+
+sub getpassword() { return "passord123"; } # the password for the private rsa key
+
+
+
+# Establish an SSL connection to the server.
+sub ssl_connect($$$) {
+	my ($hostname, $service, $use_client_cert) = @_;
+
+	$use_client_cert = ($use_client_cert && -r $opt{cert_file} && -r $opt{key_file});
+
+	# Resolve all possible addresses for the specified hostname.
+	# Try IPv4 addresses first, then IPv6.  It is quite common for
+	# mobile clients to have an IPv6 address configured even though
+	# they do not in fact have a working IPv6 uplink.
+	my @addrlist = ();
+	my $dnsresolver = Net::DNS::Resolver->new;
+	my $dnsresponse = $dnsresolver->query($hostname, 'A');
+	if ($dnsresponse) {
+		foreach my $rr ($dnsresponse->answer) {
+			push @addrlist, $rr->address;
+		}
+	}
+	$dnsresponse = $dnsresolver->query($hostname, 'AAAA');
+	if ($dnsresponse) {
+		foreach my $rr ($dnsresponse->answer) {
+			push @addrlist, $rr->address;
+		}
+	}
+
+	foreach my $ip (@addrlist) {
+		warn("Trying $ip\n") if $opt{debug};
+		if (my $socket = IO::Socket::INET6->new(
+				PeerAddr => $ip, PeerPort => $service,
+				Proto => 'tcp', LocalAddr => $localip)) {
+			warn("Connected to $ip\n") if $opt{debug};
+			# We have a connection - try to start SSL
+			if (my $ssl = IO::Socket::SSL->new_from_fd(
+					$socket->fileno(),
+					SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_PEER(),
+					SSL_verifycn_scheme => 'http',
+					SSL_verifycn_name => $hostname,
+					SSL_ca_file     => $real_ca_file,
+					SSL_ca_path     => '',
+					SSL_use_cert    => $use_client_cert ? 1 : 0,
+					SSL_key_file    => $use_client_cert ? $opt{key_file} : '',
+					SSL_cert_file   => $use_client_cert ? $opt{cert_file} : '',
+					SSL_passwd_cb   => \&getpassword,
+					))
+			{
+				# Success
+				warn("SSL connection established\n")
+					if $opt{debug};
+				return $ssl;
+			}
+			else {
+				# Negotiation failed
+				warn("Could not establish SSL connection: $!\n")
+					if $opt{debug};
+			}
+			$socket->close();
+		}
+	}
+}
+
+sub split_url($) {
+	my $url = shift;
+	# FQDN
+	if ($url =~ m#(https?)://([a-z0-9]+\.[a-z0-9]+\.[a-z]{2,3})(:(\d+))?(/.*)#) {
+		my $proto = $1;
+		my $host = $2;
+		my $port = $4;
+		my $path = $5;
+		if (!defined($port)) {
+			if ($proto eq 'http') { $port = 80; }
+			elsif ($proto eq 'https') { $port = 443; }
+			else { return (); }
+		}
+		return ($proto,$host,$port,$path);
+	}
+	# IPv4-address
+	elsif ($url =~ m#(https?)://([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(:(\d+))?(/.*)#) {
+		my $proto = $1;
+		my $host = $2;
+		my $port = $4;
+		my $path = $5;
+		if (!defined($port)) {
+			if ($proto eq 'http') { $port = 80; }
+			elsif ($proto eq 'https') { $port = 443; }
+			else { return (); }
+		}
+		return ($proto,$host,$port,$path);
+	}
+	else { return (); }
+}
+
+sub test_without_client_cert() {
+	# Tester kun SSL-koblingen
+	my $url = $opt{server};
+	my ($proto, $host, $port) = split_url($url);
+	if (!defined($host)) { die "Invalid url: $url\n"; }
+	my $ssl = ssl_connect($host, $port, 0);
+	if (!$ssl) {
+		return 0;
+	}
+	$ssl->close(SSL_ctx_free => 1);
+	return 1;
+}
+
+sub http_get($) {
+	# Jada, det hadde vært fint å bruke LWP til dette,
+	# men jeg ser ikke noen måte å få brukt min egen funksjon for å starte en SSL-kobling da..
+
+	my $url = shift;
+	my ($proto, $host, $port, $path) = split_url($url);
+	if (!defined($proto)) {
+		die "Invalid url: $url\n";
+	}
+	if ($proto eq 'http') {
+		die "http (without ssl) is not supported.";
+	}
+
+	my $ssl = ssl_connect($host, $port, 1);
+	if (!$ssl) {
+		die "SSL connection failed: $url\n";
+	}
+
+	print $ssl "GET $path HTTP/1.0\n"
+		."Host: $host:$port\n"
+		."User-Agent: NivlheimClient/$VERSION\n"
+		."Accept: text/html,text/plain,application/xml\n"
+		."Connection: close\n\n";
+	my $headers = '';
+	my $result = '';
+	my $httpstatus = <$ssl>;
+	while (<$ssl>) {
+		last if (/^\r?\n$/);
+		print if $opt{debug};
+		$headers .= $_;
+	}
+	while (<$ssl>) {
+		$result .= $_;
+	}
+	$ssl->close(SSL_ctx_free => 1);
+	if ($httpstatus =~ m#^HTTP/1.1 [45]\d\d#) {
+		die "$url: $httpstatus";
+	}
+	return $result;
+}
+
+sub http_post($$) {
+	# Jada, det hadde vært fint å bruke LWP til dette,
+	# men jeg ser ikke noen måte å få brukt min egen funksjon for å starte en SSL-kobling da..
+
+	my ($url, $postdataref) = @_;
+	my ($proto, $host, $port, $path) = split_url($url);
+	if (!defined($proto)) {
+		die "Invalid url: $url\n";
+	}
+	if ($proto eq 'http') {
+		die "http (without ssl) is not supported.";
+	}
+
+	my $ssl = ssl_connect($host, $port, 1);
+	if (!$ssl) {
+		die "SSL connection failed: $url\n";
+	}
+
+	my $request = POST $path,
+		'Host' => "$host:$port",
+		'User-Agent' => 'NivlheimClient/'.$VERSION,
+		'Accept' => 'text/html,text/plain,application/xml',
+		'Connection' => 'close',
+		'Content-Type' => 'form-data',
+		'Content' => $postdataref;
+
+	my $req = $request->as_string;
+	$req =~ s/^POST (.*)$/POST $1 HTTP\/1.0/m;
+	print $ssl $req;
+
+	my $headers = '';
+	my $result = '';
+	my $httpstatus = <$ssl>;
+	while (<$ssl>) {
+		last if (/^\r?\n$/);
+		print if $opt{debug};
+		$headers .= $_;
+	}
+	while (<$ssl>) {
+		$result .= $_;
+	}
+	$ssl->close(SSL_ctx_free => 1);
+	if ($httpstatus =~ m#^HTTP/1.1 [45]\d\d#) {
+		die "$url: $httpstatus";
+	}
+	return $result;
+}
+
+# Hverken Config::Tiny eller Config::IniFiles virket skikkelig
+sub readconfig($) {
+	my $filename = shift;
+	my $F;
+	if (!open($F, $filename)) {
+		printlog("Unable to open $filename");
+		return;
+	}
+	my $section = "default";
+	my %config = ();
+	while (<$F>) {
+		# remove trailing cr/lf
+		chomp;
+		# skip empty lines
+		next if (/^\s*$/);
+		# skip lines starting with a semicolon or a hash
+		next if (/^\s*[;#]/);
+		# parse stuff
+		if (/\[(.*)\]/) {
+			$section = $1;
+		}
+		elsif (/^([a-zA-Z][a-zA-Z0-9_]*)\s*=(.*)$/) {
+			my $key = $1;
+			my $value = $2;
+			$config{$section}{$key} = $value;
+		}
+		else {
+			$config{$section}{$_} = undef;
+		}
+	}
+	close($F);
+	# If the config file was readable but empty, store a value in the hash
+	# to distinguish it from the case where the config file is unreadable.
+	if (!%config) { $config{empty} = 1; }
+	return %config;
+}
+
+sub printlog($) {
+	my $msg = shift;
+	chomp $msg;
+	if (-t STDOUT) {
+		print $msg . "\n";
+	}
+	else {
+		syslog(Sys::Syslog::LOG_INFO, $msg);
+	}
+}
+
+# create a shortened version of a command line, usable as a file name
+sub shortencmd($) {
+	my $orig = shift;
+	$orig =~ s#\S+/##;
+	my $s = "";
+	my $i = 0;
+	while (length($s) < 30 && $i < length($orig)) {
+		my $c = substr($orig, $i++, 1);
+		if ($c =~ /[a-zA-Z0-9-]/) {
+			$s .= $c;
+		}
+		else {
+			$s .= '_';
+		}
+	}
+	# make sure it doesn't look like a hex string, this is necessary
+	# because of backward compatibility on the server side.
+	if ($s =~ /^[a-fA-F0-9]+$/) {
+		$s .= '_';
+	}
+	return $s;
+}
+
+sub is_private($) {
+	my $a = shift;
+	my $ip = new NetAddr::IP($a);
+	my @priv;
+	if ($a !~ /:/) {
+		@priv = (
+			new NetAddr::IP("10.0.0.0/8"),
+			new NetAddr::IP("172.16.0.0/12"),
+			new NetAddr::IP("192.168.0.0/16"),
+			new NetAddr::IP("169.254.0.0/16")
+		);
+	}
+	else {
+		@priv = (
+			new NetAddr::IP("fd00::/8"),
+			new NetAddr::IP("fe80::/10")
+		);
+	}
+	return grep { $ip->within($_) } @priv;
+}
+
+sub select_ip() {
+	# Avgjøre hvilken lokal ip-adresse som skal brukes. Dette er relevant for
+	# maskiner som har flere ip-adresser og flere navn i DNS.
+
+	# Bestem hvilken plattform vi kjører på
+	my $platf = `uname -s`;
+
+	my @ips = ();
+
+	if ($platf =~ /Linux/) {
+		foreach (`ip -o address`) {
+			if (/\d+:\s+(\w+)\s+(\w+)\s+([0-9a-fA-F\.:]+)/) {
+				my ($interface, $class, $addr) = ($1,$2,$3);
+				next if ($interface eq 'lo');
+				push @ips, $addr;
+			}
+		}
+	}#fi
+
+	elsif ($platf =~ /Darwin/) {
+		my @ifs = ();
+
+		foreach (split(' ', `ifconfig -l`)) {
+			if (/en[0-9]/) {
+				push @ifs, $_
+			}
+		}
+
+		for my $if (@ifs){
+			foreach (`ifconfig -L $if`) {
+				if (/inet|inet6/) {
+					my @l = split(' ', $_);
+					$l[1] =~ s/\%en[0-9?]//;
+					push @ips, $l[1];
+				}
+			}
+		}
+	}#fisle
+
+	my $dnsresolver = Net::DNS::Resolver->new;
+	my $chosenip = ""; my $sc = -1;
+	foreach my $ip (@ips) {
+		my $is_public = !is_private($ip);
+		my $dns_matches = reverse_dns_lookup($ip,$dnsresolver) eq $myhostname;
+		my $uio_range = $ip =~ /^129\.240\./;
+		my $score = ($is_public?1:0) + ($dns_matches?2:0) + ($uio_range?4:0);
+		if ($opt{debug}) {
+			print "Considering $ip: ";
+			print "public, " if $is_public;
+			print "dns matches hostname, " if $dns_matches;
+			print "uio range, " if $uio_range;
+			print "Score:$score\n";
+		}
+		if ($score > $sc) {
+			$chosenip = $ip;
+			$sc = $score;
+		}
+	}
+
+	if ($opt{debug}) { print "Local IP is $chosenip\n"; }
+	return $chosenip;
+}
+
+
+sub reverse_dns_lookup($$) {
+	my $a = shift;
+	my $resolver = shift;
+	my $packet = $resolver->query($a, 'PTR');
+	if ($packet) {
+		foreach my $rr ($packet->answer) {
+			next unless $rr->type eq 'PTR';
+			return $rr->ptrdname;
+		}
+	}
+	return "";
+}
+
+sub parse_certificate_response($) {
+	my $response = shift;
+	return undef unless defined($response);
+	my ($cert, $key);
+	if ($response =~ /(-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----)/s) {
+		$cert = $1;
+	}
+	if ($response =~ /(-----BEGIN RSA PRIVATE KEY-----.*-----END RSA PRIVATE KEY-----)/s) {
+		$key = $1;
+	}
+	if (!defined($cert) || !defined($key)) {
+		printlog "Unable to parse certificate response:\n--------\n$response\n--------\n";
+	}
+	return ($cert, $key);
+}
