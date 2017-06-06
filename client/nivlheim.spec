@@ -88,5 +88,5 @@ rm -rf %{buildroot}
 
 
 %changelog
-* Tur Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
+* Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
 - First package build
