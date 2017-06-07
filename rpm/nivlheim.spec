@@ -50,10 +50,20 @@ UiO.
 %package client
 Summary:  Client component of the file collector for UiO
 Group:    Applications/System
-Requires: %{name} = %{release}
+Requires: %{name} = %{version}-%{release}
+
+%package server
+Summary:  Server components of the file collector for UiO
+Group:    Applications/System
+Requires: %{name} = %{version}-%{release}
+Requires: httpd
 
 %description client
 This package contains the client component of Nivlheim, the file
+collector for UiO.
+
+%description server
+This package contains the server components of Nivlheim, the file
 collector for UiO.
 
 %prep

@@ -45,11 +45,11 @@ sub parse_certificate_response($);
 
 # Options with default values
 my %defaultopt = (
-	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf',        # configuration file
+	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
 	'server'    => 'https://nivlheim.uio.no/cgi-bin/', # must have trailing slash
 	'ca_file'   => '/etc/ssl/certs/ca-bundle.trust.crt:/etc/ssl/certs/ca-certificates.crt:/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
-	'cert_file' => '/var/nivlheim/my.crt',
-	'key_file'  => '/var/nivlheim/my.key',
+	'cert_file' => '/var/local/nivlheim/my.crt',
+	'key_file'  => '/var/local/nivlheim/my.key',
 	'debug'     => 0,  # debugging / verbose output
 	'help'      => 0,  # display help output
 	'version'   => 0,  # plugin version info
@@ -58,7 +58,7 @@ my %defaultopt = (
 
 # Version and similar info
 my $NAME    = 'nivlheim_client';
-my $VERSION = '1.06';
+my $VERSION = '0.1.0';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo';
