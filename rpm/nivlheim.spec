@@ -78,6 +78,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_localstatedir}/local/nivlheim
 install -p -m 0744 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim
+install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -87,7 +88,7 @@ rm -rf %{buildroot}
 
 %files
 %defattr(-, root, root, -)
-%doc LICENSE.txt
+%license LICENSE.txt
 %dir %{_localstatedir}/local/nivlheim
 %dir %{_sysconfdir}/nivlheim
 
@@ -95,6 +96,10 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %{_sbindir}/nivlheim_client
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
+
+%files server
+%defattr(-, root, root, -)
+%config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
