@@ -77,9 +77,15 @@ mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/local/nivlheim
-install -p -m 0744 client/nivlheim_client %{buildroot}%{_sbindir}/
+mkdir -p /var/www/nivlheim
+mkdir -p /var/www/nivlheim/db
+mkdir -p /var/www/nivlheim/certs
+mkdir -p /var/www/nivlheim/CA
+install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
+install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_sbindir}/
+install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -90,6 +96,7 @@ rm -rf %{buildroot}
 %files
 %defattr(-, root, root, -)
 %license LICENSE.txt
+%doc README.md
 %dir %{_localstatedir}/local/nivlheim
 %dir %{_sysconfdir}/nivlheim
 
@@ -101,13 +108,11 @@ rm -rf %{buildroot}
 %files server
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
+%config %{_sysconfdir}/nivlheim/openssl_ca.conf
+%{_sbindir}/nivlheim_setup.sh
 
 %post server
-if which systemctl > /dev/null 2>&1; then
-	systemctl restart httpd
-elif which service > /dev/null 2>&1; then
-	service httpd restart
-fi
+%{_sbindir}/nivlheim_setup.sh
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
