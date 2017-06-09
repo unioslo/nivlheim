@@ -102,6 +102,13 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 
+%post server
+if which systemctl > /dev/null 2>&1; then
+	systemctl restart httpd
+elif which service > /dev/null 2>&1; then
+	service httpd restart
+fi
+
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
 - First package build
