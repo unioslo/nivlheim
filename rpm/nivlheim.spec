@@ -77,10 +77,8 @@ mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/local/nivlheim
-mkdir -p /var/www/nivlheim
-mkdir -p /var/www/nivlheim/db
-mkdir -p /var/www/nivlheim/certs
-mkdir -p /var/www/nivlheim/CA
+mkdir -p %{buildroot}/var/www/nivlheim
+mkdir -p %{buildroot}/var/www/nivlheim/{db,certs,CA}
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
@@ -110,6 +108,8 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %{_sbindir}/nivlheim_setup.sh
+%attr(0775, root, apache)
+%dir /var/www/nivlheim
 
 %post server
 %{_sbindir}/nivlheim_setup.sh
