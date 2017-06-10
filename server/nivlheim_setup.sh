@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # fix permissions
+mkdir -p /var/www/nivlheim/{db,certs,CA}
 chgrp -R apache /var/www/nivlheim
 chmod -R g+w /var/www/nivlheim
 
