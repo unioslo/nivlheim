@@ -76,7 +76,7 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
-mkdir -p %{buildroot}%{_localstatedir}/local/nivlheim
+mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim/{db,certs,CA}
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
@@ -95,7 +95,7 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %license LICENSE.txt
 %doc README.md
-%dir %{_localstatedir}/local/nivlheim
+%dir %{_localstatedir}/nivlheim
 %dir %{_sysconfdir}/nivlheim
 
 %files client
