@@ -56,7 +56,7 @@ Requires: %{name} = %{version}-%{release}
 Summary:  Server components of the file collector for UiO
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
-Requires: httpd
+Requires: httpd, mod_ssl
 
 %description client
 This package contains the client component of Nivlheim, the file
