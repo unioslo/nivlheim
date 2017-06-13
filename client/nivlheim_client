@@ -48,7 +48,7 @@ my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
 	'ca_file'   => '/var/nivlheim/nivlheimca.crt:/var/www/nivlheim/CA/nivlheimca.crt'
 	             . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.trust.crt'
-	             . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem'
+	             . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
 	'cert_file' => '/var/nivlheim/my.crt',
 	'key_file'  => '/var/nivlheim/my.key',
 	'debug'     => 0,  # debugging / verbose output
