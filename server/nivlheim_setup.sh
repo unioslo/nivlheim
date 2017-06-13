@@ -3,6 +3,12 @@
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA}
 
+# initialize db
+cd /var/www/nivlheim/db
+touch index.txt
+echo 'unique_subject = no' > index.txt.attr
+echo '100001' > serial
+
 # generate a Certificate Authority certificate for the client certificates
 cd /var/www/nivlheim/CA
 if [ ! -f nivlheimca.key ]; then
