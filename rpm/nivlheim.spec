@@ -82,11 +82,11 @@ mkdir -p %{buildroot}/var/www/cgi-bin/secure
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
-install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_sbindir}/
+install -p -m 0755 server/nivlheim_setup.sh %{buildroot}/var/nivlheim
 install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim
 install -p -m 0755 server/testaccess %{buildroot}/var/www/cgi-bin/secure
 install -p -m 0755 server/reqcert %{buildroot}/var/www/cgi-bin
-install -p -m 0755 server/log4perl.conf %{buildroot}/var/www/nivlheim
+install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -110,15 +110,15 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
-%{_sbindir}/nivlheim_setup.sh
 %attr(0775, root, apache)
 %dir /var/www/nivlheim
 /var/www/cgi-bin/secure/testaccess
 /var/www/cgi-bin/reqcert
+/var/www/nivlheim/nivlheim_setup.sh
+%attr(0644, root, apache)
 /var/www/nivlheim/log4perl.conf
 
-%post server
-%{_sbindir}/nivlheim_setup.sh
+%post server -p /var/www/nivlheim/nivlheim_setup.sh
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
