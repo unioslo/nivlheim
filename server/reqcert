@@ -1,0 +1,182 @@
+#!/usr/bin/perl
+# This file is part of Nivlheim.
+#
+# Nivlheim is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Nivlheim is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
+
+
+#****************************************************************************************
+#	Dette scriptet er den del av Nivlheim-løsningen.
+#	Scriptet tar ingen parametre. Det lager et sertifikat,
+#	signerer det med Nivlheim-CA og returnerer det.
+#	Tilgang kontrolleres slik:
+#	- Scriptet sjekker ip-adresse mot DNS. Det kreves at klient er på trådnett på UiO.
+#****************************************************************************************
+
+use strict;
+use warnings;
+use File::Copy;
+use Net::DNS;
+use Net::CIDR;
+use Net::IP qw(:PROC);
+use Log::Log4perl;
+use MIME::Base64;
+use Proc::PID::File;
+use DBI;
+use DBD:Pg;
+
+sub forwardConfirmReverseDNS($);
+
+# HTTP Header
+print "Content-Type: text/plain\n\n";
+
+# Begrense det til noen få instanser om gangen, fordi openssl bruker lang tid.
+# Må fikse en race condition med openssl og, så foreløpig kan vi kun kjøre 1 instans om gangen.
+#$_ = `ps -C openssl`;
+#if (tr/\n// > 1) {
+if (Proc::PID::File->running("dir" => "/tmp")) {
+	print "Too busy, please try again later.\n";
+	exit;
+}
+
+# Config
+my $confdir = "/var/www/nivlheim";
+my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger("reqcert");
+
+# Temporary files
+my $id = int(rand()*100000000);  # Denne id'en blir kun brukt i denne gjennomkjøringen av scriptet.
+my $keyfile = "/tmp/user$id.key";
+my $csrfile = "/tmp/user$id.csr";
+my $crtfile = "/tmp/user$id.crt";
+my $p12file = "/tmp/user$id.p12";
+
+my $ipaddr = $ENV{'REMOTE_ADDR'};
+
+eval {
+	# Generate client key
+	my $cmd = "openssl genrsa -des3 -passout pass:passord123"
+			." -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+
+	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
+	print "Key OK.\n";
+
+	# Generate client certificate request
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:passord123"
+		." -config $opensslconf";
+
+	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
+	print "Certificate request OK.\n";
+
+	# find the id of the new certificate
+	open(F, "$confdir/db/serial") or die "Could not read db/serial";
+	$id = <F>; chomp $id;  # 6-sifret sertifikat-id fra openssl
+	close(F);
+	print "The new id is $id\n";
+
+	# Sign the certificate request with the CA certificate. This will generate crt- and pem-files.
+	# openssl will store the pem-file in the certs directory (see openssl_ca.conf)
+	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
+		." -keyfile $confdir/CA/nivlheimca.key"
+		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
+		." -out $crtfile -config $opensslconf 2>/dev/null";
+	if (!(system($cmd) == 0 and -f $crtfile)) {
+		$logger->debug($cmd);
+		die "Signing failed: $?";
+	}
+	print "Signing OK.\n";
+
+	# Keep a copy of the key/csr/crt-files too
+	copy($keyfile, "$confdir/certs/$id.key");
+	copy($csrfile, "$confdir/certs/$id.csr");
+	copy($crtfile, "$confdir/certs/$id.crt");
+
+	# Generate a P12 file
+	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
+		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:passord123 -passout pass:passord123";
+	if (!(system($cmd) == 0 and -f $p12file)) {
+		$logger->debug($cmd);
+		die "P12 failed: $?";
+	}
+	copy($p12file, "$confdir/certs/$id.p12");
+
+	# Display the generated certificate and key
+	open(F, $crtfile) or die "Can't read crt file";
+	while (<F>) { last if (/--BEGIN CERTIFICATE--/) };
+	print; print while (<F>);
+	close(F);
+	open(F, $keyfile) or die "Can't read key file";
+	print while (<F>);
+	close(F);
+
+	# Display the P12-file, base64-encoded
+	open(F, $p12file);
+	my $p12bytes;
+	my $len = read(F, $p12bytes, 100000);
+	close(F);
+	print "-----BEGIN P12-----\n" . encode_base64($p12bytes, "\n") . "-----END P12-----\n";
+
+	$logger->info("Created new cert with id $id for $hostname");
+};
+if ($@) {
+	$logger->error("Failed to create new cert for $hostname: $@");
+	print "Failed to create new certificate for $hostname:\n$@\n";
+}
+
+# Clean up temp files
+unlink($keyfile) if (-f $keyfile);
+unlink($csrfile) if (-f $csrfile);
+unlink($crtfile) if (-f $crtfile);
+unlink($p12file) if (-f $p12file);
+
+
+############ subroutines
+
+sub expand_ip($) {
+	my $ip =  shift;
+	if (Net::IP::ip_is_ipv6($ip)) {
+		return Net::IP::ip_expand_address($ip, 6);
+	}
+	else {
+		return Net::IP::ip_expand_address($ip, 4);
+	}
+}
+
+sub forwardConfirmReverseDNS($) {
+	# http://en.wikipedia.org/wiki/Forward-confirmed_reverse_DNS
+	my $ip = shift;
+	$ip = expand_ip($ip);
+	my $dns = Net::DNS::Resolver->new;
+	my $packet = $dns->query($ip, 'PTR');
+	if ($packet) {
+		foreach my $rr ($packet->answer) {
+			next unless $rr->type eq 'PTR';
+			# Fant et hostnavn, slå opp dette tilbake
+			my $hostname = $rr->ptrdname;
+			my @answers = ();
+			my $packet2 = $dns->query($hostname, 'A');
+			if ($packet2) { push @answers, $packet2->answer; }
+			$packet2 = $dns->query($hostname, 'AAAA');
+			if ($packet2) { push @answers, $packet2->answer; }
+			for my $rr2 (@answers) {
+				next unless ($rr2->type eq 'A' || $rr2->type eq 'AAAA');
+				my $ip2 = expand_ip($rr2->address);
+				if ($ip eq $ip2) {
+					return $hostname;
+				}
+			}
+		}
+	}
+	return;
+}

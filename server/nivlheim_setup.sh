@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# verify root
+if [ `whoami` != "root" ]; then
+	echo "This script must be run by the root user."
+	exit 1
+fi
+
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA}
 
@@ -27,9 +33,25 @@ openssl req -x509 -newkey rsa:4096 -keyout default_key.pem -out default_cert.pem
 chgrp -R apache /var/www/nivlheim
 chmod -R g+w /var/www/nivlheim
 
-# restart apache httpd
+# initialize postgresql
+if ! /usr/bin/postgresql-setup --initdb; then
+	echo "There is apparently an existing PostgreSQL installation."
+fi
+
+# restart apache httpd and postgres
 if which systemctl > /dev/null 2>&1; then
 	systemctl restart httpd
+	systemctl restart postgresql
 elif which service > /dev/null 2>&1; then
 	service httpd restart
+	service postgresql restart
 fi
+
+# create a database user that
+# local httpd processes will automatically authenticate as,
+# as long as Postgres is set up for peer authentication
+sudo -u postgres bash -c "createuser apache"
+sudo -u postgres bash -c "psql -c \"create database apache\""
+
+# create tables
+sudo -u apache bash -c "psql < /var/nivlheim/init.sql"

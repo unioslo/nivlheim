@@ -32,6 +32,7 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(File::Copy)
 BuildRequires: perl(Log::Log4perl)
 BuildRequires: perl(MIME::Base64)
+BuildRequires: perl(DBD::Pg)
 
 Requires: perl, openssl
 Requires: perl(IO::Socket::INET6)
@@ -65,14 +66,15 @@ Requires: %{name} = %{version}-%{release}
 Summary:  Server components of the file collector for UiO
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
-Requires: httpd, mod_ssl
+Requires: httpd, mod_ssl, postgresql, postgresql-server
 Requires: perl(Time::Piece)
 Requires: perl(Crypt::OpenSSL::X509)
-Requires: perl(DBI)
 Requires: perl(Proc::PID::File)
 Requires: perl(File::Copy)
 Requires: perl(Log::Log4perl)
 Requires: perl(MIME::Base64)
+Requires: perl(DBI)
+Requires: perl(DBD::Pg)
 
 %description client
 This package contains the client component of Nivlheim, the file
@@ -96,20 +98,23 @@ mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
-install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim
+install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
-install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_localstatedir}/nivlheim
-install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim
-install -p -m 0755 server/ping %{buildroot}/var/www/cgi-bin/ping
+install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim/
+install -p -m 0755 server/ping %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/ping2 %{buildroot}/var/www/cgi-bin/secure/ping
-install -p -m 0755 server/renewcert %{buildroot}/var/www/cgi-bin/secure
-install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim
+install -p -m 0755 server/renewcert %{buildroot}/var/www/cgi-bin/secure/
+install -p -m 0755 server/reqcert %{buildroot}/var/www/cgi-bin/
+install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
+install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_localstatedir}/nivlheim/
+install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
 perl -c %{buildroot}/var/www/cgi-bin/secure/renewcert
 perl -c %{buildroot}/var/www/cgi-bin/secure/ping
 perl -c %{buildroot}/var/www/cgi-bin/ping
+perl -c %{buildroot}/var/www/cgi-bin/reqcert
 
 %clean
 rm -rf %{buildroot}
@@ -130,14 +135,17 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
+%{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache)
 %dir /var/www/nivlheim
 /var/www/cgi-bin/ping
+/var/www/cgi-bin/reqcert
 /var/www/cgi-bin/secure/ping
 /var/www/cgi-bin/secure/renewcert
-%{_localstatedir}/nivlheim/nivlheim_setup.sh
 %attr(0644, root, apache)
 /var/www/nivlheim/log4perl.conf
+%attr(0755, root, root)
+%{_localstatedir}/nivlheim/nivlheim_setup.sh
 
 %post server
 %{_localstatedir}/nivlheim/nivlheim_setup.sh

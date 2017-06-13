@@ -157,7 +157,8 @@ foreach (keys %defaultopt) {
 
 # server url. must have trailing slash
 if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
-	print "The config file must have a section [settings] that contains a \"server\" option\n"
+	print "The config file $configfile must have a section [settings] "
+	     ."that contains a \"server\" option "
 	     ."with the hostname or ip address of the server.\n";
 	exit 1;
 }
