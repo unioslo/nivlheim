@@ -114,7 +114,7 @@ rm -rf %{buildroot}
 %dir /var/www/nivlheim
 /var/www/cgi-bin/secure/testaccess
 /var/www/cgi-bin/reqcert
-%{buildroot}%{_localstatedir}/nivlheim/nivlheim_setup.sh
+%{_localstatedir}/nivlheim/nivlheim_setup.sh
 %attr(0644, root, apache)
 /var/www/nivlheim/log4perl.conf
 
