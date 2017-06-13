@@ -17,7 +17,7 @@
 
 use strict;
 use warnings;
-use vars qw($localip);
+use vars qw($localip $server_url);
 
 use IO::File;
 use IO::Socket::SSL;
@@ -46,7 +46,6 @@ sub parse_certificate_response($);
 # Options with default values
 my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
-	'server'    => 'https://nivlheim.uio.no/cgi-bin/', # must have trailing slash
 	'ca_file'   => '/etc/ssl/certs/ca-bundle.trust.crt:/etc/ssl/certs/ca-certificates.crt:/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
 	'cert_file' => '/var/nivlheim/my.crt',
 	'key_file'  => '/var/nivlheim/my.key',
@@ -73,7 +72,6 @@ my $HELP = <<'END_HELP';
 
 OPTIONS:
    -c, --config    Specify configuration file
-   -s, --server    Specify server URL
    --ssl-ca        SSL CA file
    --ssl-cert      SSL CERT file
    --ssl-key       SSL key file
@@ -97,7 +95,6 @@ END_LICENSE
 # Get options
 my %opt;
 GetOptions('c|config=s'  => \$opt{config},
-	   's|server=s'  => \$opt{server},
 	   'ssl-ca=s'    => \$opt{ca_file},
 	   'ssl-cert=s'  => \$opt{cert_file},
 	   'ssl-key=s'   => \$opt{key_file},
@@ -146,7 +143,7 @@ if (!%config) {
 
 # Sette visse options fra configfilen dersom de ikke allerede er satt
 if (!defined($opt{ca_file}) || $opt{ca_file} eq '') {
-	$opt{ca_file} = $config{'ssl'}{'server_ssl_ca'};
+	$opt{ca_file} = $config{'settings'}{'server_ssl_ca'};
 }
 
 # Bruke default options hvis ikke noe annet er gitt
@@ -155,6 +152,14 @@ foreach (keys %defaultopt) {
 		$opt{$_} = $defaultopt{$_};
 	}
 }
+
+# server url. must have trailing slash
+if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
+	print "The config file must have a section [settings] that contains a \"server\" option\n"
+	     ."with the hostname or ip address of the server.\n";
+	exit 1;
+}
+$server_url = 'https://' . $config{'settings'}{'server'} . '/cgi-bin/';
 
 # Vise options
 if ($opt{debug}) {
@@ -197,7 +202,7 @@ else {
 # Har vi et sertifikat? Teste om det fungerer
 my $cert_works = 0;
 eval {
-	http_get($opt{server} . 'secure/ping'); # kaller die() hvis sertifikatfeil
+	http_get($server_url . 'secure/ping'); # kaller die() hvis sertifikatfeil
 	$cert_works = 1;
 };
 
@@ -212,7 +217,7 @@ if (!$cert_works) {
 	};
 	if (!$anyContact) {
 		printlog $@ if $@;
-		printlog "Unable to connect to the server using $opt{server}, giving up.\n";
+		printlog "Unable to connect to the server $config{settings}{server}, giving up.\n";
 		exit 1;
 	}
 }
@@ -231,7 +236,7 @@ if (!$cert_works) {
 		# Har jeg et sertifikat? La meg først prøve å fornye det...
 		# (dvs be om et nytt på grunnlag av at jeg har et allerede)
 		if (-f $opt{cert_file} && -f $opt{key_file}) {
-			my $response = http_get($opt{server} . 'secure/renewcert');
+			my $response = http_get($server_url . 'secure/renewcert');
 			($cert, $key) = parse_certificate_response($response);
 		}
 		# Virket det?
@@ -243,7 +248,7 @@ if (!$cert_works) {
 			printlog "Fikk ikke fornyet sertifikatet, ber om et nytt.\n";
 			unlink($opt{cert_file}, $opt{key_file}); # Må slette de gamle filene først, de virker jo ikke.
 			# Be om å få utstedt et nytt sertifikat.
-			my $response = http_get($opt{server} . 'reqcert');
+			my $response = http_get($server_url . 'reqcert');
 			($cert, $key) = parse_certificate_response($response);
 		}
 		die "Unable to parse cert and key from server response" unless (defined($cert)&&defined($key));
@@ -345,7 +350,7 @@ my %postdata = (
 	'version' => $VERSION
 );
 eval {
-	my $result = http_post($opt{server} . 'secure/post', \%postdata);
+	my $result = http_post($server_url . 'secure/post', \%postdata);
 	if ($result =~ /OK/) {
 		# touch a file
 		my $file = "/var/run/nivlheim_client_last_run";
@@ -461,7 +466,7 @@ sub split_url($) {
 
 sub test_without_client_cert() {
 	# Tester kun SSL-koblingen
-	my $url = $opt{server};
+	my $url = $server_url;
 	my ($proto, $host, $port) = split_url($url);
 	if (!defined($host)) { die "Invalid url: $url\n"; }
 	my $ssl = ssl_connect($host, $port, 0);
