@@ -20,22 +20,20 @@
 #	Dette scriptet er den del av Nivlheim-løsningen.
 #	Scriptet tar ingen parametre. Det lager et sertifikat,
 #	signerer det med Nivlheim-CA og returnerer det.
-#	Tilgang kontrolleres slik:
-#	- Scriptet sjekker ip-adresse mot DNS. Det kreves at klient er på trådnett på UiO.
+#	Hostname slås opp i hostinfo-tabellen.
+#	Det kreves at klienten allerede bruker et gyldig sertifikat.
+#	Det håndheves av Apache httpd ved at dette scriptet ligger i mappen "secure",
+#	som skal være konfigurert til å kreve klientsertifikat.
 #****************************************************************************************
 
 use strict;
 use warnings;
 use File::Copy;
-use Net::DNS;
-use Net::CIDR;
-use Net::IP qw(:PROC);
 use Log::Log4perl;
 use MIME::Base64;
 use Proc::PID::File;
-use Nivlheim::Subnets;
-
-sub forwardConfirmReverseDNS($);
+use DBI;
+use Crypt::OpenSSL::X509;
 
 # HTTP Header
 print "Content-Type: text/plain\n\n";
@@ -61,29 +59,37 @@ my $csrfile = "/tmp/user$id.csr";
 my $crtfile = "/tmp/user$id.crt";
 my $p12file = "/tmp/user$id.p12";
 
-# Avgjøre om klienten er på trådet nett på UiO.
-# Vi sier at det gjelder alle på 129.240.0.0/16 og 2001:700:100::/40, samt noen til.
-# Se for øvrig http://nett-info.uio.no/nett-doc/129.240-nettet
-# og https://www.usit.uio.no/om/organisasjon/it-drift/gd/nettdrift/aktiviteter/
-# og /etc/nivlheim/trustednetworks.conf
-my $ipaddr = $ENV{'REMOTE_ADDR'};
-my $subnets = Nivlheim::Subnets->new({});
-$subnets->read_trusted_networks_config();
-if (!$subnets->is_trusted_ip($ipaddr)) {
-	$logger->info("Client requested cert, was refused; ip $ipaddr does not belong to UiO.");
-	print "Your ip address $ipaddr does not belong to the UiO network.";
-	exit;
-}
+# Compute the client cert fingerprint
+my $clientcert = $ENV{'SSL_CLIENT_CERT'};
+my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
+my $fingerprint = $x509->fingerprint_sha1();
 
-# Kontrollere DNS.
-my $hostname = forwardConfirmReverseDNS($ipaddr);
-if (!defined($hostname)) {
-	$logger->info("Client requested cert, was refused; DNS PTR for ip $ipaddr does not match A/AAAA.");
-	print "Could not confirm your hostname based on the ip address ($ipaddr).\n"
-		. "DNS PTR and A/AAAA records do not match.\n";
+# Determine hostname by looking up the client certificate in the database.
+# Use the Common Name as a fallback.
+my $hostname;
+my $dbh = DBI->connect("dbi:Pg:dbname=nivlheim;host=localhost",
+	"nivlheim","yesterday");
+if (!$dbh) {
+	print $DBI::errstr;
 	exit;
 }
-print "Your ip address is: $ipaddr\nYour hostname is: $hostname\n";
+my @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
+	undef, ($fingerprint));
+if (@row) {
+	$hostname = $row[0];
+} else {
+	if ($x509->subject() =~ /CN=(\S+)/) {
+		$hostname = $1;
+	}
+}
+if (!defined($hostname)) {
+	print "Unable to determine hostname based on the certificate.";
+	$logger->debug("Unable to determine hostname based on the certificate.");
+	exit;
+}
+$dbh->disconnect;
+print "Your hostname is: $hostname\n";
+$logger->debug("Hostname is: $hostname");
 
 eval {
 	# Generate client key
@@ -92,6 +98,7 @@ eval {
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	print "Key OK.\n";
+	$logger->debug("Key OK.");
 
 	# Generate client certificate request
 	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:passord123"
@@ -99,21 +106,23 @@ eval {
 
 	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
 	print "Certificate request OK.\n";
+	$logger->debug("Certificate request OK.");
 
 	# find the id of the new certificate
 	open(F, "$confdir/db/serial") or die "Could not read db/serial";
 	$id = <F>; chomp $id;  # 6-sifret sertifikat-id fra openssl
 	close(F);
 	print "The new id is $id\n";
+	$logger->debug("The new id is $id");
 
 	# Sign the certificate request with the CA certificate. This will generate crt- and pem-files.
 	# openssl will store the pem-file in the newcerts directory (see openssl.cnf)
 	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
 		." -keyfile $confdir/CA/nivlheimca.key"
 		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
-		." -out $crtfile -config $confdir/openssl.cnf 2>/dev/null";
+		." -out $crtfile -config $confdir/openssl_ca.conf 2>/dev/null";
 	if (!(system($cmd) == 0 and -f $crtfile)) {
-		$logger->debug($cmd);
+		$logger->info($cmd);
 		die "Signing failed: $?";
 	}
 	print "Signing OK.\n";
@@ -125,9 +134,9 @@ eval {
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
-		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:passord123 -passout pass:passord123";
+		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:password123 -passout pass:password123";
 	if (!(system($cmd) == 0 and -f $p12file)) {
-		$logger->debug($cmd);
+		$logger->info($cmd);
 		die "P12 failed: $?";
 	}
 	copy($p12file, "$confdir/newcerts/$id.p12");
@@ -160,44 +169,3 @@ unlink($keyfile) if (-f $keyfile);
 unlink($csrfile) if (-f $csrfile);
 unlink($crtfile) if (-f $crtfile);
 unlink($p12file) if (-f $p12file);
-
-
-############ subroutines
-
-sub expand_ip($) {
-	my $ip =  shift;
-	if (Net::IP::ip_is_ipv6($ip)) {
-		return Net::IP::ip_expand_address($ip, 6);
-	}
-	else {
-		return Net::IP::ip_expand_address($ip, 4);
-	}
-}
-
-sub forwardConfirmReverseDNS($) {
-	# http://en.wikipedia.org/wiki/Forward-confirmed_reverse_DNS
-	my $ip = shift;
-	$ip = expand_ip($ip);
-	my $dns = Net::DNS::Resolver->new;
-	my $packet = $dns->query($ip, 'PTR');
-	if ($packet) {
-		foreach my $rr ($packet->answer) {
-			next unless $rr->type eq 'PTR';
-			# Fant et hostnavn, slå opp dette tilbake
-			my $hostname = $rr->ptrdname;
-			my @answers = ();
-			my $packet2 = $dns->query($hostname, 'A');
-			if ($packet2) { push @answers, $packet2->answer; }
-			$packet2 = $dns->query($hostname, 'AAAA');
-			if ($packet2) { push @answers, $packet2->answer; }
-			for my $rr2 (@answers) {
-				next unless ($rr2->type eq 'A' || $rr2->type eq 'AAAA');
-				my $ip2 = expand_ip($rr2->address);
-				if ($ip eq $ip2) {
-					return $hostname;
-				}
-			}
-		}
-	}
-	return;
-}

@@ -1,0 +1,24 @@
+#!/usr/bin/perl
+use Time::Piece;
+
+# If the client cert is based on an old CA cert, politely ask it to renew
+if ($ENV{SSL_CLIENT_I_DN_CN} eq 'USIT Nivlheim 2016') {
+	my $queuesize = `/bin/ls -1 /data/queue | /usr/bin/wc -l`;
+	chomp $queuesize;
+	if ($queuesize < 100 && !-e "/tmp/reqcert.pid") {
+		print "Status: 403\nContent-Type: text/plain\n\nThe server CA cert is about to expire, please renew your cert.\n";
+		exit;
+	}
+}
+
+# If the client cert will expire soon, politely ask it to renew
+my $timestamp = $ENV{'SSL_CLIENT_V_END'};
+$timestamp =~ s/\s+GMT$//;
+my $time = Time::Piece->strptime($timestamp, "%b %d %H:%M:%S %Y");
+my $left = $time - gmtime;
+if ($left->days < 30) {
+	print "Status: 403\nContent-Type: text/plain\n\nYour cert is about to expire, please renew it.\n";
+	exit;
+}
+
+print "Content-Type: text/plain\n\npong\n";

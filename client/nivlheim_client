@@ -46,7 +46,9 @@ sub parse_certificate_response($);
 # Options with default values
 my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
-	'ca_file'   => '/etc/ssl/certs/ca-bundle.trust.crt:/etc/ssl/certs/ca-certificates.crt:/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
+	'ca_file'   => '/var/nivlheim/nivlheimca.crt:/var/www/nivlheim/CA/nivlheimca.crt'
+	             . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.trust.crt'
+	             . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem'
 	'cert_file' => '/var/nivlheim/my.crt',
 	'key_file'  => '/var/nivlheim/my.key',
 	'debug'     => 0,  # debugging / verbose output
@@ -198,6 +200,22 @@ else {
 	$localip = select_ip();
 }
 
+if (! -f $opt{cert_file}) {
+	printlog "Missing client certificate file: $opt{cert_file}\n";
+	exit 1;
+}
+if (! -f $opt{key_file}) {
+	printlog "Missing client certificate file: $opt{key_file}\n";
+	exit 1;
+}
+if (-f $opt{cert_file} && ! -w $opt{cert_file}) {
+	printlog "Must have write access to $opt{cert_file}.";
+	exit 1;
+}
+if (-f $opt{key_file} && ! -w $opt{key_file}) {
+	printlog "Must have write access to $opt{key_file}.";
+	exit 1;
+}
 
 # Har vi et sertifikat? Teste om det fungerer
 my $cert_works = 0;
@@ -224,7 +242,7 @@ if (!$cert_works) {
 
 if (!$cert_works) {
 	eval {
-		printlog "Jeg finner ikke sertifikatet mitt, eller det virker ikke. Ber om et nytt.\n";
+		printlog "Prøver å fornye sertifikatet.\n";
 		# Kontrollere at katalogen finnes
 		my $dirname = dirname($opt{cert_file});
 		if (!-d $dirname) {
@@ -233,33 +251,26 @@ if (!$cert_works) {
 		}
 		my $cert = undef;
 		my $key = undef;
-		# Har jeg et sertifikat? La meg først prøve å fornye det...
-		# (dvs be om et nytt på grunnlag av at jeg har et allerede)
-		if (-f $opt{cert_file} && -f $opt{key_file}) {
-			my $response = http_get($server_url . 'secure/renewcert');
-			($cert, $key) = parse_certificate_response($response);
-		}
+		# Be om et nytt sertifikat på grunnlag av at jeg har et allerede
+		my $response = http_get($server_url . 'secure/renewcert');
+		($cert, $key) = parse_certificate_response($response);
 		# Virket det?
 		if (defined($cert) && defined($key)) {
 			printlog "Fikk fornyet sertifikatet.\n";
+			open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
+			print $F "$cert\n";
+			close($F);
+			open($F, ">$opt{key_file}") or die "Unable to write to key file $opt{key_file}";
+			print $F "$key\n";
+			close($F);
+			chmod(0600, $opt{key_file});
+			printlog "Har mottatt og lagret et nytt sertifikat.\n";
 		}
 		else {
 			# Nei.
-			printlog "Fikk ikke fornyet sertifikatet, ber om et nytt.\n";
-			unlink($opt{cert_file}, $opt{key_file}); # Må slette de gamle filene først, de virker jo ikke.
-			# Be om å få utstedt et nytt sertifikat.
-			my $response = http_get($server_url . 'reqcert');
-			($cert, $key) = parse_certificate_response($response);
+			printlog "Fikk ikke fornyet sertifikatet.\n";
+			exit 1;
 		}
-		die "Unable to parse cert and key from server response" unless (defined($cert)&&defined($key));
-		open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
-		print $F "$cert\n";
-		close($F);
-		open($F, ">$opt{key_file}") or die "Unable to write to key file $opt{key_file}";
-		print $F "$key\n";
-		close($F);
-		chmod(0400, $opt{key_file});
-		printlog "Har mottatt et nytt sertifikat.\n";
 	};
 	if ($@) {
 		printlog $@;
@@ -369,7 +380,7 @@ if (!-t STDOUT) {
 	closelog();
 }
 
-sub getpassword() { return "passord123"; } # the password for the private rsa key
+sub getpassword() { return "password123"; } # the password for the private rsa key
 
 
 
@@ -702,13 +713,11 @@ sub select_ip() {
 	foreach my $ip (@ips) {
 		my $is_public = !is_private($ip);
 		my $dns_matches = reverse_dns_lookup($ip,$dnsresolver) eq $myhostname;
-		my $uio_range = $ip =~ /^129\.240\./;
-		my $score = ($is_public?1:0) + ($dns_matches?2:0) + ($uio_range?4:0);
+		my $score = ($is_public?1:0) + ($dns_matches?2:0);
 		if ($opt{debug}) {
 			print "Considering $ip: ";
 			print "public, " if $is_public;
 			print "dns matches hostname, " if $dns_matches;
-			print "uio range, " if $uio_range;
 			print "Score:$score\n";
 		}
 		if ($score > $sc) {
