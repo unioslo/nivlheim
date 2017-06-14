@@ -414,6 +414,12 @@ sub ssl_connect($$$) {
 	my ($hostname, $service, $use_client_cert) = @_;
 
 	$use_client_cert = ($use_client_cert && -r $opt{cert_file} && -r $opt{key_file});
+	my $commonName;
+	if ($real_ca_file =~ m!/nivlheimca\.crt$!) {
+		$commonName = "Nivlheim2017";
+	} else {
+		$commonName = $hostname;
+	}
 
 	# Resolve all possible addresses for the specified hostname.
 	# Try IPv4 addresses first, then IPv6.  It is quite common for
@@ -445,7 +451,7 @@ sub ssl_connect($$$) {
 					$socket->fileno(),
 					SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_PEER(),
 					SSL_verifycn_scheme => 'http',
-					SSL_verifycn_name => $hostname,
+					SSL_verifycn_name => $commonName,
 					SSL_ca_file     => $real_ca_file,
 					SSL_ca_path     => '',
 					SSL_use_cert    => $use_client_cert ? 1 : 0,
@@ -461,7 +467,7 @@ sub ssl_connect($$$) {
 			}
 			else {
 				# Negotiation failed
-				warn("Could not establish SSL connection: $!\n")
+				warn("Could not establish SSL connection: $! $@\n")
 					if $opt{debug};
 			}
 			$socket->close();
