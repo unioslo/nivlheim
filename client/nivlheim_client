@@ -201,31 +201,29 @@ else {
 	$localip = select_ip();
 }
 
-if (! -f $opt{cert_file}) {
-	printlog "Missing client certificate file: $opt{cert_file}\n";
-	exit 1;
-}
-if (! -f $opt{key_file}) {
-	printlog "Missing client certificate file: $opt{key_file}\n";
-	exit 1;
-}
-if (-f $opt{cert_file} && ! -w $opt{cert_file}) {
-	printlog "Must have write access to $opt{cert_file}.";
-	exit 1;
-}
-if (-f $opt{key_file} && ! -w $opt{key_file}) {
-	printlog "Must have write access to $opt{key_file}.";
-	exit 1;
+my $have_cert = (-f $opt{cert_file} && -f $opt{key_file});
+
+if ($have_cert) {
+	if (-f $opt{cert_file} && ! -w $opt{cert_file}) {
+		printlog "Must have write access to $opt{cert_file}.";
+		exit 1;
+	}
+	if (-f $opt{key_file} && ! -w $opt{key_file}) {
+		printlog "Must have write access to $opt{key_file}.";
+		exit 1;
+	}
 }
 
 # Har vi et sertifikat? Teste om det fungerer
 my $cert_works = 0;
-eval {
-	http_get($server_url . 'secure/ping'); # kaller die() hvis sertifikatfeil
-	$cert_works = 1;
-};
+if ($have_cert) {
+	eval {
+		http_get($server_url . 'secure/ping'); # kaller die() hvis sertifikatfeil
+		$cert_works = 1;
+	};
+}
 
-if (!$cert_works) {
+if (!$have_cert || !$cert_works) {
 	# Får jeg kontakt med serveren i det hele tatt?
 	print "No valid client cert. Checking basic SSL connectivity...\n" if ($opt{debug});
 	my $anyContact = 0;
@@ -241,7 +239,33 @@ if (!$cert_works) {
 	}
 }
 
-if (!$cert_works) {
+if (!$have_cert) {
+	eval {
+		printlog "Requesting a certificate..\n";
+		my $response = http_get($server_url . 'reqcert');
+		my ($cert, $key) = parse_certificate_response($response);
+		if (defined($cert) && defined($key)) {
+			printlog "Received a certificate.\n";
+			open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
+			print $F "$cert\n";
+			close($F);
+			open($F, ">$opt{key_file}") or die "Unable to write to key file $opt{key_file}";
+			print $F "$key\n";
+			close($F);
+			chmod(0600, $opt{key_file});
+			printlog "Har mottatt og lagret et nytt sertifikat.\n";
+		}
+		else {
+			printlog "Fikk ikke utstedt noe sertifikat.\n";
+			exit 1;
+		}
+	};
+	if ($@) {
+		printlog $@;
+		exit 1;
+	}
+}
+elsif ($have_cert && !$cert_works) {
 	eval {
 		printlog "Prøver å fornye sertifikatet.\n";
 		# Kontrollere at katalogen finnes

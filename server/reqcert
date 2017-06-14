@@ -36,6 +36,46 @@ use DBI;
 
 sub forwardConfirmReverseDNS($);
 
+# Connect to database
+my %attr = ("AutoCommit" => 1);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	exit 1;
+}
+
+# Check if this client has been approved, and if not,
+# add them to the waiting list.
+my $ipaddr = $ENV{'REMOTE_ADDR'};
+my @row = $dbh->selectrow_array(
+	"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
+	undef, ($ipaddr));
+if (!@row) {
+	my %params = parse_query_string();
+	my $hostname = $params{'hostname'};
+	if (!defined($hostname) || $hostname eq "") {
+		print "Status: 400\nContent-Type: text/plain\n\n";
+		print "Missing required parameter: hostname\n";
+		$dbh->disconnect;
+		exit 1;
+	}
+	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
+		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
+	print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
+	$dbh->disconnect;
+	exit;
+}
+if (!$row[2]) {
+	# Not approved yet
+	print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
+	$dbh->disconnect;
+	exit;
+}
+
+my $hostname = $row[1];
+
 # HTTP Header
 print "Content-Type: text/plain\n\n";
 
@@ -60,13 +100,6 @@ my $keyfile = "/tmp/user$id.key";
 my $csrfile = "/tmp/user$id.csr";
 my $crtfile = "/tmp/user$id.crt";
 my $p12file = "/tmp/user$id.p12";
-
-my $ipaddr = $ENV{'REMOTE_ADDR'};
-
-my %attr = ("AutoCommit" => 1);
-my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr) or die $DBI::errstr;
-
-my $hostname = "unknown";
 
 eval {
 	# Generate client key
@@ -132,6 +165,7 @@ eval {
 	print "-----BEGIN P12-----\n" . encode_base64($p12bytes, "\n") . "-----END P12-----\n";
 
 	$logger->info("Created new cert with id $id for $hostname");
+	$dbh->do("DELETE FROM waiting_for_approval WHERE ipaddr=?", undef, ($ipaddr));
 };
 if ($@) {
 	$logger->error("Failed to create new cert for $hostname: $@");
@@ -184,4 +218,13 @@ sub forwardConfirmReverseDNS($) {
 		}
 	}
 	return;
+}
+
+sub parse_query_string() {
+	my %result = ();
+	foreach (split /&/, $ENV{'QUERY_STRING'}) {
+		my ($key, $value) = split /=/;
+		$result{$key} = $value;
+	}
+	return %result;
 }
