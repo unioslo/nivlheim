@@ -420,6 +420,10 @@ sub ssl_connect($$$) {
 	} else {
 		$commonName = $hostname;
 	}
+	if ($opt{debug}) {
+		print "commonName=$commonName use_client_cert=$use_client_cert\n";
+		#$IO::Socket::SSL::DEBUG = 3;
+	}
 
 	# Resolve all possible addresses for the specified hostname.
 	# Try IPv4 addresses first, then IPv6.  It is quite common for

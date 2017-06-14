@@ -27,7 +27,10 @@ fi
 cd /var/www/nivlheim
 rm -f default_cert.pem default_key.pem
 openssl req -x509 -newkey rsa:4096 -keyout default_key.pem -out default_cert.pem\
- -days 365 -nodes -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=Nivlheim2017"
+ -days 365 -nodes -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
+sudo chgrp apache *.pem
+sudo chmod 0640 default_key.pem
+sudo chmod 0644 default_cert.pem
 
 # fix permissions
 chgrp -R apache /var/www/nivlheim
