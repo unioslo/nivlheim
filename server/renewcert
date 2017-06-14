@@ -93,7 +93,7 @@ $logger->debug("Hostname is: $hostname");
 
 eval {
 	# Generate client key
-	my $cmd = "openssl genrsa -des3 -passout pass:passord123"
+	my $cmd = "openssl genrsa -des3 -passout pass:password123"
 			." -out $keyfile 4096 -config $confdir/openssl_ca.conf 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
@@ -101,7 +101,7 @@ eval {
 	$logger->debug("Key OK.");
 
 	# Generate client certificate request
-	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:passord123"
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:password123"
 		." -config $confdir/openssl_ca.conf";
 
 	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";

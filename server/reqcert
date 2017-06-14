@@ -33,7 +33,6 @@ use Log::Log4perl;
 use MIME::Base64;
 use Proc::PID::File;
 use DBI;
-use DBD:Pg;
 
 sub forwardConfirmReverseDNS($);
 
@@ -64,16 +63,21 @@ my $p12file = "/tmp/user$id.p12";
 
 my $ipaddr = $ENV{'REMOTE_ADDR'};
 
+my %attr = ("AutoCommit" => 1);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr) or die $DBI::errstr;
+
+my $hostname = "unknown";
+
 eval {
 	# Generate client key
-	my $cmd = "openssl genrsa -des3 -passout pass:passord123"
+	my $cmd = "openssl genrsa -des3 -passout pass:password123"
 			." -out $keyfile 4096 -config $opensslconf 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	print "Key OK.\n";
 
 	# Generate client certificate request
-	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:passord123"
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:password123"
 		." -config $opensslconf";
 
 	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
@@ -104,7 +108,7 @@ eval {
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
-		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:passord123 -passout pass:passord123";
+		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:password123 -passout pass:password123";
 	if (!(system($cmd) == 0 and -f $p12file)) {
 		$logger->debug($cmd);
 		die "P12 failed: $?";
@@ -140,6 +144,7 @@ unlink($csrfile) if (-f $csrfile);
 unlink($crtfile) if (-f $crtfile);
 unlink($p12file) if (-f $p12file);
 
+$dbh->disconnect;
 
 ############ subroutines
 
