@@ -34,6 +34,7 @@ BuildRequires: perl(Log::Log4perl)
 BuildRequires: perl(MIME::Base64)
 BuildRequires: perl(DBD::Pg)
 BuildRequires: perl(Net::CIDR)
+BuildRequires: perl(Net::IP)
 
 Requires: perl, openssl
 Requires: perl(IO::Socket::INET6)
@@ -77,6 +78,7 @@ Requires: perl(MIME::Base64)
 Requires: perl(DBI)
 Requires: perl(DBD::Pg)
 Requires: perl(Net::CIDR)
+Requires: perl(Net::IP)
 
 %description client
 This package contains the client component of Nivlheim, the file
