@@ -37,6 +37,12 @@ use DBI;
 sub forwardConfirmReverseDNS($);
 sub parse_query_string();
 
+# Config
+my $confdir = "/var/www/nivlheim";
+my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger("reqcert");
+
 # Connect to database
 my %attr = ("AutoCommit" => 1);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
@@ -44,24 +50,31 @@ if (!$dbh) {
 	print "Status: 500\nContent-Type: text/plain\n\n";
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
 	exit 1;
 }
 
 # Check if this client has been approved, and if not,
 # add them to the waiting list.
+$logger->debug("REMOTE_ADDR: ".$ENV{'REMOTE_ADDR'});
+$logger->debug("QUERY_STRING: ".$ENV{'QUERY_STRING'});
 my $ipaddr = $ENV{'REMOTE_ADDR'};
 my @row = $dbh->selectrow_array(
 	"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
 	undef, ($ipaddr));
 if (!@row) {
+	$logger->debug("This host has not been pre-approved");
 	my %params = parse_query_string();
 	my $hostname = $params{'hostname'};
+	$logger->debug("Hostname: \"$hostname\"");
 	if (!defined($hostname) || $hostname eq "") {
 		print "Status: 400\nContent-Type: text/plain\n\n";
 		print "Missing required parameter: hostname\n";
+		$logger->warn("Missing required parameter: hostname");
 		$dbh->disconnect;
 		exit 1;
 	}
+	$logger->info("Adding $hostname to the waiting for approval list.");
 	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
 		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
 	print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
@@ -70,6 +83,7 @@ if (!@row) {
 }
 if (!$row[2]) {
 	# Not approved yet
+	$logger->debug("The host ".$row[1]." / $ipaddr is already on the waiting list.");
 	print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
 	$dbh->disconnect;
 	exit;
@@ -86,14 +100,9 @@ print "Content-Type: text/plain\n\n";
 #if (tr/\n// > 1) {
 if (Proc::PID::File->running("dir" => "/tmp")) {
 	print "Too busy, please try again later.\n";
+	$logger->debug("Too busy, let's hope they try again later.");
 	exit;
 }
-
-# Config
-my $confdir = "/var/www/nivlheim";
-my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
-Log::Log4perl->init("$confdir/log4perl.conf");
-my $logger = Log::Log4perl->get_logger("reqcert");
 
 # Temporary files
 my $id = int(rand()*100000000);  # Denne id'en blir kun brukt i denne gjennomkjøringen av scriptet.
