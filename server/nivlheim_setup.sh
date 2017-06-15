@@ -28,14 +28,14 @@ cd /var/www/nivlheim
 rm -f default_cert.pem default_key.pem csr
 # key
 openssl genpkey -outform PEM -out default_key.pem -algorithm RSA \
-  -pkeyopt rsa_keygen_numbits:4096
+  -pkeyopt rsa_keygen_bits:4096
 # certificate request
 openssl req -new -key default_key.pem -out csr -days 365 \
   -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
 # sign the request
 openssl ca -batch -in csr -cert CA/nivlheimca.crt -keyfile CA/nivlheimca.key \
   -out default_cert.pem -config /etc/nivlheim/openssl_ca.conf
-rm csr
+rm -f csr
 
 # fix permissions
 chgrp -R apache /var/www/nivlheim

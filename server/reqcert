@@ -35,6 +35,7 @@ use Proc::PID::File;
 use DBI;
 
 sub forwardConfirmReverseDNS($);
+sub parse_query_string();
 
 # Connect to database
 my %attr = ("AutoCommit" => 1);
