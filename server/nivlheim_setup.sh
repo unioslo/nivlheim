@@ -15,7 +15,7 @@ touch index.txt
 echo 'unique_subject = no' > index.txt.attr
 echo '100001' > serial
 
-# generate a Certificate Authority certificate for the client certificates
+# generate a Certificate Authority certificate to sign other certs with
 cd /var/www/nivlheim/CA
 if [ ! -f nivlheimca.key ]; then
 	openssl genrsa -out nivlheimca.key 4096 -config /etc/nivlheim/openssl_ca.conf
@@ -23,18 +23,25 @@ if [ ! -f nivlheimca.key ]; then
 	openssl x509 -req -days 365 -in nivlheimca.csr -out nivlheimca.crt -signkey nivlheimca.key
 fi
 
-# generate a self-signed SSL certificate as a default for the web server
+# generate a SSL certificate as a default for the web server
 cd /var/www/nivlheim
-rm -f default_cert.pem default_key.pem
-openssl req -x509 -newkey rsa:4096 -keyout default_key.pem -out default_cert.pem\
- -days 365 -nodes -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
-sudo chgrp apache *.pem
-sudo chmod 0640 default_key.pem
-sudo chmod 0644 default_cert.pem
+rm -f default_cert.pem default_key.pem csr
+# key
+openssl genpkey -outform PEM -out default_key.pem -algorithm RSA \
+  -pkeyopt rsa_keygen_numbits:4096
+# certificate request
+openssl req -new -key default_key.pem -out csr -days 365 \
+  -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
+# sign the request
+openssl ca -batch -in csr -cert CA/nivlheimca.crt -keyfile CA/nivlheimca.key \
+  -out default_cert.pem -config /etc/nivlheim/openssl_ca.conf
+rm csr
 
 # fix permissions
 chgrp -R apache /var/www/nivlheim
 chmod -R g+w /var/www/nivlheim
+chmod 0640 /var/www/nivlheim/default_key.pem
+chmod 0644 /var/www/nivlheim/default_cert.pem
 
 # initialize postgresql
 if ! /usr/bin/postgresql-setup --initdb; then
