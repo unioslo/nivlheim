@@ -143,6 +143,7 @@ rm -rf %{buildroot}
 %{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache)
 %dir /var/www/nivlheim
+%attr(0775, root, apache)
 %dir /var/log/nivlheim
 /var/www/cgi-bin/ping
 /var/www/cgi-bin/reqcert
