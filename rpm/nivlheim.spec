@@ -101,6 +101,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
+mkdir -p %{buildroot}/var/log/nivlheim
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
@@ -142,6 +143,7 @@ rm -rf %{buildroot}
 %{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache)
 %dir /var/www/nivlheim
+%dir /var/log/nivlheim
 /var/www/cgi-bin/ping
 /var/www/cgi-bin/reqcert
 /var/www/cgi-bin/secure/ping
