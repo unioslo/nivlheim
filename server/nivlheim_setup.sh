@@ -14,6 +14,7 @@ cd /var/www/nivlheim/db
 touch index.txt
 echo 'unique_subject = no' > index.txt.attr
 echo '100001' > serial
+touch /var/www/nivlheim/rand
 
 # generate a Certificate Authority certificate to sign other certs with
 cd /var/www/nivlheim/CA
@@ -39,10 +40,12 @@ rm -f csr
 
 # fix permissions
 chgrp -R apache /var/www/nivlheim /var/log/nivlheim
-chmod -R g+w /var/www/nivlheim /var/log/nivlheim
+chmod -R g+w /var/log/nivlheim
 chmod 0640 /var/www/nivlheim/default_key.pem
 chmod 0644 /var/www/nivlheim/default_cert.pem
-chcon -t httpd_sys_rw_content_t /var/log/nivlheim
+chcon -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand}
+chown -R apache:apache /var/www/nivlheim/{db,certs,rand}
+chmod -R u+w /var/www/nivlheim/{db,certs,rand}
 
 # initialize postgresql
 if ! /usr/bin/postgresql-setup --initdb; then

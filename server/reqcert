@@ -56,17 +56,14 @@ if (!$dbh) {
 
 # Check if this client has been approved, and if not,
 # add them to the waiting list.
-$logger->debug("REMOTE_ADDR: ".$ENV{'REMOTE_ADDR'});
-$logger->debug("QUERY_STRING: ".$ENV{'QUERY_STRING'});
 my $ipaddr = $ENV{'REMOTE_ADDR'};
 my @row = $dbh->selectrow_array(
 	"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
 	undef, ($ipaddr));
 if (!@row) {
-	$logger->debug("This host has not been pre-approved");
+	$logger->debug("The host $ipaddr has not been pre-approved");
 	my %params = parse_query_string();
 	my $hostname = $params{'hostname'};
-	$logger->debug("Hostname: \"$hostname\"");
 	if (!defined($hostname) || $hostname eq "") {
 		print "Status: 400\nContent-Type: text/plain\n\n";
 		print "Missing required parameter: hostname\n";
@@ -74,6 +71,7 @@ if (!@row) {
 		$dbh->disconnect;
 		exit 1;
 	}
+	$logger->debug("$ipaddr says its hostname is \"$hostname\"");
 	$logger->info("Adding $hostname to the waiting for approval list.");
 	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
 		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
@@ -137,7 +135,7 @@ eval {
 	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
 		." -keyfile $confdir/CA/nivlheimca.key"
 		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
-		." -out $crtfile -config $opensslconf 2>/dev/null";
+		." -out $crtfile -config $opensslconf 2>/var/log/nivlheim/sign.log";
 	if (!(system($cmd) == 0 and -f $crtfile)) {
 		$logger->debug($cmd);
 		die "Signing failed: $?";
