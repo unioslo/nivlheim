@@ -543,11 +543,11 @@ sub http_get($) {
 		die "SSL connection failed: $url\n";
 	}
 
-	print $ssl "GET $path HTTP/1.0\n"
-		."Host: $host:$port\n"
-		."User-Agent: NivlheimClient/$VERSION\n"
-		."Accept: text/html,text/plain,application/xml\n"
-		."Connection: close\n\n";
+	print $ssl "GET $path HTTP/1.0\r\n"
+		."Host: $host:$port\r\n"
+		."User-Agent: NivlheimClient/$VERSION\r\n"
+		."Accept: text/html,text/plain,application/xml\r\n"
+		."Connection: close\r\n\r\n";
 	my $headers = '';
 	my $result = '';
 	my $httpstatus = <$ssl>;

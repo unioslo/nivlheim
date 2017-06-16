@@ -38,10 +38,11 @@ openssl ca -batch -in csr -cert CA/nivlheimca.crt -keyfile CA/nivlheimca.key \
 rm -f csr
 
 # fix permissions
-chgrp -R apache /var/www/nivlheim
-chmod -R g+w /var/www/nivlheim
+chgrp -R apache /var/www/nivlheim /var/log/nivlheim
+chmod -R g+w /var/www/nivlheim /var/log/nivlheim
 chmod 0640 /var/www/nivlheim/default_key.pem
 chmod 0644 /var/www/nivlheim/default_cert.pem
+chcon -t httpd_sys_rw_content_t /var/log/nivlheim
 
 # initialize postgresql
 if ! /usr/bin/postgresql-setup --initdb; then
