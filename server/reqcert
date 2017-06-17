@@ -111,16 +111,13 @@ my $p12file = "/tmp/user$id.p12";
 
 eval {
 	# Generate client key
-	my $cmd = "openssl genrsa -des3 -passout pass:password123"
-			." -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	print "Key OK.\n";
 
 	# Generate client certificate request
-	$cmd = "openssl req -new -key $keyfile -out $csrfile -passin pass:password123"
-		." -config $opensslconf";
-
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $opensslconf";
 	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
 	print "Certificate request OK.\n";
 
@@ -149,7 +146,7 @@ eval {
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
-		. "-CAfile $confdir/CA/nivlheimca.crt -passin pass:password123 -passout pass:password123";
+		. "-CAfile $confdir/CA/nivlheimca.crt";
 	if (!(system($cmd) == 0 and -f $p12file)) {
 		$logger->debug($cmd);
 		die "P12 failed: $?";
