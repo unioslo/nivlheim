@@ -49,6 +49,7 @@ if (Proc::PID::File->running("dir" => "/tmp")) {
 
 # Config
 my $confdir = "/var/www/nivlheim";
+my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
 Log::Log4perl->init("$confdir/log4perl.conf");
 my $logger = Log::Log4perl->get_logger("reqcert");
 
@@ -67,8 +68,7 @@ my $fingerprint = $x509->fingerprint_sha1();
 # Determine hostname by looking up the client certificate in the database.
 # Use the Common Name as a fallback.
 my $hostname;
-my $dbh = DBI->connect("dbi:Pg:dbname=nivlheim;host=localhost",
-	"nivlheim","yesterday");
+my $dbh = DBI->connect("dbi:Pg:", "", "");
 if (!$dbh) {
 	print $DBI::errstr;
 	exit;
@@ -93,51 +93,47 @@ $logger->debug("Hostname is: $hostname");
 
 eval {
 	# Generate client key
-	my $cmd = "openssl -out $keyfile 4096 -config $confdir/openssl_ca.conf 2>/dev/null";
+	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
-	print "Key OK.\n";
 	$logger->debug("Key OK.");
 
 	# Generate client certificate request
-	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $confdir/openssl_ca.conf";
-
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $opensslconf";
 	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
-	print "Certificate request OK.\n";
 	$logger->debug("Certificate request OK.");
 
 	# find the id of the new certificate
 	open(F, "$confdir/db/serial") or die "Could not read db/serial";
 	$id = <F>; chomp $id;  # 6-sifret sertifikat-id fra openssl
 	close(F);
-	print "The new id is $id\n";
 	$logger->debug("The new id is $id");
 
 	# Sign the certificate request with the CA certificate. This will generate crt- and pem-files.
-	# openssl will store the pem-file in the newcerts directory (see openssl.cnf)
+	# openssl will store the pem-file in the certs directory (see openssl_ca.conf)
 	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
 		." -keyfile $confdir/CA/nivlheimca.key"
 		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
-		." -out $crtfile -config $confdir/openssl_ca.conf 2>/dev/null";
+		." -out $crtfile -config $opensslconf 2>/var/log/nivlheim/sign.log";
 	if (!(system($cmd) == 0 and -f $crtfile)) {
-		$logger->info($cmd);
+		$logger->debug($cmd);
 		die "Signing failed: $?";
 	}
-	print "Signing OK.\n";
+	$logger->debug("Signing OK.");
 
 	# Keep a copy of the key/csr/crt-files too
-	copy($keyfile, "$confdir/newcerts/$id.key");
-	copy($csrfile, "$confdir/newcerts/$id.csr");
-	copy($crtfile, "$confdir/newcerts/$id.crt");
+	copy($keyfile, "$confdir/certs/$id.key");
+	copy($csrfile, "$confdir/certs/$id.csr");
+	copy($crtfile, "$confdir/certs/$id.crt");
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
 		. "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
 	if (!(system($cmd) == 0 and -f $p12file)) {
-		$logger->info($cmd);
+		$logger->debug($cmd);
 		die "P12 failed: $?";
 	}
-	copy($p12file, "$confdir/newcerts/$id.p12");
+	copy($p12file, "$confdir/certs/$id.p12");
 
 	# Display the generated certificate and key
 	open(F, $crtfile) or die "Can't read crt file";
