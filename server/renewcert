@@ -132,7 +132,7 @@ eval {
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
-		. "-CAfile $confdir/CA/nivlheimca.crt";
+		. "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
 	if (!(system($cmd) == 0 and -f $p12file)) {
 		$logger->info($cmd);
 		die "P12 failed: $?";
