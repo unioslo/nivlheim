@@ -2,7 +2,7 @@
 use strict;
 use warnings;
 
-use Archive::Zip;
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use CGI;
 use DateTime;
 use Encode qw(from_to encode_utf8 decode_utf8);
@@ -47,7 +47,7 @@ unless (-r $archivefile) {
 
 # Unpack the archive
 eval{
-	$dir = tempdir( CLEANUP => 1 );
+	my $dir = tempdir( CLEANUP => 1 );
 	$logger->debug("Unpacking into $dir");
 	chdir($dir);
 	if ($archivefile =~ /\.tgz$/) {
@@ -153,7 +153,7 @@ eval{
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{clienthostname},
 			$meta{certcn}, $certfp, $originalfilename,
-			$isotime, $content, $dirname =~ m!^/commands/!,
+			$isotime, $content, (dirname($File::Find::name) =~ m!^/commands/!),
 			$meta{clientversion});
 		$sth->execute(@values) or $logger->error($sth->errstr);
 	}
