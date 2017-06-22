@@ -127,6 +127,7 @@ install -p -m 0755 server/post %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
+install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -135,6 +136,7 @@ perl -c %{buildroot}/var/www/cgi-bin/secure/ping
 perl -c %{buildroot}/var/www/cgi-bin/secure/post
 perl -c %{buildroot}/var/www/cgi-bin/ping
 perl -c %{buildroot}/var/www/cgi-bin/reqcert
+perl -c %{buildroot}/var/www/cgi-bin/processarchive
 
 %clean
 rm -rf %{buildroot}
@@ -162,6 +164,7 @@ rm -rf %{buildroot}
 %dir /var/log/nivlheim
 /var/www/cgi-bin/ping
 /var/www/cgi-bin/reqcert
+/var/www/cgi-bin/processarchive
 /var/www/cgi-bin/secure/ping
 /var/www/cgi-bin/secure/renewcert
 /var/www/cgi-bin/secure/post
