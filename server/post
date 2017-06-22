@@ -69,16 +69,12 @@ eval {
 	my $clientversion =	$query->param('version');
 	if (!defined($clientversion)) { $clientversion = ''; }
 
-	# throw away the files if the system load is higher than 50 or the queue has too many items
-	opendir(my $DIR, $queuedir);
-	@_ = readdir($DIR);
-	closedir($DIR);
-	my $queue_size = scalar(@_);
+	# throw away the files if the system load is higher than 50
 	open(my $LOAD, "/proc/loadavg");
 	my $load_avg = <$LOAD>;
 	close $LOAD;
 	my ( $one_min_avg ) = split /\s/, $load_avg;
-	if ($one_min_avg >= 50 || ($queue_size > 200 && rand(300) < ($queue_size-200))) {
+	if ($one_min_avg >= 50) {
 		print CGI::header(
 			-type => 'text/plain',
 			-status => '503 Service Unavailable'

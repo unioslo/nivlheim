@@ -17,12 +17,14 @@ BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
 BuildRequires: perl(CGI)
 BuildRequires: perl(Crypt::OpenSSL::X509)
+BuildRequires: perl(DateTime)
 BuildRequires: perl(DBD::Pg)
 BuildRequires: perl(DBI)
 BuildRequires: perl(Encode)
 BuildRequires: perl(File::Basename)
 BuildRequires: perl(File::Copy)
 BuildRequires: perl(File::Path)
+BuildRequires: perl(File::Temp)
 BuildRequires: perl(Getopt::Long)
 BuildRequires: perl(HTTP::Request::Common)
 BuildRequires: perl(IO::File)
@@ -73,14 +75,16 @@ Requires: %{name} = %{version}-%{release}
 Summary:  Server components of the file collector for UiO
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
-Requires: httpd, mod_ssl, postgresql, postgresql-server
+Requires: httpd, mod_ssl, postgresql, postgresql-server, unzip
 Requires: perl(Archive::Zip)
 Requires: perl(CGI)
 Requires: perl(Crypt::OpenSSL::X509)
+Requires: perl(DateTime)
 Requires: perl(DBD::Pg)
 Requires: perl(DBI)
 Requires: perl(Encode)
 Requires: perl(File::Copy)
+Requires: perl(File::Temp)
 Requires: perl(Log::Log4perl)
 Requires: perl(Log::Log4perl::Level)
 Requires: perl(MIME::Base64)

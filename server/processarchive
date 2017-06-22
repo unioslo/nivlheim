@@ -1,0 +1,189 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use Archive::Zip;
+use CGI;
+use DateTime;
+use Encode qw(from_to encode_utf8 decode_utf8);
+use File::Basename;
+use File::Temp qw/ tempdir /;
+use Log::Log4perl;
+
+sub parse_query_string();
+
+# Config
+my $confdir = "/var/www/nivlheim";
+
+# Logging
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger();
+
+# Restrict access to only localhost
+my $ip = $ENV{'REMOTE_ADDR'};
+if ($ip ne "127.0.0.1" && $ip ne "::1") {
+	print "Status: 403\n";
+	exit;
+}
+
+# Connect to database
+my %attr = ("AutoCommit" => 0);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+
+# Check parameters
+my %params = parse_query_string();
+my $archivefile = $params{'archivefile'};
+unless (-r $archivefile) {
+	print "Status: 400\nCan't find the archive file.\n";
+	exit;
+}
+
+# Unpack the archive
+eval{
+	$dir = tempdir( CLEANUP => 1 );
+	$logger->debug("Unpacking into $dir");
+	chdir($dir);
+	if ($archivefile =~ /\.tgz$/) {
+		run_command("/bin/tar -xzmf $archivefile");
+	}
+	elsif ($archivefile =~ /\.zip$/) {
+		run_command("/usr/bin/unzip -Doqq $archivefile 2>&1");
+	}
+	else {
+		# The way the client is currently written, this will not happen.
+		die "Unknown archive file format.";
+	}
+
+	# Text files from Windows are usually UTF-16, so let's convert those
+	if ($archivefile =~ /\.zip$/) {
+		my $zip = Archive::Zip->new();
+		unless ($zip->read($archivefile) == AZ_OK) {
+			die 'read error';
+		}
+		foreach my $fname ($zip->memberNames()) {
+			$fname =~ s/\\/\//g;  # convert backslashes to forward slashes
+			next if (-d "$dir/$fname");
+			if (open (my $F, "$dir/$fname")) {
+				# read the file, check for BOM
+				my $content = do { local $/; <$F>; };
+				close($F);
+				if (ord(substr($content,0,1)) == 0xFF && ord(substr($content,1,1)) == 0xFE) {
+					# UTF-16 BOM, little endian
+					from_to($content, 'UTF-16', 'UTF-8');
+					open($F, ">$dir/$fname");
+					print $F $content;
+					close($F);
+				}
+			}
+		}
+	}
+
+	# Remove ssh private keys if they are present
+	unlink("$dir/files/etc/ssh/ssh_host_rsa_key");
+	unlink("$dir/files/etc/ssh/ssh_host_dsa_key");
+	unlink("$dir/files/etc/ssh/ssh_host_ecdsa_key");
+
+	# Remove log files that should not be sent to Nivlheim in the first place
+	unlink("$dir/files/var/log/*");
+
+	# read the meta data file
+	my %meta = ();
+	open(my $F, "$archivefile.meta") || die "Unable to open metafile";
+	while (<$F>) {
+		my ($key, $val) = split /\s*=\s*/;
+		$meta{$key} = $val;
+	}
+	close($F);
+
+	my $certfp = basename($archivefile, qr/\.[^.]*/);
+
+	$dbh->begin_work;
+	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,clienthostname,"
+		."certcn,certfp,filename,received,content,is_command,clientversion) "
+		."VALUES(?,?,?, ?,?,?, ?,?,?)");
+
+	# For each file
+	sub callback1 {
+		# Skip directories
+		return if -d $File::Find::name;
+
+		# Skip files that aren't in the files or commands folders
+		return unless $File::Find::name =~ m!/(files|commands)/!;
+		$logger->debug("Processing " . basename($File::Find::name));
+
+		# Make an ISO timestamp from the modified time of the archive
+		my $mtime = (stat("/data/git/$certfp/meta"))[9];
+		my $isotime = uts_to_iso8601($mtime);
+		my ($content, $originalfilename);
+
+		# Extract the content and the original file name
+		{
+			if (!open(my $F, $File::Find::name)) {
+				$logger->error("Unable to open ".$File::Find::name.": $!");
+				return;
+			}
+			binmode $F;
+			$originalfilename = <$F>;
+			$originalfilename =~ s/[\r\n]//g;
+			$content = join '', <$F>;
+			close $F;
+		}
+
+		# Detektere latin-1 og konvertere til UTF-8
+		# http://stackoverflow.com/questions/22868271/how-to-detect-latin1-and-utf-8/22868803#22868803
+		# Hvis det ikke fungerer å dekode som utf-8, kan vi anta at det er latin-1
+		# og behandle det deretter
+		my $de = eval { decode_utf8($content, Encode::FB_CROAK|Encode::LEAVE_SRC) };
+		unless ($de) {
+			$content = encode_utf8($content);
+		}
+
+		# Fjerne control characters, bortsett fra cr, lf og tab
+		$content =~ tr/\000-\010/ /;
+		$content =~ tr/\013-\014/ /;
+		$content =~ tr/\016-\037/ /;
+
+		# Run the database INSERT operation
+		my @values = ($meta{ip}, $meta{clienthostname},
+			$meta{certcn}, $certfp, $originalfilename,
+			$isotime, $content, $dirname =~ m!^/commands/!,
+			$meta{clientversion});
+		$sth->execute(@values) or $logger->error($sth->errstr);
+	}
+	find(\&callback1, $dir);
+	$sth->finish;
+	$dbh->commit;
+};
+if ($@) {
+	$logger->error($@);
+	$dbh->rollback;
+	print CGI::header(
+		-type => 'text/plain',
+		-status => '500 Internal Server Error'
+	);
+};
+
+# Clean up
+$dbh->disconnect;
+
+sub parse_query_string() {
+	my %result = ();
+	foreach (split /&/, $ENV{'QUERY_STRING'}) {
+		my ($key, $value) = split /=/;
+		$result{$key} = $value;
+	}
+	return %result;
+}
+
+sub uts_to_iso8601($) {
+	my $uts = shift;
+	my $date = DateTime->from_epoch(epoch => $uts, time_zone => 'UTC');
+	return $date->ymd().q{T}.$date->hms().'Z';
+}

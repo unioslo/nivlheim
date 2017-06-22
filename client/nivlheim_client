@@ -594,9 +594,16 @@ sub http_post($$) {
 
 	my $req = $request->as_string;
 	$req =~ s/^POST (.*)$/POST $1 HTTP\/1.0/m;
+
+	# Convert the line endings to two-byte CR LF
+	my ($headers, $rest) = split /\n\n/, $req;
+	$headers =~ s/\n/\r\n/gs;
+	$req = $headers . "\r\n\r\n" . $rest;
+
+	# Send the request
 	print $ssl $req;
 
-	my $headers = '';
+	$headers = '';
 	my $result = '';
 	my $httpstatus = <$ssl>;
 	while (<$ssl>) {
