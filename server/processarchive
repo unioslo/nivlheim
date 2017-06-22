@@ -136,7 +136,7 @@ eval{
 		my ($content, $originalfilename);
 
 		# Read the content
-		my $is_command = (dirname($File::Find::name) =~ m!/commands/!) ? 1 : 0;
+		my $is_command = ($File::Find::name =~ m!/commands/!) ? 1 : 0;
 		my $F;
 		if (!open($F, $File::Find::name)) {
 			$logger->error("Unable to open ".$File::Find::name.": $!");
