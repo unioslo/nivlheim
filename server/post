@@ -29,8 +29,6 @@ use Crypt::OpenSSL::X509;
 use IPC::Open3;
 use Symbol qw(gensym);
 use IO::File;
-use Nivlheim::Index;
-use File::Find;
 use MIME::Base64 qw(decode_base64);
 use Encode qw(from_to);
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
