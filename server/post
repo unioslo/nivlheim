@@ -34,12 +34,13 @@ use File::Find;
 use MIME::Base64 qw(decode_base64);
 use Encode qw(from_to);
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use File::Copy;
 
 sub run_command($);
 
 # Config
 my $confdir = "/var/www/nivlheim";
-my $archivedir = "/data/git";
+my $queuedir = "/var/www/nivlheim/queue";
 
 # Logging
 Log::Log4perl->init("$confdir/log4perl.conf");
@@ -71,7 +72,7 @@ eval {
 	if (!defined($clientversion)) { $clientversion = ''; }
 
 	# throw away the files if the system load is higher than 50 or the queue has too many items
-	opendir(my $DIR, "/data/queue");
+	opendir(my $DIR, $queuedir);
 	@_ = readdir($DIR);
 	closedir($DIR);
 	my $queue_size = scalar(@_);
@@ -80,8 +81,10 @@ eval {
 	close $LOAD;
 	my ( $one_min_avg ) = split /\s/, $load_avg;
 	if ($one_min_avg >= 50 || ($queue_size > 200 && rand(300) < ($queue_size-200))) {
-	    print CGI::header('text/plain');
-	    print "OK";
+		print CGI::header(
+			-type => 'text/plain',
+			-status => '503 Service Unavailable'
+		);
 		$logger->info("throwing away a post from $ipaddr ($shorthost) (v$clientversion) ($fingerprint)");
 		exit;
 	}
@@ -205,106 +208,21 @@ eval {
 		return;
 	}
 
-	# Unpack the archive file
-	my $dir = "$archivedir/$fingerprint";
-	$logger->debug("[$shorthost] Unpacking into $dir");
-
-	if (!-d $dir) {
-		$logger->debug("[$shorthost] Initializing git repo in $dir");
-		mkdir($dir);
-		run_command("git init $dir");
-	}
-
-	# Prepare the directory before extracting files
-	sub callback1 {
-		# Make all files and dirs overwritable so extraction of new files won't be a problem
-		my $perm = -d $_ ? 0770 : 0660;
-		chmod $perm, $_;
-		# Delete all the normal files, so that if they no longer exist on the client they will be removed from the git repository (and as a consequence Solr).
-		return if -d $_; # don't try and delete directories
-		return if $File::Find::name =~ m!\.git!; # don't delete the git repo
-		return if $_ eq 'meta'; # don't delete the metadata file
-		return unless $File::Find::name =~ m!/(files|commands)/!;
-		$logger->debug("[$shorthost] deleting " . $File::Find::name);
-		unlink $File::Find::name;
-	}
-	find(\&callback1, $dir);
-
-	chdir($dir);
-	if ($archivefile =~ /\.tgz$/) {
-		run_command("/bin/tar -xzmf $archivefile");
-	}
-	elsif ($archivefile =~ /\.zip$/) {
-		run_command("/usr/bin/unzip -Doqq $archivefile 2>&1");
-	}
-	else {
-		# The way the script is currently written, this will not happen.
-		die "Unknown archive file format.";
-	}
-
-	# Text files from Windows are usually UTF-16, so let's convert those
-	if ($archivefile =~ /\.zip$/) {
-		my $zip = Archive::Zip->new();
-		unless ($zip->read($archivefile) == AZ_OK) {
-			die 'read error';
-		}
-		foreach my $fname ($zip->memberNames()) {
-			$fname =~ s/\\/\//g;  # convert backslashes to forward slashes
-			next if (-d "$dir/$fname");
-			if (open (my $F, "$dir/$fname")) {
-				# read the file, check for BOM
-				my $content = do { local $/; <$F>; };
-				close($F);
-				if (ord(substr($content,0,1)) == 0xFF && ord(substr($content,1,1)) == 0xFE) {
-					# UTF-16 BOM, little endian
-					from_to($content, 'UTF-16', 'UTF-8');
-					open($F, ">$dir/$fname");
-					print $F $content;
-					close($F);
-				}
-			}
-		}
-	}
-
 	# Add a file with some metadata
-	open($F, ">$dir/meta");
+	open($F, ">$archivefile.meta");
 	print $F "clienthostname = $clienthostname\n";
 	print $F "certcn = $ENV{'SSL_CLIENT_S_DN_CN'}\n";
 	print $F "ip = $ipaddr\n";
 	print $F "clientversion = $clientversion\n";
 	close($F);
 
-	# Remove ssh private keys if they are present
-	unlink("$dir/files/etc/ssh/ssh_host_rsa_key");
-	unlink("$dir/files/etc/ssh/ssh_host_dsa_key");
-	unlink("$dir/files/etc/ssh/ssh_host_ecdsa_key");
-
-	# Remove log files that should not be sent to Nivlheim in the first place
-	unlink("$dir/files/var/log/fail2ban.log");
-
-	# git add + git commit
-	chdir($dir);
-	run_command("git add .");
-	run_command("git commit -q -a -m 'Fnord.'");
-
 	# Response
 	print CGI::header('text/plain');
 	print "OK";
 
-	# Index
-	open($F, "git log --format=\"%H\" --since=2.minutes -1 |");
-	my $git_commit_id = <$F>;
-	close($F);
-	if (defined($git_commit_id) && $git_commit_id =~ /\S/) {
-		chomp $git_commit_id;
-		$logger->debug("[$shorthost] Adding new commit $git_commit_id to indexing queue.");
-		my $indexer = Nivlheim::Index->new({
-			configDir => "/var/www/nivlheim",
-			archiveDir => "/data/git",
-			queueDir => "/data/queue",
-		});
-		$indexer->addNewCommitToQueue($fingerprint, $git_commit_id);
-	}
+	# Enqueue the files
+	move($archivefile, $queuedir);
+	move("$archivefile.meta", $queuedir);
 };
 if ($@) {
 	$logger->error("[$shorthost] " . $@);
@@ -317,6 +235,7 @@ if ($@) {
 # Clean up
 unlink($archivefile) if (defined($archivefile));
 unlink($signaturefile) if (defined($signaturefile));
+unlink("$archivefile.meta") if (defined($archivefile));
 
 sub run_command($) {
 	# calls die() if anything gets written to stderr, or if the command has syntax errors.
