@@ -4,11 +4,15 @@ use warnings;
 
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use CGI;
+use DBI;
 use DateTime;
 use Encode qw(from_to encode_utf8 decode_utf8);
 use File::Basename;
+use File::Find;
 use File::Temp qw/ tempdir /;
+use IPC::Open3;
 use Log::Log4perl;
+use Symbol qw(gensym);
 
 sub parse_query_string();
 
@@ -39,9 +43,14 @@ if (!$dbh) {
 
 # Check parameters
 my %params = parse_query_string();
+unless (exists $params{'archivefile'}) {
+	print "Status: 400\n\nMissing parameter: archivefile\n";
+	exit;
+}
 my $archivefile = $params{'archivefile'};
+$archivefile = "$confdir/queue/$archivefile";
 unless (-r $archivefile) {
-	print "Status: 400\nCan't find the archive file.\n";
+	print "Status: 400\n\nCan't find the archive file.\n";
 	exit;
 }
 
@@ -104,7 +113,6 @@ eval{
 
 	my $certfp = basename($archivefile, qr/\.[^.]*/);
 
-	$dbh->begin_work;
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,clienthostname,"
 		."certcn,certfp,filename,received,content,is_command,clientversion) "
 		."VALUES(?,?,?, ?,?,?, ?,?,?)");
@@ -119,22 +127,34 @@ eval{
 		$logger->debug("Processing " . basename($File::Find::name));
 
 		# Make an ISO timestamp from the modified time of the archive
-		my $mtime = (stat("/data/git/$certfp/meta"))[9];
+		my $mtime = (stat($File::Find::name))[9];
 		my $isotime = uts_to_iso8601($mtime);
 		my ($content, $originalfilename);
 
-		# Extract the content and the original file name
-		{
-			if (!open(my $F, $File::Find::name)) {
-				$logger->error("Unable to open ".$File::Find::name.": $!");
-				return;
-			}
-			binmode $F;
+		# Read the content
+		my $is_command = (dirname($File::Find::name) =~ m!^/commands/!) ? 1 : 0;
+		my $F;
+		if (!open($F, $File::Find::name)) {
+			$logger->error("Unable to open ".$File::Find::name.": $!");
+			return;
+		}
+		binmode $F;
+		if ($is_command) {
+			# The first line of the file is the original command line
 			$originalfilename = <$F>;
 			$originalfilename =~ s/[\r\n]//g;
 			$content = join '', <$F>;
-			close $F;
+		} else {
+			local $/ = undef;
+			$content = <$F>;
+			if ($File::Find::name =~ m!.*/files(/.*)!) {
+				$originalfilename = $1;
+			} else {
+				$logger->error("Failed parsing filename from  ".$File::Find::name);
+				return;
+			}
 		}
+		close $F;
 
 		# Detektere latin-1 og konvertere til UTF-8
 		# http://stackoverflow.com/questions/22868271/how-to-detect-latin1-and-utf-8/22868803#22868803
@@ -153,7 +173,7 @@ eval{
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{clienthostname},
 			$meta{certcn}, $certfp, $originalfilename,
-			$isotime, $content, (dirname($File::Find::name) =~ m!^/commands/!),
+			$isotime, $content, $is_command,
 			$meta{clientversion});
 		$sth->execute(@values) or $logger->error($sth->errstr);
 	}
@@ -173,6 +193,10 @@ if ($@) {
 # Clean up
 $dbh->disconnect;
 
+# Return OK
+print CGI::header('text/plain');
+print "OK";
+
 sub parse_query_string() {
 	my %result = ();
 	foreach (split /&/, $ENV{'QUERY_STRING'}) {
@@ -186,4 +210,28 @@ sub uts_to_iso8601($) {
 	my $uts = shift;
 	my $date = DateTime->from_epoch(epoch => $uts, time_zone => 'UTC');
 	return $date->ymd().q{T}.$date->hms().'Z';
+}
+
+sub run_command($) {
+	# calls die() if anything gets written to stderr, or if the command has syntax errors.
+	# Output to stdout will be logged at debug level.
+	# Returns concatendated stdout from the child process.
+	my $cmd = shift;
+	local *CATCHOUT = IO::File->new_tmpfile;
+	local *CATCHERR = IO::File->new_tmpfile;
+	my $pid = open3(gensym, ">&CATCHOUT", ">&CATCHERR", $cmd);
+	waitpid($pid, 0);
+	seek $_, 0, 0 for \*CATCHOUT, \*CATCHERR;
+	my $stdout = '';
+	my $stderr = '';
+	while( <CATCHOUT> ) { $stdout .= $_; }
+	while( <CATCHERR> ) { $stderr .= $_; }
+	close CATCHOUT;
+	close CATCHERR;
+	# trim stdout and stderr
+	$stdout =~ s/^[\s]+|[\s]+$//g;
+	$stderr =~ s/^[\s]+|[\s]+$//g;
+	if ($stderr ne '') { die "$cmd\n$stderr"; }
+	if ($stdout ne '') { $logger->debug("$cmd\n$stdout"); }
+	return $stdout;
 }
