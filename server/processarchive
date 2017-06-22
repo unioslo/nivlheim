@@ -15,6 +15,8 @@ use Log::Log4perl;
 use Symbol qw(gensym);
 
 sub parse_query_string();
+sub run_command($);
+sub uts_to_iso8601($);
 
 # Config
 my $confdir = "/var/www/nivlheim";
@@ -45,6 +47,10 @@ if (!$dbh) {
 my %params = parse_query_string();
 unless (exists $params{'archivefile'}) {
 	print "Status: 400\n\nMissing parameter: archivefile\n";
+	exit;
+}
+if ($params{'archivefile'} =~ m![\\/]!) {
+	print "Status: 403\n\n";
 	exit;
 }
 my $archivefile = $params{'archivefile'};
@@ -111,8 +117,6 @@ eval{
 	}
 	close($F);
 
-	my $certfp = basename($archivefile, qr/\.[^.]*/);
-
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,clienthostname,"
 		."certcn,certfp,filename,received,content,is_command,clientversion) "
 		."VALUES(?,?,?, ?,?,?, ?,?,?)");
@@ -132,7 +136,7 @@ eval{
 		my ($content, $originalfilename);
 
 		# Read the content
-		my $is_command = (dirname($File::Find::name) =~ m!^/commands/!) ? 1 : 0;
+		my $is_command = (dirname($File::Find::name) =~ m!/commands/!) ? 1 : 0;
 		my $F;
 		if (!open($F, $File::Find::name)) {
 			$logger->error("Unable to open ".$File::Find::name.": $!");
@@ -172,7 +176,7 @@ eval{
 
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{clienthostname},
-			$meta{certcn}, $certfp, $originalfilename,
+			$meta{certcn}, $meta{certfp}, $originalfilename,
 			$isotime, $content, $is_command,
 			$meta{clientversion});
 		$sth->execute(@values) or $logger->error($sth->errstr);
@@ -180,6 +184,7 @@ eval{
 	find(\&callback1, $dir);
 	$sth->finish;
 	$dbh->commit;
+	unlink($archivefile, "$archivefile.meta");
 };
 if ($@) {
 	$logger->error($@);
@@ -195,7 +200,7 @@ $dbh->disconnect;
 
 # Return OK
 print CGI::header('text/plain');
-print "OK";
+print "OK\n";
 
 sub parse_query_string() {
 	my %result = ();

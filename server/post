@@ -206,6 +206,7 @@ eval {
 	open($F, ">$archivefile.meta");
 	print $F "clienthostname = $clienthostname\n";
 	print $F "certcn = $ENV{'SSL_CLIENT_S_DN_CN'}\n";
+	print $F "certfp = $fingerprint\n";
 	print $F "ip = $ipaddr\n";
 	print $F "clientversion = $clientversion\n";
 	close($F);
