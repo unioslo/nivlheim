@@ -169,21 +169,18 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config %{_sysconfdir}/systemd/system/%{name}.service
+%config %{_sysconfdir}/logrotate.d/%{name}
 %{_localstatedir}/nivlheim/init.sql
-%attr(0775, root, apache)
-%dir /var/www/nivlheim
-%attr(0775, root, apache)
-%dir /var/log/nivlheim
+%attr(0775, root, apache) %dir /var/www/nivlheim
+%attr(0775, root, apache) %dir /var/log/nivlheim
 /var/www/cgi-bin/ping
 /var/www/cgi-bin/reqcert
 /var/www/cgi-bin/processarchive
 /var/www/cgi-bin/secure/ping
 /var/www/cgi-bin/secure/renewcert
 /var/www/cgi-bin/secure/post
-%attr(0644, root, apache)
-/var/www/nivlheim/log4perl.conf
-%attr(0755, root, root)
-%{_localstatedir}/nivlheim/setup.sh
+%attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
+%attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_sbindir}/nivlheim_jobs.go
 
 %post server
