@@ -138,7 +138,7 @@ install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/nivlheim_jobs.go %{buildroot}%{_sbindir}
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
-install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}
+install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -169,7 +169,7 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config %{_sysconfdir}/systemd/system/%{name}.service
-%config %{_sysconfdir}/logrotate.d/%{name}
+%config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache) %dir /var/www/nivlheim
 %attr(0775, root, apache) %dir /var/log/nivlheim
@@ -191,5 +191,5 @@ rm -rf %{buildroot}
 %systemd_preun %{name}.service
 
 %changelog
-* Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
+* Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170606
 - First package build
