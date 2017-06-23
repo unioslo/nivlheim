@@ -45,8 +45,6 @@ BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
 BuildRequires: golang, go-compilers-golang-compiler
 
-BuildArch: noarch
-
 %global _binary_filedigest_algorithm 1
 %global _source_filedigest_algorithm 1
 %define  debug_package %{nil}
@@ -58,6 +56,7 @@ UiO.
 %package client
 Summary:  Client component of the file collector for UiO
 Group:    Applications/System
+BuildArch: noarch
 Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl
 Requires: perl(Archive::Tar)
