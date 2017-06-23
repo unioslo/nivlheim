@@ -49,6 +49,7 @@ BuildArch: noarch
 
 %global _binary_filedigest_algorithm 1
 %global _source_filedigest_algorithm 1
+%define  debug_package %{nil}
 
 %description
 This package is the base package for Nivlheim, the file collector for
@@ -114,8 +115,6 @@ collector for UiO.
 
 %build
 %gobuild server/nivlheim_jobs.go
-rm -rf %{buildroot}/usr/lib/debug
-rm -rf %{buildroot}/usr/src/debug
 
 %install
 rm -rf %{buildroot}
