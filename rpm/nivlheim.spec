@@ -43,20 +43,7 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
-
-Requires: perl, openssl
-Requires: perl(IO::Socket::INET6)
-Requires: perl(IO::Socket::SSL)
-Requires: perl(IO::File)
-Requires: perl(Socket)
-Requires: perl(Net::DNS)
-Requires: perl(NetAddr::IP)
-Requires: perl(Archive::Tar)
-Requires: perl(HTTP::Request::Common)
-Requires: perl(Sys::Syslog)
-Requires: perl(File::Path)
-Requires: perl(File::Basename)
-Requires: perl(Getopt::Long)
+BuildRequires: golang
 
 BuildArch: noarch
 
@@ -71,12 +58,27 @@ UiO.
 Summary:  Client component of the file collector for UiO
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
+Requires: perl, openssl
+Requires: perl(Archive::Tar)
+Requires: perl(File::Basename)
+Requires: perl(File::Path)
+Requires: perl(Getopt::Long)
+Requires: perl(HTTP::Request::Common)
+Requires: perl(IO::File)
+Requires: perl(IO::Socket::INET6)
+Requires: perl(IO::Socket::SSL)
+Requires: perl(Net::DNS)
+Requires: perl(NetAddr::IP)
+Requires: perl(Socket)
+Requires: perl(Sys::Syslog)
 
 %package server
 Summary:  Server components of the file collector for UiO
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
-Requires: httpd, mod_ssl, postgresql, postgresql-server, unzip, file
+Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
+Requires: golang, unzip, file
+Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
 Requires: perl(CGI)
 Requires: perl(Crypt::OpenSSL::X509)
@@ -84,6 +86,7 @@ Requires: perl(DateTime)
 Requires: perl(DBD::Pg)
 Requires: perl(DBI)
 Requires: perl(Encode)
+Requires: perl(File::Basename)
 Requires: perl(File::Copy)
 Requires: perl(File::Find)
 Requires: perl(File::Temp)
@@ -94,6 +97,9 @@ Requires: perl(Net::CIDR)
 Requires: perl(Net::IP)
 Requires: perl(Proc::PID::File)
 Requires: perl(Time::Piece)
+
+%{?systemd_requires}
+BuildRequires: systemd
 
 %description client
 This package contains the client component of Nivlheim, the file
@@ -107,6 +113,7 @@ collector for UiO.
 %autosetup -n nivlheim-master
 
 %build
+go build server/nivlheim_jobs.go
 
 %install
 rm -rf %{buildroot}
@@ -130,6 +137,8 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
+install -p -m 0755 nivlheim_jobs %{buildroot}%{_sbindir}
+install -p -m 0644 server/nivlheim.service %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -159,6 +168,7 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
+%config %{_sysconfdir}/systemd/system/%{name}.service
 %{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache)
 %dir /var/www/nivlheim
@@ -177,6 +187,10 @@ rm -rf %{buildroot}
 
 %post server
 %{_localstatedir}/nivlheim/nivlheim_setup.sh
+%systemd_post %{name}.service
+
+%preun server
+%systemd_preun %{name}.service
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0
