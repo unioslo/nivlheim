@@ -114,6 +114,8 @@ collector for UiO.
 
 %build
 %gobuild server/nivlheim_jobs.go
+rm -rf %{buildroot}/usr/lib/debug
+rm -rf %{buildroot}/usr/src/debug
 
 %install
 rm -rf %{buildroot}
@@ -185,6 +187,7 @@ rm -rf %{buildroot}
 /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root)
 %{_localstatedir}/nivlheim/nivlheim_setup.sh
+%{_sbindir}/nivlheim_jobs
 
 %post server
 %{_localstatedir}/nivlheim/nivlheim_setup.sh
