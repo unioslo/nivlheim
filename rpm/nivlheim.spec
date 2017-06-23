@@ -113,7 +113,7 @@ collector for UiO.
 %autosetup -n nivlheim-master
 
 %build
-go build server/nivlheim_jobs.go
+%gobuild server/nivlheim_jobs.go
 
 %install
 rm -rf %{buildroot}
