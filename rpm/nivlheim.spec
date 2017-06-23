@@ -43,7 +43,11 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
-BuildRequires: golang, go-compilers-golang-compiler
+BuildRequires: golang
+
+%if 0%{?fedora} >= 24
+BuildRequires: go-compilers-golang-compiler
+%endif
 
 %global _binary_filedigest_algorithm 1
 %global _source_filedigest_algorithm 1
@@ -113,6 +117,9 @@ collector for UiO.
 %autosetup -n nivlheim-master
 
 %build
+%if 0%{?rhel} == 7
+function gobuild { go build -a -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n')" -v -x "$@"; }
+%endif
 %gobuild server/nivlheim_jobs.go
 
 %install
