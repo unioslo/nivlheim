@@ -43,15 +43,10 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
-BuildRequires: golang
-
-%if 0%{?fedora} >= 24
-BuildRequires: go-compilers-golang-compiler
-%endif
 
 %global _binary_filedigest_algorithm 1
 %global _source_filedigest_algorithm 1
-%define  debug_package %{nil}
+BuildArch: noarch
 
 %description
 This package is the base package for Nivlheim, the file collector for
@@ -60,7 +55,6 @@ UiO.
 %package client
 Summary:  Client component of the file collector for UiO
 Group:    Applications/System
-BuildArch: noarch
 Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl
 Requires: perl(Archive::Tar)
@@ -117,10 +111,6 @@ collector for UiO.
 %autosetup -n nivlheim-master
 
 %build
-%if 0%{?rhel} == 7
-function gobuild { go build -a -ldflags "-B 0x$(head -c20 /dev/urandom|od -An -tx1|tr -d ' \n')" -v -x "$@"; }
-%endif
-%gobuild server/nivlheim_jobs.go
 
 %install
 rm -rf %{buildroot}
@@ -143,10 +133,10 @@ install -p -m 0755 server/reqcert %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/renewcert %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0755 server/post %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
-install -p -m 0755 server/nivlheim_setup.sh %{buildroot}%{_localstatedir}/nivlheim/
+install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
-install -p -m 0755 nivlheim_jobs %{buildroot}%{_sbindir}
+install -p -m 0755 server/nivlheim_jobs.go %{buildroot}%{_sbindir}
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
 install -p -m 0644 server/logrotate.conf ${buildroot}%{_sysconfdir}/logrotate.d/%{name}
 
@@ -193,11 +183,11 @@ rm -rf %{buildroot}
 %attr(0644, root, apache)
 /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root)
-%{_localstatedir}/nivlheim/nivlheim_setup.sh
-%{_sbindir}/nivlheim_jobs
+%{_localstatedir}/nivlheim/setup.sh
+%{_sbindir}/nivlheim_jobs.go
 
 %post server
-%{_localstatedir}/nivlheim/nivlheim_setup.sh
+%{_localstatedir}/nivlheim/setup.sh
 %systemd_post %{name}.service
 
 %preun server

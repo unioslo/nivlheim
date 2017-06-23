@@ -5,7 +5,7 @@ After=network.target network-online.target
 
 [Service]
 Type=idle
-ExecStart=/usr/sbin/nivlheim_jobs
+ExecStart=/usr/sbin/nivlheim_jobs.go
 Restart=True
 
 [Install]
