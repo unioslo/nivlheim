@@ -43,7 +43,7 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
-BuildRequires: golang
+BuildRequires: golang, go-compilers-golang-compiler
 
 BuildArch: noarch
 
