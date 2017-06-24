@@ -136,7 +136,7 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
-install -p -m 0755 server/nivlheim_jobs.go %{buildroot}%{_sbindir}
+install -p -m 0644 server/jobs.go %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 
@@ -181,7 +181,7 @@ rm -rf %{buildroot}
 /var/www/cgi-bin/secure/post
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
-%{_sbindir}/nivlheim_jobs.go
+%{_localstatedir}/nivlheim/jobs.go
 
 %post server
 %{_localstatedir}/nivlheim/setup.sh

@@ -70,3 +70,9 @@ sudo -u postgres bash -c "psql -c \"create database apache\""
 
 # create tables
 sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
+
+# enable the systemd service
+if which systemctl > /dev/null 2>&1; then
+	systemctl enable nivlheim
+	systemctl start nivlheim
+fi
