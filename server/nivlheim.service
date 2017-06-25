@@ -4,9 +4,9 @@ Wants=network-online.target
 After=network.target network-online.target
 
 [Service]
-Type=idle
-ExecStart=/usr/bin/go run /var/nivlheim/jobs.go
-Restart=True
+ExecStart=/usr/sbin/nivlheim_jobs
+Restart=always
+RestartSec=10s
 
 [Install]
 WantedBy=multi-user.target

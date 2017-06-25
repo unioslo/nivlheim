@@ -43,6 +43,7 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
+BuildRequires: systemd
 
 %global _binary_filedigest_algorithm 1
 %global _source_filedigest_algorithm 1
@@ -96,9 +97,6 @@ Requires: perl(Net::IP)
 Requires: perl(Proc::PID::File)
 Requires: perl(Time::Piece)
 
-%{?systemd_requires}
-BuildRequires: systemd
-
 %description client
 This package contains the client component of Nivlheim, the file
 collector for UiO.
@@ -121,7 +119,7 @@ mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/log/nivlheim
-mkdir -p %{buildroot}%{_sysconfdir}/systemd/system
+mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
@@ -137,7 +135,7 @@ install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/jobs.go %{buildroot}%{_localstatedir}/nivlheim/
-install -p -m 0644 server/nivlheim.service %{buildroot}%{_sysconfdir}/systemd/system/%{name}.service
+install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 
 %check
@@ -168,8 +166,8 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
-%config %{_sysconfdir}/systemd/system/%{name}.service
 %config %{_sysconfdir}/logrotate.d/%{name}-server
+%{_unitdir}/%{name}.service
 %{_localstatedir}/nivlheim/init.sql
 %attr(0775, root, apache) %dir /var/www/nivlheim
 %attr(0775, root, apache) %dir /var/log/nivlheim
@@ -189,6 +187,9 @@ rm -rf %{buildroot}
 
 %preun server
 %systemd_preun %{name}.service
+
+%postun server
+%systemd_postun_with_restart %{name}.service
 
 %changelog
 * Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170606

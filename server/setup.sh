@@ -71,6 +71,12 @@ sudo -u postgres bash -c "psql -c \"create database apache\""
 # create tables
 sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
 
+# compile and install the Go code
+cd /tmp
+go build /var/nivlheim/jobs.go
+mv /tmp/jobs /usr/sbin/nivlheim_jobs
+chcon -t bin_t -u system_u /usr/sbin/nivlheim_jobs
+
 # enable the systemd service
 if which systemctl > /dev/null 2>&1; then
 	systemctl enable nivlheim
