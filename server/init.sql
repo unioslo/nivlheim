@@ -17,3 +17,11 @@ CREATE TABLE IF NOT EXISTS files(
 	is_command boolean,
 	clientversion text
 );
+
+CREATE TABLE IF NOT EXISTS jobs(
+	filename text,
+	lasttry timestamp with time zone,
+	status int,
+	delay int,
+	delay2 int
+);
