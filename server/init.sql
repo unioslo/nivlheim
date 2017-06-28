@@ -16,7 +16,7 @@ CREATE TABLE IF NOT EXISTS files(
 	content text,
 	is_command boolean,
 	clientversion text,
-	parsed boolean
+	parsed boolean not null default false
 );
 
 CREATE INDEX files_parsed ON files(parsed);

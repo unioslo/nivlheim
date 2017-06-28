@@ -6,6 +6,9 @@ use CGI;
 use DBI;
 use Log::Log4perl;
 
+sub parse_query_string();
+sub uts_to_iso8601($);
+
 # Restrict access to only localhost
 my $ip = $ENV{'REMOTE_ADDR'};
 if ($ip ne "127.0.0.1" && $ip ne "::1") {
@@ -63,3 +66,18 @@ $dbh->disconnect;
 # Return OK
 print CGI::header('text/plain');
 print "OK\n";
+
+sub parse_query_string() {
+	my %result = ();
+	foreach (split /&/, $ENV{'QUERY_STRING'}) {
+		my ($key, $value) = split /=/;
+		$result{$key} = $value;
+	}
+	return %result;
+}
+
+sub uts_to_iso8601($) {
+	my $uts = shift;
+	my $date = DateTime->from_epoch(epoch => $uts, time_zone => 'UTC');
+	return $date->ymd().q{T}.$date->hms().'Z';
+}

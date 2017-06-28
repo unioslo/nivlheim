@@ -161,7 +161,7 @@ func scanFilesDb(db *sql.DB) {
 		var fileid sql.NullInt64
 		rows.Scan(&fileid)
 		if fileid.Valid {
-			joburl := "http://localhost/cgi-bin/parsefile?id=" +
+			joburl := "http://localhost/cgi-bin/parsefile?fileid=" +
 				strconv.FormatInt(fileid.Int64, 10)
 			job := Job{url: joburl}
 			db.Exec("INSERT INTO jobs(url) VALUES($1) "+
