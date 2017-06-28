@@ -72,12 +72,14 @@ sudo -u postgres bash -c "psql -c \"create database apache\""
 sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
 
 # compile and install the Go code
-rm /usr/sbin/nivlheim_jobs
+rm -f /usr/sbin/nivlheim_jobs
 cd /var/nivlheim
 mkdir -p go/{src,pkg,bin}
 mv jobs.go go/src/
-GOPATH=/var/nivlheim/go
-GOBIN=$GOPATH/bin
+export GOPATH=/var/nivlheim/go
+export GOBIN=$GOPATH/bin
+cd $GOPATH/src
+go get || exit 1
 go install jobs.go || exit 1
 mv $GOBIN/jobs /usr/sbin/nivlheim_jobs
 chcon -t bin_t -u system_u /usr/sbin/nivlheim_jobs
