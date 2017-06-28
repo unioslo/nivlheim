@@ -39,8 +39,9 @@ func main() {
 		log.Println("Quitting...")
 	}()
 	defer log.Println("Quit.")
+	log.Println("Starting up.")
 
-	db, err := sql.Open("postgres", "sslmode=disable host=/tmp")
+	db, err := sql.Open("postgres", "dbname=apache sslmode=disable host=/tmp")
 	if err != nil {
 		log.Fatal(err)
 	}

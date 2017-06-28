@@ -68,6 +68,10 @@ fi
 sudo -u postgres bash -c "createuser apache"
 sudo -u postgres bash -c "psql -c \"create database apache\""
 
+# let the root user have access to the database too
+sudo -u postgres bash -c "createuser root"
+sudo -u postgres bash -c "psql -c \"grant apache to root\""
+
 # create tables
 sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
 
