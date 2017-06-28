@@ -113,6 +113,7 @@ eval{
 	open(my $F, "$archivefile.meta") || die "Unable to open metafile";
 	while (<$F>) {
 		my ($key, $val) = split /\s*=\s*/;
+		$val =~ s/[\r\n]//g;
 		$meta{$key} = $val;
 	}
 	close($F);
