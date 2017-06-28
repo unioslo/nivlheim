@@ -134,6 +134,7 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/processarchive %{buildroot}/var/www/cgi-bin/
+install -p -m 0755 server/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/jobs.go %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
@@ -146,6 +147,7 @@ perl -c %{buildroot}/var/www/cgi-bin/secure/post
 perl -c %{buildroot}/var/www/cgi-bin/ping
 perl -c %{buildroot}/var/www/cgi-bin/reqcert
 perl -c %{buildroot}/var/www/cgi-bin/processarchive
+perl -c %{buildroot}/var/www/cgi-bin/parsefile
 
 %clean
 rm -rf %{buildroot}
@@ -174,6 +176,7 @@ rm -rf %{buildroot}
 /var/www/cgi-bin/ping
 /var/www/cgi-bin/reqcert
 /var/www/cgi-bin/processarchive
+/var/www/cgi-bin/parsefile
 /var/www/cgi-bin/secure/ping
 /var/www/cgi-bin/secure/renewcert
 /var/www/cgi-bin/secure/post

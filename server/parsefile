@@ -1,0 +1,65 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use CGI;
+use DBI;
+use Log::Log4perl;
+
+# Restrict access to only localhost
+my $ip = $ENV{'REMOTE_ADDR'};
+if ($ip ne "127.0.0.1" && $ip ne "::1") {
+	print "Status: 403\n";
+	exit;
+}
+
+# Config
+my $confdir = "/var/www/nivlheim";
+
+# Logging
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger();
+
+# Connect to database
+my %attr = ("AutoCommit" => 0);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+
+# Check parameters
+my %params = parse_query_string();
+unless (exists $params{'fileid'}) {
+	print "Status: 400\n\nMissing parameter: fileid\n";
+	exit;
+}
+my $fileid = int($params{'fileid'});
+if ($fileid ne $params{'fileid'}) {
+	print "Status: 400\n\nfileid must be numeric\n";
+	exit;
+}
+
+eval{
+	$dbh->do("UPDATE files SET parsed = true WHERE fileid = ?",
+		undef, ($fileid));
+	$dbh->commit;
+};
+if ($@) {
+	$logger->error($@);
+	$dbh->rollback;
+	print CGI::header(
+		-type => 'text/plain',
+		-status => '500 Internal Server Error'
+	);
+};
+
+# Clean up
+$dbh->disconnect;
+
+# Return OK
+print CGI::header('text/plain');
+print "OK\n";

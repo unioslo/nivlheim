@@ -18,19 +18,19 @@ sub parse_query_string();
 sub run_command($);
 sub uts_to_iso8601($);
 
-# Config
-my $confdir = "/var/www/nivlheim";
-
-# Logging
-Log::Log4perl->init("$confdir/log4perl.conf");
-my $logger = Log::Log4perl->get_logger();
-
 # Restrict access to only localhost
 my $ip = $ENV{'REMOTE_ADDR'};
 if ($ip ne "127.0.0.1" && $ip ne "::1") {
 	print "Status: 403\n";
 	exit;
 }
+
+# Config
+my $confdir = "/var/www/nivlheim";
+
+# Logging
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger();
 
 # Connect to database
 my %attr = ("AutoCommit" => 0);

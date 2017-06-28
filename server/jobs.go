@@ -5,9 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
-	"net/url"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -16,16 +16,17 @@ import (
 )
 
 type Job struct {
-	filename string
-	lasttry  time.Time
-	status   int
-	delay    int
-	delay2   int
+	jobid   int64
+	url     string
+	lasttry time.Time
+	status  int
+	delay   int
+	delay2  int
 }
 
 const queuedir = "/var/www/nivlheim/queue"
 
-var quit bool = false
+var quit bool
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -48,7 +49,8 @@ func main() {
 	defer db.Close()
 	for !quit {
 		// Read the current active jobs from the database
-		rows, err := db.Query("SELECT filename, lasttry, status, delay, delay2 FROM jobs")
+		rows, err := db.Query("SELECT jobid, url, lasttry, " +
+			"status, delay, delay2 FROM jobs")
 		if err != nil {
 			log.Fatal(err)
 		}
@@ -57,11 +59,15 @@ func main() {
 			defer rows.Close()
 			for rows.Next() {
 				var job Job
+				var joburl sql.NullString
 				var timestamp pq.NullTime
-				err = rows.Scan(&job.filename, &timestamp, &job.status,
-					&job.delay, &job.delay2)
+				err = rows.Scan(&job.jobid, &joburl, &timestamp,
+					&job.status, &job.delay, &job.delay2)
 				if err != nil {
 					log.Fatal(err)
+				}
+				if joburl.Valid {
+					job.url = joburl.String
 				}
 				if timestamp.Valid {
 					job.lasttry = timestamp.Time
@@ -71,51 +77,25 @@ func main() {
 		}
 
 		// Scan the directory for new files and create jobs for them
-		files, err := ioutil.ReadDir(queuedir)
-		if err != nil {
-			log.Fatal(err)
-		}
-		for _, f := range files {
-			if strings.HasSuffix(f.Name(), ".meta") {
-				// nope.
-				continue
-			}
-			filename := queuedir + "/" + f.Name()
-			for _, j := range jobs {
-				if filename == j.filename {
-					// Existing job
-					filename = ""
-					break
-				}
-			}
-			if filename != "" {
-				job := Job{filename: filename}
-				jobs = append(jobs, job)
-				// New job
-				db.Exec("INSERT INTO jobs(filename) VALUES($1)", job.filename)
-			}
-		}
+		scanQueueDir(db)
+
+		// Create jobs to parse new files that have been read into the database
+		scanFilesDb(db)
 
 		// Find jobs that should be run/re-tried right now
 		canWait := 20
 		for i, job := range jobs {
 			if job.lasttry.IsZero() ||
 				time.Since(job.lasttry).Seconds() > float64(job.delay) {
-				if strings.HasPrefix(job.filename, queuedir) {
-					basename := job.filename[len(queuedir)+1:]
-					url := "http://localhost/cgi-bin/processarchive?archivefile=" +
-						url.QueryEscape(basename)
-					resp, err := http.Get(url)
-					job.status = resp.StatusCode
-					if err == nil {
-						resp.Body.Close()
-						if resp.StatusCode == 200 {
-							db.Exec("DELETE FROM jobs WHERE filename=$1", job.filename)
-							continue
-						}
+				resp, err := http.Get(job.url)
+				job.status = resp.StatusCode
+				if err == nil {
+					resp.Body.Close()
+					if resp.StatusCode == 200 {
+						db.Exec("DELETE FROM jobs WHERE jobid=$1", job.jobid)
+						continue
 					}
 				}
-
 				job.lasttry = time.Now()
 
 				// Fibonacci sequence
@@ -133,8 +113,8 @@ func main() {
 				}
 
 				db.Exec("UPDATE jobs SET lasttry=$1, delay=$2, delay2=$3, status=$4 "+
-					" where filename=$5",
-					job.lasttry, job.delay, job.delay2, job.status, job.filename)
+					" WHERE jobid=$5",
+					job.lasttry, job.delay, job.delay2, job.status, job.jobid)
 				jobs[i] = job
 			} else {
 				timeleft := job.delay - int(time.Since(job.lasttry).Seconds())
@@ -147,6 +127,45 @@ func main() {
 		// Sleep
 		for second := 0; second < canWait && !quit; second++ {
 			time.Sleep(time.Second)
+		}
+	}
+}
+
+func scanQueueDir(db *sql.DB) {
+	// Scan the directory for new files and create jobs for them
+	files, err := ioutil.ReadDir(queuedir)
+	if err != nil {
+		log.Fatal(err)
+	}
+	for _, f := range files {
+		if strings.HasSuffix(f.Name(), ".meta") {
+			// nope.
+			continue
+		}
+		joburl := "http://localhost/cgi-bin/processarchive?archivefile=" +
+			f.Name()
+		job := Job{url: joburl}
+		// New job
+		db.Exec("INSERT INTO jobs(url) VALUES($1) ON CONFLICT DO NOTHING",
+			job.url)
+	}
+}
+
+func scanFilesDb(db *sql.DB) {
+	rows, err := db.Query("SELECT fileid FROM files WHERE parsed = false")
+	if err != nil {
+		log.Fatal(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fileid sql.NullInt64
+		rows.Scan(&fileid)
+		if fileid.Valid {
+			joburl := "http://localhost/cgi-bin/parsefile?id=" +
+				strconv.FormatInt(fileid.Int64, 10)
+			job := Job{url: joburl}
+			db.Exec("INSERT INTO jobs(url) VALUES($1) "+
+				"ON CONFLICT DO NOTHING", job.url)
 		}
 	}
 }
