@@ -29,3 +29,35 @@ CREATE TABLE IF NOT EXISTS jobs(
 	delay int not null default 0,
 	delay2 int not null default 0
 );
+
+CREATE TABLE IF NOT EXISTS hostinfo(
+	hostname text,
+	ipaddr text,
+	certfp text PRIMARY KEY NOT NULL,
+	kernel text,
+	siteadmin text,
+	type text,
+	lastseen timestamp with time zone,
+	os text,
+	osclass text,
+	vendor text,
+	model text,
+	serialno text,
+	nivlheim_version text
+);
+
+CREATE TABLE IF NOT EXISTS warranty(
+	serialno text NOT NULL,
+	description text,
+	start timestamp with time zone,
+	expires timestamp with time zone,
+	lastupdated timestamp with time zone
+);
+
+CREATE TABLE IF NOT EXISTS api_error(
+	serialno text NOT NULL,
+	http_status int,
+	api_status int,
+	api_message text,
+	ts timestamp with time zone
+);

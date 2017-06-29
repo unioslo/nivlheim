@@ -5,6 +5,7 @@ use warnings;
 use CGI;
 use DBI;
 use Log::Log4perl;
+use Net::DNS;
 
 sub parse_query_string();
 sub uts_to_iso8601($);
@@ -47,6 +48,25 @@ if ($fileid ne $params{'fileid'}) {
 }
 
 eval{
+	my $sth = $dbh->prepare("SELECT filename, content, " .
+		"received, is_command, certcn, ipaddr, certfp " .
+		"FROM files WHERE fileid=?");
+	$sth->bind_param(1, $fileid);
+	my $rv = $sth->execute;
+	$row = $sth->fetchrow_hashref;
+	$sth->finish;
+
+	# Set hostname, ip address, and lastseen
+	my @params = ($row->{'received'}, $row->{'certcn'},
+		$row->{'ipaddr'}, $row->{'certfp'});
+	my $rows = $dbh->do("UPDATE hostinfo SET lastseen=?,hostname=?,ipaddr=? "
+		."WHERE certfp=?", undef, @params);
+	if ($rows == 0) {
+		$dbh->do("INSERT INTO hostinfo(lastseen,hostname,ipaddr,certfp) "
+			."VALUES(?,?,?,?)", undef, @params);
+		$logger->info("New host: " . $row->{'certcn'} . " " . $row->{'certfp'});
+	}
+
 	$dbh->do("UPDATE files SET parsed = true WHERE fileid = ?",
 		undef, ($fileid));
 	$dbh->commit;

@@ -48,6 +48,12 @@ func main() {
 	}
 	defer db.Close()
 	for !quit {
+		// Scan the directory for new files and create jobs for them
+		scanQueueDir(db)
+
+		// Create jobs to parse new files that have been read into the database
+		scanFilesDb(db)
+
 		// Read the current active jobs from the database
 		rows, err := db.Query("SELECT jobid, url, lasttry, " +
 			"status, delay, delay2 FROM jobs")
@@ -76,12 +82,6 @@ func main() {
 			}
 		}
 
-		// Scan the directory for new files and create jobs for them
-		scanQueueDir(db)
-
-		// Create jobs to parse new files that have been read into the database
-		scanFilesDb(db)
-
 		// Find jobs that should be run/re-tried right now
 		canWait := 20
 		for i, job := range jobs {
@@ -93,6 +93,9 @@ func main() {
 					resp.Body.Close()
 					if resp.StatusCode == 200 {
 						db.Exec("DELETE FROM jobs WHERE jobid=$1", job.jobid)
+						// If a job was successful, it might have created
+						// more work to do, so, so don't sleep for very long
+						canWait = 2
 						continue
 					}
 				}

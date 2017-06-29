@@ -71,7 +71,14 @@ if (!@row) {
 		$dbh->disconnect;
 		exit 1;
 	}
-	$logger->debug("$ipaddr says its hostname is \"$hostname\"");
+	$logger->debug("$ipaddr says its hostname is \"" . $params{'hostname'} . "\"");
+	my $dnsresult = forwardConfirmReverseDNS($ipaddr);
+	if (defined($dnsresult)) {
+		$hostname = $dnsresult;
+		$logger->debug("DNS lookup says $ipaddr is $hostname");
+	} else {
+		$logger->debug("DNS lookup is inconclusive.");
+	}
 	$logger->info("Adding $hostname to the waiting for approval list.");
 	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
 		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
