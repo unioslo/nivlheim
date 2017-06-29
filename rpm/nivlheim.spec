@@ -141,6 +141,7 @@ install -p -m 0755 server/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/jobs.go %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
+install -p -m 0755 client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -166,6 +167,7 @@ rm -rf %{buildroot}
 %defattr(-, root, root, -)
 %{_sbindir}/nivlheim_client
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
+%{_sysconfdir}/cron.hourly/nivlheim_client
 
 %files server
 %defattr(-, root, root, -)

@@ -1,0 +1,16 @@
+#!/bin/bash
+
+# Cron will run this script every hour on the hour.
+# To avoid that every client contacts the server at
+# the same time, the script will sleep a "random"
+# period between 0 and 59 minutes first.
+# The number of minutes slept should be different
+# for every host, but for each host it should be
+# the same value every time.
+
+A=$(hostname | md5sum | cut -c 1-4)
+B=$((16#$A))
+C=$(expr $B % 3600)
+sleep $C
+
+/usr/sbin/nivlheim_client > /dev/null
