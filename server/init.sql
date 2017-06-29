@@ -35,7 +35,6 @@ CREATE TABLE IF NOT EXISTS hostinfo(
 	ipaddr text,
 	certfp text PRIMARY KEY NOT NULL,
 	kernel text,
-	siteadmin text,
 	type text,
 	lastseen timestamp with time zone,
 	os text,

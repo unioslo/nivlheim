@@ -101,7 +101,7 @@ func main() {
 				}
 				job.lasttry = time.Now()
 
-				// Fibonacci sequence
+				// Fibonacci sequence determines the delay in seconds
 				if job.delay == 0 && job.delay2 == 0 {
 					job.delay = 1
 					job.delay2 = 0
@@ -109,6 +109,10 @@ func main() {
 					newdelay := job.delay + job.delay2
 					job.delay2 = job.delay
 					job.delay = newdelay
+				}
+				// Max delay is 24 hours.
+				if job.delay > 86400 {
+					job.delay = 86400
 				}
 
 				if job.delay < canWait {
