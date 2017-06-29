@@ -53,7 +53,7 @@ eval{
 		"FROM files WHERE fileid=?");
 	$sth->bind_param(1, $fileid);
 	my $rv = $sth->execute;
-	$row = $sth->fetchrow_hashref;
+	my $row = $sth->fetchrow_hashref;
 	$sth->finish;
 
 	# Set hostname, ip address, and lastseen
