@@ -26,7 +26,7 @@ Log::Log4perl->init("$confdir/log4perl.conf");
 my $logger = Log::Log4perl->get_logger();
 
 # Connect to database
-my %attr = ("AutoCommit" => 0);
+my %attr = ("AutoCommit" => 0, "RaiseError" => 0);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
 	print "Status: 500\nContent-Type: text/plain\n\n";
@@ -49,6 +49,8 @@ if ($fileid ne $params{'fileid'}) {
 }
 
 eval{
+	$dbh->{RaiseError} = 1;
+
 	my $sth = $dbh->prepare("SELECT filename, content, " .
 		"received, is_command, certcn, ipaddr, certfp " .
 		"FROM files WHERE fileid=?");
@@ -223,12 +225,12 @@ eval{
 	if ($row->{'filename'} eq "Get-WmiObject Win32_computersystemproduct|Select Name,Vendor|ConvertTo-Json") {
 		eval {
 			my $content = decode_json($row->{'content'});
-			$dbh->do("UPDATE hostinfo SET product=? WHERE certfp=?",
+			$dbh->do("UPDATE hostinfo SET model=? WHERE certfp=?",
 				undef, ($content->{'Name'}, $row->{'certfp'}));
 			my $vendor = $content->{'Vendor'};
 			$vendor =~ s/^HP$/Hewlett-Packard/;
 			$vendor =~ s/HITACHI/Hitachi/;
-			$dbh->do("UPDATE hostinfo SET manufacturer=? WHERE certfp=?",
+			$dbh->do("UPDATE hostinfo SET vendor=? WHERE certfp=?",
 				undef, ($vendor, $row->{'certfp'}));
 		};
 	}
@@ -238,7 +240,11 @@ eval{
 	$dbh->commit;
 };
 if ($@) {
-	$logger->error($@);
+	my $err = $@;
+	$logger->error($err);
+	if ($err =~ /prepare/) {
+		$logger->error($dbh->{Statement});
+	}
 	$dbh->rollback;
 	print CGI::header(
 		-type => 'text/plain',
