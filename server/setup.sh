@@ -77,16 +77,18 @@ sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
 
 # compile and install the Go code
 rm -f /usr/sbin/nivlheim_jobs
+rm -f /var/www/html/frontpage.cgi
 cd /var/nivlheim
-mkdir -p go/{src,pkg,bin}
-mv jobs.go go/src/
 export GOPATH=/var/nivlheim/go
 export GOBIN=$GOPATH/bin
 cd $GOPATH/src
 go get || exit 1
 go install jobs.go || exit 1
+go install frontpage.go || exit 1
 mv $GOBIN/jobs /usr/sbin/nivlheim_jobs
+mv $GOBIN/frontpage /var/www/cgi-bin/frontpage.cgi
 chcon -t bin_t -u system_u /usr/sbin/nivlheim_jobs
+chcon -t httpd_sys_script_exec_t -u system_u /var/www/cgi-bin/frontpage.cgi
 
 # enable the systemd service
 if which systemctl > /dev/null 2>&1; then

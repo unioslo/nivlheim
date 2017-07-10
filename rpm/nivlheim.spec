@@ -118,7 +118,7 @@ rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
-mkdir -p %{buildroot}%{_localstatedir}/nivlheim
+mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/log/nivlheim
@@ -138,10 +138,10 @@ install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
-install -p -m 0644 server/jobs.go %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
+cp -r server/gosrc/* %{buildroot}%{_localstatedir}/nivlheim/go/src/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -187,7 +187,8 @@ rm -rf %{buildroot}
 /var/www/cgi-bin/secure/post
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
-%{_localstatedir}/nivlheim/jobs.go
+%{_localstatedir}/nivlheim/go/src/jobs.go
+%{_localstatedir}/nivlheim/go/src/web/frontpage.go
 
 %post server
 %{_localstatedir}/nivlheim/setup.sh
