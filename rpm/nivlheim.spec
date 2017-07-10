@@ -140,7 +140,7 @@ install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
-install -p -m 0755 client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
+install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
 cp -r server/gosrc/* %{buildroot}%{_localstatedir}/nivlheim/go/src/
 
 %check
