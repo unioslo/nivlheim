@@ -177,8 +177,9 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_localstatedir}/nivlheim/init.sql
-%attr(0775, root, apache) /var/www/nivlheim
+%attr(0775, root, apache) %dir /var/www/nivlheim
 %attr(0775, root, apache) %dir /var/log/nivlheim
+/var/www/nivlheim
 /var/www/cgi-bin
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
