@@ -177,19 +177,12 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_localstatedir}/nivlheim/init.sql
-%attr(0775, root, apache) %dir /var/www/nivlheim
+%attr(0775, root, apache) /var/www/nivlheim
 %attr(0775, root, apache) %dir /var/log/nivlheim
-/var/www/cgi-bin/ping
-/var/www/cgi-bin/reqcert
-/var/www/cgi-bin/processarchive
-/var/www/cgi-bin/parsefile
-/var/www/cgi-bin/secure/ping
-/var/www/cgi-bin/secure/renewcert
-/var/www/cgi-bin/secure/post
+/var/www/cgi-bin
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
-%{_localstatedir}/nivlheim/go/src/jobs.go
-%{_localstatedir}/nivlheim/go/src/web/frontpage.go
+%{_localstatedir}/nivlheim
 
 %post server
 %{_localstatedir}/nivlheim/setup.sh
