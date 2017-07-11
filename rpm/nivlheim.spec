@@ -119,7 +119,7 @@ mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
-mkdir -p %{buildroot}/var/www/nivlheim
+mkdir -p %{buildroot}/var/www/nivlheim/templates
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
@@ -142,6 +142,7 @@ install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.servi
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
 cp -r server/gosrc/* %{buildroot}%{_localstatedir}/nivlheim/go/src/
+cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
