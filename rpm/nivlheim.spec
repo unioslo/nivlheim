@@ -186,7 +186,7 @@ rm -rf %{buildroot}
 %{_localstatedir}/nivlheim
 
 %post server
-%{_localstatedir}/nivlheim/setup.sh
+%{_localstatedir}/nivlheim/setup.sh || exit 1
 %systemd_post %{name}.service
 
 %preun server
