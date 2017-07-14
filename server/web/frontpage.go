@@ -3,26 +3,30 @@ package main
 import (
 	"html/template"
 	"net/http"
-	"net/http/cgi"
 )
+
+var templatePath string
+var templates *template.Template
 
 func init() {
 	http.HandleFunc("/", helloworld)
+	http.HandleFunc("/search", search)
 }
 
 func main() {
-	cgi.Serve(nil)
+	//templatePath = "/var/www/nivlheim/templates"
+	//cgi.Serve(nil)
+	templatePath = "../templates"
+	http.ListenAndServe(":8080", nil)
 }
 
 func helloworld(w http.ResponseWriter, req *http.Request) {
 	// Load html templates
-	var err error
-	templates, err := template.ParseGlob("/var/www/nivlheim/templates/*")
+	templates, err := template.ParseGlob(templatePath + "/*")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	//log.Println("%s", templates.DefinedTemplates())
 
 	// Fill template values
 	tValues := make(map[string]interface{})

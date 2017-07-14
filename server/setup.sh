@@ -9,7 +9,7 @@ fi
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA,queue}
 
-# initialize db
+# initialize certificate db
 cd /var/www/nivlheim/db
 touch index.txt
 echo 'unique_subject = no' > index.txt.attr
@@ -80,15 +80,17 @@ rm -f /usr/sbin/nivlheim_jobs
 rm -f /var/www/cgi-bin/frontpage.cgi
 export GOPATH=/var/nivlheim/go
 export GOBIN=$GOPATH/bin
-cd $GOPATH/src
+#
+cd $GOPATH/src/jobrunner
 go get || exit 1
-go install jobs.go || exit 1
-cd web
-go install frontpage.go || exit 1
-mv $GOBIN/jobs /usr/sbin/nivlheim_jobs
-mv $GOBIN/frontpage /var/www/cgi-bin/frontpage.cgi
-rm -f $GOBIN/*
+go install || exit 1
+mv $GOBIN/jobrunner /usr/sbin/nivlheim_jobs
 chcon -t bin_t -u system_u /usr/sbin/nivlheim_jobs
+#
+cd $GOPATH/src/web
+go get || exit 1
+go install || exit 1
+mv $GOBIN/web /var/www/cgi-bin/frontpage.cgi
 chcon -t httpd_sys_script_exec_t -u system_u /var/www/cgi-bin/frontpage.cgi
 
 # enable the systemd service

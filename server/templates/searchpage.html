@@ -1,0 +1,19 @@
+<!doctype html>
+<html>
+<head>
+	<title>Nivlheim</title>
+{{template "common_head.html"}}
+</head>
+<body>
+{{template "searchbox.html" .}}
+
+{{range .hits}}
+<p>
+	<span class="hostname">{{.hostname}}</span>:
+	<span class="hostname">{{.filename}}</span><br>
+	<span class="excerpt">{{.excerpt}}</span>
+</p>
+{{end}}
+</table>
+</body>
+</html>
