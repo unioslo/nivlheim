@@ -56,7 +56,7 @@ if ($params{'archivefile'} =~ m![\\/]!) {
 my $archivefile = $params{'archivefile'};
 $archivefile = "$confdir/queue/$archivefile";
 unless (-r $archivefile) {
-	print "Status: 400\n\nCan't find the archive file.\n";
+	print "Status: 410\n\nCan't find the archive file.\n";
 	exit;
 }
 

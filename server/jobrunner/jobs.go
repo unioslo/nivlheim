@@ -88,16 +88,18 @@ func main() {
 			if job.lasttry.IsZero() ||
 				time.Since(job.lasttry).Seconds() > float64(job.delay) {
 				resp, err := http.Get(job.url)
-				job.status = resp.StatusCode
 				if err == nil {
+					job.status = resp.StatusCode
 					resp.Body.Close()
-					if resp.StatusCode == 200 {
+					if resp.StatusCode == 200 || resp.StatusCode == 410 {
 						db.Exec("DELETE FROM jobs WHERE jobid=$1", job.jobid)
 						// If a job was successful, it might have created
 						// more work to do, so, so don't sleep for very long
 						canWait = 2
 						continue
 					}
+				} else {
+					job.status = 1
 				}
 				job.lasttry = time.Now()
 
