@@ -216,7 +216,7 @@ eval{
 			if ($info =~ /Serial Number: ([a-zA-Z0-9]+)\s*$/m) {
 				$serial = $1;
 			}
-			$dbh->do("UPDATE hostinfo SET vendor=?, model=?, serial=? WHERE certfp=?",
+			$dbh->do("UPDATE hostinfo SET vendor=?, model=?, serialno=? WHERE certfp=?",
 				undef, ($vendor, $model, $serial, $row->{'certfp'}));
 		}
 	}
