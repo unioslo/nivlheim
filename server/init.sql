@@ -14,7 +14,7 @@ CREATE TABLE IF NOT EXISTS files(
 	filename text,
 	received timestamp with time zone,
 	content text,
-	is_command boolean,
+	is_command boolean not null default false,
 	clientversion text,
 	parsed boolean not null default false
 );
@@ -42,7 +42,7 @@ CREATE TABLE IF NOT EXISTS hostinfo(
 	vendor text,
 	model text,
 	serialno text,
-	nivlheim_version text
+	clientversion text
 );
 
 CREATE TABLE IF NOT EXISTS warranty(

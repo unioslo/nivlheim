@@ -6,7 +6,7 @@
 </head>
 <body>
 {{template "logo"}}
-{{template "searchbox.html" .}}
+{{template "searchbox" .}}
 
 <p>
 {{.count}} hits
@@ -15,7 +15,8 @@
 {{range .hits}}
 <p>
 	<span class="hostname">{{.Hostname}}</span>:
-	<span class="filename">{{.Filename}}</span><br>
+	<span class="filename"><a href="/browse?fid={{.Fileid}}">
+		{{.Filename}}</a></span><br>
 	<span class="excerpt">{{.Excerpt}}</span>
 </p>
 {{end}}
@@ -23,3 +24,10 @@
 </table>
 </body>
 </html>
+
+{{define "searchbox"}}
+<form method="get" action="/search">
+<input name="q" type="text" size="30" value="{{.q}}">
+<button type="submit">Søk</button>
+</form>
+{{end}}

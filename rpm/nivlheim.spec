@@ -121,6 +121,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
 mkdir -p %{buildroot}/var/www/nivlheim/templates
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
+mkdir -p %{buildroot}/var/www/html/static
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
@@ -144,6 +145,7 @@ install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/
 cp -r server/web %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp -r server/jobrunner %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
+cp -r server/static/* %{buildroot}%{_localstatedir}/www/html/static/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -182,6 +184,7 @@ rm -rf %{buildroot}
 %attr(0775, root, apache) %dir /var/log/nivlheim
 /var/www/nivlheim
 /var/www/cgi-bin
+/var/www/html/static
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_localstatedir}/nivlheim

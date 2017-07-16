@@ -52,7 +52,7 @@ eval{
 	$dbh->{RaiseError} = 1;
 
 	my $sth = $dbh->prepare("SELECT filename, content, " .
-		"received, is_command, certcn, ipaddr, certfp " .
+		"received, is_command, certcn, ipaddr, certfp, clientversion " .
 		"FROM files WHERE fileid=?");
 	$sth->bind_param(1, $fileid);
 	my $rv = $sth->execute;
@@ -61,12 +61,12 @@ eval{
 
 	# Set hostname, ip address, and lastseen
 	my @params = ($row->{'received'}, $row->{'certcn'},
-		$row->{'ipaddr'}, $row->{'certfp'});
-	my $rows = $dbh->do("UPDATE hostinfo SET lastseen=?,hostname=?,ipaddr=? "
-		."WHERE certfp=?", undef, @params);
+		$row->{'ipaddr'}, $row->{'clientversion'}, $row->{'certfp'});
+	my $rows = $dbh->do("UPDATE hostinfo SET lastseen=?,hostname=?,ipaddr=?, "
+		."clientversion=? WHERE certfp=?", undef, @params);
 	if ($rows == 0) {
-		$dbh->do("INSERT INTO hostinfo(lastseen,hostname,ipaddr,certfp) "
-			."VALUES(?,?,?,?)", undef, @params);
+		$dbh->do("INSERT INTO hostinfo(lastseen,hostname,ipaddr,certfp,clientversion) "
+			."VALUES(?,?,?,?,?)", undef, @params);
 		$logger->info("New host: " . $row->{'certcn'} . " " . $row->{'certfp'});
 	}
 

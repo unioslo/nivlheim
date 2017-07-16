@@ -9,7 +9,15 @@
 
 Hei verden!
 
-{{template "searchbox.html" .}}
+{{template "searchbox" .}}
+
+<p>
+Maskiner i systemet:<br>
+{{range .machines}}
+<a href="/browse?h={{.}}">{{.}}</a><br>
+{{end}}
+</p>
+
 </body>
 </html>
 
