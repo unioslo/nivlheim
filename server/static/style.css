@@ -5,3 +5,20 @@
 	user-select: none;
 	cursor: default;
 }
+
+span.hostname {
+	color: green;
+}
+
+span.filename {
+	color: blue;
+}
+
+span.excerpt {
+	color: grey;
+}
+
+span.excerpt > em {
+	font-weight: bold;
+	font-style: normal;
+}

@@ -17,6 +17,7 @@ func main() {
 	//templatePath = "/var/www/nivlheim/templates"
 	//cgi.Serve(nil)
 	templatePath = "../templates"
+	http.HandleFunc("/static/", staticfiles)
 	http.ListenAndServe(":8080", nil)
 }
 
@@ -34,4 +35,8 @@ func helloworld(w http.ResponseWriter, req *http.Request) {
 
 	// Render template
 	templates.ExecuteTemplate(w, "frontpage.html", tValues)
+}
+
+func staticfiles(w http.ResponseWriter, req *http.Request) {
+	http.ServeFile(w, req, "../static/"+req.URL.Path[8:])
 }

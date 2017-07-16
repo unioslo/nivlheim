@@ -5,8 +5,14 @@
 {{template "common_head.html"}}
 </head>
 <body>
+{{template "logo"}}
+
 Hei verden!
 
 {{template "searchbox.html" .}}
 </body>
 </html>
+
+{{define "logo"}}
+<p><a href="/">Nivlheim</a></p>
+{{end}}
