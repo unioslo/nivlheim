@@ -32,8 +32,7 @@ type File struct {
 }
 
 func browse(w http.ResponseWriter, req *http.Request) {
-	db, err := sql.Open("postgres", "host=potetgull.mooo.com "+
-		"dbname=apache sslmode=disable user=apache")
+	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

@@ -42,7 +42,7 @@ func main() {
 	defer log.Println("Quit.")
 	log.Println("Starting up.")
 
-	db, err := sql.Open("postgres", "dbname=apache sslmode=disable host=/tmp")
+	db, err := sql.Open("postgres", "dbname=apache host=/var/run/postgresql")
 	if err != nil {
 		log.Fatal(err)
 	}
