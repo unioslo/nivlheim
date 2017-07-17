@@ -20,7 +20,7 @@ func init() {
 }
 
 func main() {
-	if len(os.Args) > 0 && os.Args[1] == "--dev" {
+	if len(os.Args) >= 2 && os.Args[1] == "--dev" {
 		templatePath = "../templates"
 		http.HandleFunc("/static/", staticfiles)
 		http.ListenAndServe(":8080", nil)
