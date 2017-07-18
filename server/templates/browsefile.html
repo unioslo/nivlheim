@@ -7,8 +7,10 @@
 <body>
 {{template "logo"}}
 
+<div>
 <a href="/browse?h={{.hostname}}"><h1>{{.hostname}}</h1></a>
 <h1>{{.file.Filename.Value}}</h1>
+</div>
 
 <pre>{{.file.Content.Value}}</pre>
 
