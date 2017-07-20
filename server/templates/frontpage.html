@@ -8,17 +8,24 @@
 {{template "logo"}}
 
 <p>
-Hei verden!
+<h3>System status</h3>
+<span class="keyfigure">{{.filesLastHour}}</span>
+files were collected during the last hour.<br>
+<span class="keyfigure">{{.totalMachines}}</span>
+machines in the system.<br>
+<span class="keyfigure">{{.reportingPercentage}}%</span>
+of machines sent in files during the last hour.<br>
 </p>
 
+{{if .machines}}
 {{template "searchbox" .}}
-
 <p>
-Maskiner i systemet:<br>
+<h3>Machines</h3>
 {{range .machines}}
 <a href="/browse?h={{.}}">{{.}}</a><br>
 {{end}}
 </p>
+{{end}}
 
 </body>
 </html>

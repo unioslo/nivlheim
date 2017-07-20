@@ -8,11 +8,14 @@
 {{template "logo"}}
 
 <div>
-<a href="/browse?h={{.hostname}}"><h1>{{.hostname}}</h1></a>
-<h1>{{.file.Filename.Value}}</h1>
+<h1><a href="/browse?h={{.hostname}}">{{.hostname}}</a>:
+{{.file.Filename.Value}}</h1>
 </div>
 
-<pre>{{.file.Content.Value}}</pre>
+<p>
+	Received: {{.file.Received.Value}}
+</p>
+<div class="filecontent">{{.file.Content.Value}}</div>
 
 </body>
 </html>

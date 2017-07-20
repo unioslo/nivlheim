@@ -14,7 +14,8 @@
 
 {{range .hits}}
 <p>
-	<span class="hostname">{{.Hostname}}</span>:
+	<a href="/browse?h={{.Hostname}}"><span class="hostname">
+		{{.Hostname}}</span></a>:
 	<span class="filename"><a href="/browse?fid={{.Fileid}}">
 		{{.Filename}}</a></span><br>
 	<span class="excerpt">{{.Excerpt}}</span>
@@ -28,6 +29,6 @@
 {{define "searchbox"}}
 <form method="get" action="/search">
 <input name="q" type="text" size="30" value="{{.q}}">
-<button type="submit">Søk</button>
+<button type="submit">Search</button>
 </form>
 {{end}}

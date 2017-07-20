@@ -15,7 +15,7 @@ span.filename {
 }
 
 span.excerpt {
-	color: grey;
+	color: #333;
 }
 
 span.excerpt > em {
@@ -45,4 +45,20 @@ div#logo a {
 	font-size: 24pt;
 	font-family: 'Open Sans', sans-serif;
 	color: #FFF6DF;
+}
+
+a, a:visited {
+	color: #008;
+}
+
+span.keyfigure {
+	color: #080;
+	font-weight: bold;
+}
+
+div.filecontent {
+	white-space: pre;
+	font-family: monospace;
+	background-color: rgba(0,0,0,0.1);
+	margin-right: 50px;
 }

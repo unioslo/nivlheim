@@ -15,7 +15,7 @@ var templates *template.Template
 var dbConnectionString string
 
 func init() {
-	http.HandleFunc("/", helloworld)
+	http.HandleFunc("/", frontpage)
 	http.HandleFunc("/search", search)
 	http.HandleFunc("/browse", browse)
 }
@@ -34,7 +34,7 @@ func main() {
 	}
 }
 
-func helloworld(w http.ResponseWriter, req *http.Request) {
+func frontpage(w http.ResponseWriter, req *http.Request) {
 	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -69,9 +69,23 @@ func helloworld(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
+	var filesLastHour int
+	db.QueryRow("SELECT count(*) FROM files WHERE " +
+		"received > now() - '1 hour'::INTERVAL").Scan(&filesLastHour)
+
+	var machinesLastHour int
+	db.QueryRow("SELECT count(distinct certfp) FROM files WHERE " +
+		"received > now() - '1 hour'::INTERVAL").Scan(&machinesLastHour)
+
+	var totalMachines int
+	db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&totalMachines)
+
 	// Fill template values
 	tValues := make(map[string]interface{})
 	tValues["machines"] = machines
+	tValues["filesLastHour"] = filesLastHour
+	tValues["totalMachines"] = totalMachines
+	tValues["reportingPercentage"] = (machinesLastHour * 100) / totalMachines
 
 	// Render template
 	templates.ExecuteTemplate(w, "frontpage.html", tValues)
