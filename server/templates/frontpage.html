@@ -17,10 +17,31 @@ machines in the system.<br>
 of machines sent in files during the last hour.<br>
 </p>
 
+{{if .approval}}
+<p>
+<h3>Waiting for approval</h3>
+{{range .approval}}
+<div>
+	{{.Hostname.Value}} ({{.Ipaddr.Value}})
+	<form ic-post-to="/" class="inline">
+		<input type="hidden" name="ip" value="{{.Ipaddr.Value}}">
+		<input type="hidden" name="h" value="{{.Hostname.Value}}">
+		<button name="approve" value="1">
+			<i class="fa fa-thumbs-up fa-lg" style="color:#060;"></i> Approve
+		</button>
+		<button name="approve" value="0">
+			<i class="fa fa-thumbs-down fa-lg" style="color:#600;"></i> Deny
+		</button>
+	</form>
+</div>
+{{end}}
+</p>
+{{end}}
+
 {{if .machines}}
-{{template "searchbox" .}}
 <p>
 <h3>Machines</h3>
+{{template "searchbox" .}}
 {{range .machines}}
 <a href="/browse?h={{.}}">{{.}}</a><br>
 {{end}}

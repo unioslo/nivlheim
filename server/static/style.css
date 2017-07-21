@@ -44,7 +44,7 @@ div#logo a {
 	text-decoration: none;
 	font-size: 24pt;
 	font-family: 'Open Sans', sans-serif;
-	color: #FFF6DF;
+	color: #FFFFFF;
 }
 
 a, a:visited {
@@ -61,4 +61,17 @@ div.filecontent {
 	font-family: monospace;
 	background-color: rgba(0,0,0,0.1);
 	margin-right: 50px;
+}
+
+div.searchbox {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+button {
+	font-family: 'Open Sans', sans-serif;
+}
+
+form.inline {
+	display: inline;
 }

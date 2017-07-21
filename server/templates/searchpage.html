@@ -27,8 +27,10 @@
 </html>
 
 {{define "searchbox"}}
+<div class="searchbox">
 <form method="get" action="/search">
 <input name="q" type="text" size="30" value="{{.q}}">
-<button type="submit">Search</button>
+<button type="submit"><i class="fa fa-search fa-lg"></i> Search</button>
 </form>
+</div>
 {{end}}

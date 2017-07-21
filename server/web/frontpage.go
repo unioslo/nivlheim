@@ -7,12 +7,18 @@ import (
 	"net/http/cgi"
 	"os"
 
-	_ "github.com/lib/pq"
+	"github.com/lib/pq"
 )
 
 var templatePath string
 var templates *template.Template
 var dbConnectionString string
+
+type WaitingForApproval struct {
+	Ipaddr   sql.NullString
+	Hostname sql.NullString
+	Received pq.NullTime
+}
 
 func init() {
 	http.HandleFunc("/", frontpage)
@@ -41,6 +47,36 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	defer db.Close()
+
+	if req.FormValue("approve") != "" {
+		approved := req.FormValue("approve") == "1"
+		res, err := db.Exec("UPDATE waiting_for_approval SET approved=$1 "+
+			"WHERE hostname=$2 AND ipaddr=$3",
+			approved,
+			req.FormValue("h"),
+			req.FormValue("ip"))
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		rows, err := res.RowsAffected()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if rows == 0 {
+			http.Error(w, "Record not found.", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
+		switch approved {
+		case true:
+			w.Write([]byte("Approved"))
+		case false:
+			w.Write([]byte("Denied"))
+		}
+		return
+	}
 
 	// Load html templates
 	templates, err := template.ParseGlob(templatePath + "/*")
@@ -80,12 +116,32 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	var totalMachines int
 	db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&totalMachines)
 
+	approval := make([]WaitingForApproval, 0, 0)
+	rows, err = db.Query("SELECT ipaddr, hostname, received " +
+		"FROM waiting_for_approval WHERE approved IS NULL ORDER BY hostname")
+	if err != nil {
+		http.Error(w, "1: "+err.Error(), http.StatusInternalServerError)
+		return
+	} else {
+		defer rows.Close()
+		for rows.Next() {
+			var app WaitingForApproval
+			err = rows.Scan(&app.Ipaddr, &app.Hostname, &app.Received)
+			if err != nil && err != sql.ErrNoRows {
+				http.Error(w, "4: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
+			approval = append(approval, app)
+		}
+	}
+
 	// Fill template values
 	tValues := make(map[string]interface{})
 	tValues["machines"] = machines
 	tValues["filesLastHour"] = filesLastHour
 	tValues["totalMachines"] = totalMachines
 	tValues["reportingPercentage"] = (machinesLastHour * 100) / totalMachines
+	tValues["approval"] = approval
 
 	// Render template
 	templates.ExecuteTemplate(w, "frontpage.html", tValues)
