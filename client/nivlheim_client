@@ -389,7 +389,7 @@ eval {
 	if ($result =~ /OK/) {
 		# touch a file
 		my $file = "/var/run/nivlheim_client_last_run";
-		if (!-e $file) { open($F, ">$file"); close($F); }
+		if (!-e $file) { my $F; open($F, ">$file"); close($F); }
 		utime(undef,undef,$file);
 		# make sure that file is readable for everyone
 		chmod 0644, $file;
