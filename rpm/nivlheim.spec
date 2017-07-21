@@ -1,4 +1,4 @@
-%global date 20170606
+%global date 20170721
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
@@ -51,11 +51,10 @@ BuildRequires: systemd
 BuildArch: noarch
 
 %description
-This package is the base package for Nivlheim, the file collector for
-UiO.
+This package is the base package for Nivlheim.
 
 %package client
-Summary:  Client component of the file collector for UiO
+Summary:  Client component of Nivlheim
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl
@@ -73,7 +72,7 @@ Requires: perl(Socket)
 Requires: perl(Sys::Syslog)
 
 %package server
-Summary:  Server components of the file collector for UiO
+Summary:  Server components of Nivlheim
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
@@ -101,12 +100,10 @@ Requires: perl(Proc::PID::File)
 Requires: perl(Time::Piece)
 
 %description client
-This package contains the client component of Nivlheim, the file
-collector for UiO.
+This package contains the client component of Nivlheim.
 
 %description server
-This package contains the server components of Nivlheim, the file
-collector for UiO.
+This package contains the server components of Nivlheim.
 
 %prep
 %autosetup -n nivlheim-master
@@ -200,5 +197,5 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
-* Tue Jun  6 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170606
+* Fri Jul 21 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170721
 - First package build

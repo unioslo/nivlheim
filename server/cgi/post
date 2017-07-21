@@ -16,8 +16,9 @@
 # along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
 
 
-# Scriptet tar i mot en fil med data fra en klient.
-# Apache kontrollerer tilgangen. Gyldig klientsertifikat skal kreves.
+# This script receives a data file from the client.
+# Apache httpd controls access and verifies the client certificate.
+# A valid client certificate must be required.
 
 use strict;
 use warnings;

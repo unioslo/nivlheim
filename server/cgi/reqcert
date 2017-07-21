@@ -16,11 +16,13 @@
 
 
 #****************************************************************************************
-#	Dette scriptet er den del av Nivlheim-løsningen.
-#	Scriptet tar ingen parametre. Det lager et sertifikat,
-#	signerer det med Nivlheim-CA og returnerer det.
-#	Tilgang kontrolleres slik:
-#	- Scriptet sjekker ip-adresse mot DNS. Det kreves at klient er på trådnett på UiO.
+#	This script is a part of Nivlheim.
+#   It takes no parameters. It creates a client certificate,
+#   signs it with the Nivlheim CA Certificate, and returns it.
+#   It only issues certificates to clients that have been
+#   manually approved.
+#   The first request will put a client on the waiting list.
+#   The list can be managed through the admin website.
 #****************************************************************************************
 
 use strict;
@@ -99,10 +101,8 @@ my $hostname = $row[1];
 # HTTP Header
 print "Content-Type: text/plain\n\n";
 
-# Begrense det til noen få instanser om gangen, fordi openssl bruker lang tid.
-# Må fikse en race condition med openssl og, så foreløpig kan vi kun kjøre 1 instans om gangen.
-#$_ = `ps -C openssl`;
-#if (tr/\n// > 1) {
+# There is a race condition with openssl, so until that is solved
+# there can be only one instance of this script running at any time.
 if (Proc::PID::File->running("dir" => "/tmp")) {
 	print "Too busy, please try again later.\n";
 	$logger->debug("Too busy, let's hope they try again later.");
@@ -110,7 +110,7 @@ if (Proc::PID::File->running("dir" => "/tmp")) {
 }
 
 # Temporary files
-my $id = int(rand()*100000000);  # Denne id'en blir kun brukt i denne gjennomkjøringen av scriptet.
+my $id = int(rand()*100000000); # only used during the execution of this script
 my $keyfile = "/tmp/user$id.key";
 my $csrfile = "/tmp/user$id.csr";
 my $crtfile = "/tmp/user$id.crt";

@@ -17,13 +17,15 @@
 
 
 #****************************************************************************************
-#	Dette scriptet er den del av Nivlheim-løsningen.
-#	Scriptet tar ingen parametre. Det lager et sertifikat,
-#	signerer det med Nivlheim-CA og returnerer det.
-#	Hostname slås opp i hostinfo-tabellen.
-#	Det kreves at klienten allerede bruker et gyldig sertifikat.
-#	Det håndheves av Apache httpd ved at dette scriptet ligger i mappen "secure",
-#	som skal være konfigurert til å kreve klientsertifikat.
+#   This script is a part of Nivlheim.
+#   It takes no parameters. It creates a client certificate,
+#   signs it with the Nivlheim CA Certificate, and returns it.
+#   A previous, valid client certificate is required.
+#   The hostname is determined by looking up the previous certificate
+#   in the database and by looking at its common name.
+#   The requirement is policed by Apache httpd, by placing the scripte
+#   in the "secure" folder. Httpd must be configured to require a
+#   valid client certificate for access to anything in this folder.
 #****************************************************************************************
 
 use strict;
@@ -38,10 +40,8 @@ use Crypt::OpenSSL::X509;
 # HTTP Header
 print "Content-Type: text/plain\n\n";
 
-# Begrense det til noen få instanser om gangen, fordi openssl bruker lang tid.
-# Må fikse en race condition med openssl og, så foreløpig kan vi kun kjøre 1 instans om gangen.
-#$_ = `ps -C openssl`;
-#if (tr/\n// > 1) {
+# There is a race condition with openssl, so until that is solved
+# there can be only one instance of this script running at any time.
 if (Proc::PID::File->running("dir" => "/tmp")) {
 	print "Too busy, please try again later.\n";
 	exit;
@@ -54,7 +54,7 @@ Log::Log4perl->init("$confdir/log4perl.conf");
 my $logger = Log::Log4perl->get_logger("reqcert");
 
 # Temporary files
-my $id = int(rand()*100000000);  # Denne id'en blir kun brukt i denne gjennomkjøringen av scriptet.
+my $id = int(rand()*100000000); # only used during the execution of this script
 my $keyfile = "/tmp/user$id.key";
 my $csrfile = "/tmp/user$id.csr";
 my $crtfile = "/tmp/user$id.crt";

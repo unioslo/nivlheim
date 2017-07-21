@@ -161,16 +161,16 @@ eval{
 		}
 		close $F;
 
-		# Detektere latin-1 og konvertere til UTF-8
+		# Detect Latin-1 and convert it to UTF-8.
 		# http://stackoverflow.com/questions/22868271/how-to-detect-latin1-and-utf-8/22868803#22868803
-		# Hvis det ikke fungerer å dekode som utf-8, kan vi anta at det er latin-1
-		# og behandle det deretter
+		# If it doesn't work to decode the content as utf-8, we can assume
+		# that it is Latin-1 and treat it accordingly.
 		my $de = eval { decode_utf8($content, Encode::FB_CROAK|Encode::LEAVE_SRC) };
 		unless ($de) {
 			$content = encode_utf8($content);
 		}
 
-		# Fjerne control characters, bortsett fra cr, lf og tab
+		# Remove control characters, except for CR, LF and TAB.
 		$content =~ tr/\000-\010/ /;
 		$content =~ tr/\013-\014/ /;
 		$content =~ tr/\016-\037/ /;
