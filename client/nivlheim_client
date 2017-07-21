@@ -33,7 +33,6 @@ use Getopt::Long qw(:config no_ignore_case);
 
 sub http_get($);
 sub http_post($$);
-sub getpassword();
 sub test_without_client_cert();
 sub readconfig($);
 sub printlog($);
@@ -118,13 +117,13 @@ if ($opt{version}) {
     exit 0;
 }
 
-# Logge til stdout eller syslog avhengig av om vi har en tty
+# Log to stdout or syslog depending on whether we have a TTY
 if (!-t STDOUT) {
-	# Vi har ingen TTY. Åpne syslog
+	# There's no TTY. Open syslog
 	openlog('nivlheim', '', Sys::Syslog::LOG_DAEMON);
 }
 
-# Lese config
+# Read the config file
 $opt{config} ||= $defaultopt{config};
 my $configfile;
 foreach my $possible_config_file (split(':', $opt{config})) {
@@ -143,19 +142,19 @@ if (!%config) {
 	exit 1;
 }
 
-# Sette visse options fra configfilen dersom de ikke allerede er satt
+# Set certain options from the config file if they aren't already set.
 if (!defined($opt{ca_file}) || $opt{ca_file} eq '') {
 	$opt{ca_file} = $config{'settings'}{'server_ssl_ca'};
 }
 
-# Bruke default options hvis ikke noe annet er gitt
+# Use default options if nothing else is specified.
 foreach (keys %defaultopt) {
 	if ((!defined $opt{$_}) || $opt{$_} eq '') {
 		$opt{$_} = $defaultopt{$_};
 	}
 }
 
-# server url. must have trailing slash
+# Verify that we have a server url. It must have trailing slash.
 if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
 	print "The config file $configfile must have a section [settings] "
 	     ."that contains a \"server\" option "
@@ -164,7 +163,7 @@ if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
 }
 $server_url = 'https://' . $config{'settings'}{'server'} . '/cgi-bin/';
 
-# Vise options
+# Show options in effect
 if ($opt{debug}) {
 	print "Effective settings:\n";
 	foreach (sort keys %opt) {
@@ -172,7 +171,7 @@ if ($opt{debug}) {
 	}
 }
 
-# Kontrollere at CA-filen er lesbar
+# Verify that the CA certificate file is readable.
 my $real_ca_file = '';
 foreach my $possible_ca_file (split(':', $opt{ca_file})) {
 	if (-r $possible_ca_file) {
@@ -188,9 +187,9 @@ if ($opt{debug}) {
 	print "Using CA file $real_ca_file\n";
 }
 
-## Avgjøre hvilken lokal ip-adresse som skal brukes. Dette er relevant for
-## maskiner som har flere ip-adresser og flere navn i DNS.
-
+# Determine which local ip address to bind to for outgoing connections.
+# This is relevant for machines that have multiple ip addresses on
+# different subnets.
 my $myhostname = `hostname -f`;
 $myhostname =~ s/[\r\n]//g;
 my $localip;
@@ -214,17 +213,18 @@ if ($have_cert) {
 	}
 }
 
-# Har vi et sertifikat? Teste om det fungerer
+# Is there a client certificate present? Test if it works
 my $cert_works = 0;
 if ($have_cert) {
 	eval {
-		http_get($server_url . 'secure/ping'); # kaller die() hvis sertifikatfeil
+		# this function will call die() if the certificate fails
+		http_get($server_url . 'secure/ping');
 		$cert_works = 1;
 	};
 }
 
 if (!$have_cert || !$cert_works) {
-	# Får jeg kontakt med serveren i det hele tatt?
+	# Test if we can establish any contact with the server at all
 	print "No valid client cert. Checking basic SSL connectivity...\n" if ($opt{debug});
 	my $anyContact = 0;
 	eval {
@@ -255,10 +255,10 @@ if (!$have_cert) {
 			print $F "$key\n";
 			close($F);
 			chmod(0600, $opt{key_file});
-			printlog "Har mottatt og lagret et nytt sertifikat.\n";
+			printlog "Received and stored a new certificate.\n";
 		}
 		else {
-			printlog "Fikk ikke utstedt noe sertifikat.\n";
+			printlog "Did not receive any certificate.\n";
 			exit 1;
 		}
 	};
@@ -269,8 +269,8 @@ if (!$have_cert) {
 }
 elsif ($have_cert && !$cert_works) {
 	eval {
-		printlog "Prøver å fornye sertifikatet.\n";
-		# Kontrollere at katalogen finnes
+		printlog "Trying to renew the certificate.\n";
+		# Verify that the directory exists
 		my $dirname = dirname($opt{cert_file});
 		if (!-d $dirname) {
 			mkpath($dirname, {error => \my $err});
@@ -278,12 +278,12 @@ elsif ($have_cert && !$cert_works) {
 		}
 		my $cert = undef;
 		my $key = undef;
-		# Be om et nytt sertifikat på grunnlag av at jeg har et allerede
+		# Request a new certificate on the grounds that we already have an old one
 		my $response = http_get($server_url . 'secure/renewcert');
 		($cert, $key) = parse_certificate_response($response);
-		# Virket det?
+		# Did it work?
 		if (defined($cert) && defined($key)) {
-			printlog "Fikk fornyet sertifikatet.\n";
+			printlog "Successfully renewed the certificate.\n";
 			open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
 			print $F "$cert\n";
 			close($F);
@@ -291,11 +291,10 @@ elsif ($have_cert && !$cert_works) {
 			print $F "$key\n";
 			close($F);
 			chmod(0600, $opt{key_file});
-			printlog "Har mottatt og lagret et nytt sertifikat.\n";
+			printlog "Received and stored a new certificate.\n";
 		}
 		else {
-			# Nei.
-			printlog "Fikk ikke fornyet sertifikatet.\n";
+			printlog "Wasn't able to renew the certificate.\n";
 			exit 1;
 		}
 	};
@@ -376,9 +375,7 @@ $tar->write($tarfile, Archive::Tar::COMPRESS_GZIP());
 # Create a signature for the tar file
 my $signaturefile = "$tarfile.sign";
 unlink($signaturefile); # In case it already exists
-open(my $F, "| openssl dgst -sha256 -sign $opt{key_file} -passin stdin -out $signaturefile $tarfile");
-print $F getpassword();
-close($F);
+system("openssl dgst -sha256 -sign $opt{key_file} -out $signaturefile $tarfile");
 
 # POST all of it
 my %postdata = (
@@ -407,9 +404,7 @@ if (!-t STDOUT) {
 	closelog();
 }
 
-sub getpassword() { return "password123"; } # the password for the private rsa key
-
-
+#---------------- end --------------
 
 # Establish an SSL connection to the server.
 sub ssl_connect($$$) {
@@ -526,8 +521,9 @@ sub test_without_client_cert() {
 }
 
 sub http_get($) {
-	# Jada, det hadde vært fint å bruke LWP til dette,
-	# men jeg ser ikke noen måte å få brukt min egen funksjon for å starte en SSL-kobling da..
+	# Yes, it would have been nice to use LWP for this,
+	# but I see no way of using my own function for
+	# opening an SSL connection that way.
 
 	my $url = shift;
 	my ($proto, $host, $port, $path) = split_url($url);
@@ -567,8 +563,9 @@ sub http_get($) {
 }
 
 sub http_post($$) {
-	# Jada, det hadde vært fint å bruke LWP til dette,
-	# men jeg ser ikke noen måte å få brukt min egen funksjon for å starte en SSL-kobling da..
+	# Yes, it would have been nice to use LWP for this,
+	# but I see no way of using my own function for
+	# opening an SSL connection that way.
 
 	my ($url, $postdataref) = @_;
 	my ($proto, $host, $port, $path) = split_url($url);
@@ -714,10 +711,11 @@ sub is_private($) {
 }
 
 sub select_ip() {
-	# Avgjøre hvilken lokal ip-adresse som skal brukes. Dette er relevant for
-	# maskiner som har flere ip-adresser og flere navn i DNS.
+	# Determine which local ip address to bind to for outgoing connections.
+	# This is relevant for machines that have multiple ip addresses on
+	# different subnets.
 
-	# Bestem hvilken plattform vi kjører på
+	# Determine which platform this script is running on
 	my $platf = `uname -s`;
 
 	my @ips = ();
