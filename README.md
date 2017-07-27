@@ -28,14 +28,14 @@ server=localhost
 ```
 sudo /usr/sbin/nivlheim_client
 ```
-3. Open web admin pages in a browser, and you should see that there's a new machine waiting to be approved. Click "approve".
+3. Open the web admin interface in a browser, and you should see that there's a new machine waiting to be approved. Click "approve".
 
 4. Run the client one more time:
 ```
 sudo /usr/sbin/nivlheim_client
 ```
 
-5. Refresh the web pages and you should see some information about the machine. It may take a few seconds for the system to process before it shows up.
+5. Wait a few seconds, and refresh the web page. You should see some information about the machine. It takes a few seconds for the system to process before it shows up.
 
 ### Install more clients
 
@@ -44,6 +44,9 @@ sudo /usr/sbin/nivlheim_client
 2. Configure the yum repository as detailed above.
 
 3. Install the `nivlheim-client` package.
+```
+sudo dnf -y --nogpgcheck install nivlheim-client
+```
 
 4. Edit `/etc/nivlheim/client.conf`, add one line with the server hostname or ip address
 ```
