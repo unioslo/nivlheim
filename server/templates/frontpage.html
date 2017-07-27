@@ -13,8 +13,10 @@
 files were collected during the last hour.<br>
 <span class="keyfigure">{{.totalMachines}}</span>
 machines in the system.<br>
+{{if .reportingPercentage}}
 <span class="keyfigure">{{.reportingPercentage}}%</span>
 of machines sent in files during the last hour.<br>
+{{end}}
 </p>
 
 {{if .approval}}

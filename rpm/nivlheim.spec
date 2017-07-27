@@ -76,7 +76,7 @@ Summary:  Server components of Nivlheim
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
-Requires: golang, unzip, file
+Requires: golang, unzip, file, git
 Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
 Requires: perl(CGI)

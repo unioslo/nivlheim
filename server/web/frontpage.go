@@ -140,7 +140,9 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	tValues["machines"] = machines
 	tValues["filesLastHour"] = filesLastHour
 	tValues["totalMachines"] = totalMachines
-	tValues["reportingPercentage"] = (machinesLastHour * 100) / totalMachines
+	if totalMachines > 0 {
+		tValues["reportingPercentage"] = (machinesLastHour * 100) / totalMachines
+	}
 	tValues["approval"] = approval
 
 	// Render template
