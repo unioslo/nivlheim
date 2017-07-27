@@ -1,0 +1,12 @@
+[Unit]
+Description=Nivlheim system service
+Wants=network-online.target
+After=network.target network-online.target
+
+[Service]
+ExecStart=/usr/sbin/nivlheim_jobs
+Restart=always
+RestartSec=10s
+
+[Install]
+WantedBy=multi-user.target

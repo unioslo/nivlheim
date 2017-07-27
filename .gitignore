@@ -1,0 +1,3 @@
+*.exe
+server/web/web
+server/jobrunner/jobrunner

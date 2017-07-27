@@ -1,0 +1,242 @@
+#!/usr/bin/perl
+# This file is part of Nivlheim.
+#
+# Nivlheim is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Nivlheim is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
+
+
+#****************************************************************************************
+#	This script is a part of Nivlheim.
+#   It takes no parameters. It creates a client certificate,
+#   signs it with the Nivlheim CA Certificate, and returns it.
+#   It only issues certificates to clients that have been
+#   manually approved.
+#   The first request will put a client on the waiting list.
+#   The list can be managed through the admin website.
+#****************************************************************************************
+
+use strict;
+use warnings;
+use File::Copy;
+use Net::DNS;
+use Net::CIDR;
+use Net::IP qw(:PROC);
+use Log::Log4perl;
+use MIME::Base64;
+use Proc::PID::File;
+use DBI;
+
+sub forwardConfirmReverseDNS($);
+sub parse_query_string();
+
+# Config
+my $confdir = "/var/www/nivlheim";
+my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger("reqcert");
+
+# Connect to database
+my %attr = ("AutoCommit" => 1);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+
+# Check if this client has been approved, and if not,
+# add them to the waiting list.
+my $ipaddr = $ENV{'REMOTE_ADDR'};
+my @row = $dbh->selectrow_array(
+	"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
+	undef, ($ipaddr));
+if (!@row) {
+	$logger->debug("The host $ipaddr has not been pre-approved");
+	my %params = parse_query_string();
+	my $hostname = $params{'hostname'};
+	if (!defined($hostname) || $hostname eq "") {
+		print "Status: 400\nContent-Type: text/plain\n\n";
+		print "Missing required parameter: hostname\n";
+		$logger->warn("Missing required parameter: hostname");
+		$dbh->disconnect;
+		exit 1;
+	}
+	$logger->debug("$ipaddr says its hostname is \"" . $params{'hostname'} . "\"");
+	my $dnsresult = forwardConfirmReverseDNS($ipaddr);
+	if (defined($dnsresult)) {
+		$hostname = $dnsresult;
+		$logger->debug("DNS lookup says $ipaddr is $hostname");
+	} else {
+		$logger->debug("DNS lookup is inconclusive.");
+	}
+	$logger->info("Adding $hostname to the waiting for approval list.");
+	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
+		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
+	print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
+	$dbh->disconnect;
+	exit;
+}
+if (!$row[2]) {
+	# Not approved yet
+	$logger->debug("The host ".$row[1]." / $ipaddr is already on the waiting list.");
+	print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
+	$dbh->disconnect;
+	exit;
+}
+
+my $hostname = $row[1];
+
+# HTTP Header
+print "Content-Type: text/plain\n\n";
+
+# There is a race condition with openssl, so until that is solved
+# there can be only one instance of this script running at any time.
+if (Proc::PID::File->running("dir" => "/tmp")) {
+	print "Too busy, please try again later.\n";
+	$logger->debug("Too busy, let's hope they try again later.");
+	exit;
+}
+
+# Temporary files
+my $id = int(rand()*100000000); # only used during the execution of this script
+my $keyfile = "/tmp/user$id.key";
+my $csrfile = "/tmp/user$id.csr";
+my $crtfile = "/tmp/user$id.crt";
+my $p12file = "/tmp/user$id.p12";
+
+eval {
+	# Generate client key
+	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+
+	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
+	print "Key OK.\n";
+
+	# Generate client certificate request
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $opensslconf";
+	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
+	print "Certificate request OK.\n";
+
+	# find the id of the new certificate
+	open(F, "$confdir/db/serial") or die "Could not read db/serial";
+	$id = <F>; chomp $id;  # 6-sifret sertifikat-id fra openssl
+	close(F);
+	print "The new id is $id\n";
+
+	# Sign the certificate request with the CA certificate. This will generate crt- and pem-files.
+	# openssl will store the pem-file in the certs directory (see openssl_ca.conf)
+	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
+		." -keyfile $confdir/CA/nivlheimca.key"
+		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
+		." -out $crtfile -config $opensslconf 2>/var/log/nivlheim/sign.log";
+	if (!(system($cmd) == 0 and -f $crtfile)) {
+		$logger->debug($cmd);
+		die "Signing failed: $?";
+	}
+	print "Signing OK.\n";
+
+	# Keep a copy of the key/csr/crt-files too
+	copy($keyfile, "$confdir/certs/$id.key");
+	copy($csrfile, "$confdir/certs/$id.csr");
+	copy($crtfile, "$confdir/certs/$id.crt");
+
+	# Generate a P12 file
+	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
+		. "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
+	if (!(system($cmd) == 0 and -f $p12file)) {
+		$logger->debug($cmd);
+		die "P12 failed: $?";
+	}
+	copy($p12file, "$confdir/certs/$id.p12");
+
+	# Display the generated certificate and key
+	open(F, $crtfile) or die "Can't read crt file";
+	while (<F>) { last if (/--BEGIN CERTIFICATE--/) };
+	print; print while (<F>);
+	close(F);
+	open(F, $keyfile) or die "Can't read key file";
+	print while (<F>);
+	close(F);
+
+	# Display the P12-file, base64-encoded
+	open(F, $p12file);
+	my $p12bytes;
+	my $len = read(F, $p12bytes, 100000);
+	close(F);
+	print "-----BEGIN P12-----\n" . encode_base64($p12bytes, "\n") . "-----END P12-----\n";
+
+	$logger->info("Created new cert with id $id for $hostname");
+	$dbh->do("DELETE FROM waiting_for_approval WHERE ipaddr=?", undef, ($ipaddr));
+};
+if ($@) {
+	$logger->error("Failed to create new cert for $hostname: $@");
+	print "Failed to create new certificate for $hostname:\n$@\n";
+}
+
+# Clean up temp files
+unlink($keyfile) if (-f $keyfile);
+unlink($csrfile) if (-f $csrfile);
+unlink($crtfile) if (-f $crtfile);
+unlink($p12file) if (-f $p12file);
+
+$dbh->disconnect;
+
+############ subroutines
+
+sub expand_ip($) {
+	my $ip =  shift;
+	if (Net::IP::ip_is_ipv6($ip)) {
+		return Net::IP::ip_expand_address($ip, 6);
+	}
+	else {
+		return Net::IP::ip_expand_address($ip, 4);
+	}
+}
+
+sub forwardConfirmReverseDNS($) {
+	# http://en.wikipedia.org/wiki/Forward-confirmed_reverse_DNS
+	my $ip = shift;
+	$ip = expand_ip($ip);
+	my $dns = Net::DNS::Resolver->new;
+	my $packet = $dns->query($ip, 'PTR');
+	if ($packet) {
+		foreach my $rr ($packet->answer) {
+			next unless $rr->type eq 'PTR';
+			# Fant et hostnavn, slå opp dette tilbake
+			my $hostname = $rr->ptrdname;
+			my @answers = ();
+			my $packet2 = $dns->query($hostname, 'A');
+			if ($packet2) { push @answers, $packet2->answer; }
+			$packet2 = $dns->query($hostname, 'AAAA');
+			if ($packet2) { push @answers, $packet2->answer; }
+			for my $rr2 (@answers) {
+				next unless ($rr2->type eq 'A' || $rr2->type eq 'AAAA');
+				my $ip2 = expand_ip($rr2->address);
+				if ($ip eq $ip2) {
+					return $hostname;
+				}
+			}
+		}
+	}
+	return;
+}
+
+sub parse_query_string() {
+	my %result = ();
+	foreach (split /&/, $ENV{'QUERY_STRING'}) {
+		my ($key, $value) = split /=/;
+		$result{$key} = $value;
+	}
+	return %result;
+}

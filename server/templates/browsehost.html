@@ -1,0 +1,41 @@
+<!doctype html>
+<html>
+<head>
+	<title>Nivlheim</title>
+{{template "common_head.html"}}
+</head>
+<body>
+{{template "logo"}}
+
+<h1>{{.hostinfo.Hostname.Value}}</h1>
+
+<table>
+<tr><th>IP address</th><td>{{.hostinfo.IPaddr.Value}}</td></tr>
+<tr><th>Type</th><td>{{.hostinfo.Type.Value}}</td></tr>
+<tr><th>Last seen</th><td>{{.hostinfo.Lastseen.Value}}</td></tr>
+<tr><th>OS class</th><td>{{.hostinfo.OSclass.Value}}</td></tr>
+<tr><th>OS</th><td>{{.hostinfo.OS.Value}}</td></tr>
+<tr><th>Kernel</th><td>{{.hostinfo.Kernel.Value}}</td></tr>
+<tr><th>Hardware Vendor</th><td>{{.hostinfo.Vendor.Value}}</td></tr>
+<tr><th>Hardware Model</th><td>{{.hostinfo.Model.Value}}</td></tr>
+<tr><th>Serial number</th><td>{{.hostinfo.Serialno.Value}}</td></tr>
+<tr><th>Certificate fingerprint</th><td>{{.hostinfo.Certfp}}</td></tr>
+<tr><th>Client version</th><td>{{.hostinfo.Clientversion.Value}}</td></tr>
+</table>
+
+<p>
+<h3>Files</h3>
+{{range .files}}
+<a href="/browse?f={{.}}&c={{$.hostinfo.Certfp}}">{{.}}</a><br>
+{{end}}
+</p>
+
+<p>
+<h3>Commands</h3>
+{{range .commands}}
+<a href="/browse?f={{.}}&c={{$.hostinfo.Certfp}}">{{.}}</a><br>
+{{end}}
+</p>
+
+</body>
+</html>

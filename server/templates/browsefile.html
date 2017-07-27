@@ -1,0 +1,21 @@
+<!doctype html>
+<html>
+<head>
+	<title>Nivlheim</title>
+{{template "common_head.html"}}
+</head>
+<body>
+{{template "logo"}}
+
+<div>
+<h1><a href="/browse?h={{.hostname}}">{{.hostname}}</a>:
+{{.file.Filename.Value}}</h1>
+</div>
+
+<p>
+	Received: {{.file.Received.Value}}
+</p>
+<div class="filecontent">{{.file.Content.Value}}</div>
+
+</body>
+</html>

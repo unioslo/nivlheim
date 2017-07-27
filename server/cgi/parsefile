@@ -1,0 +1,275 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+
+use CGI;
+use DBI;
+use JSON;
+use Log::Log4perl;
+use Net::DNS;
+
+sub parse_query_string();
+sub uts_to_iso8601($);
+
+# Restrict access to only localhost
+my $ip = $ENV{'REMOTE_ADDR'};
+if ($ip ne "127.0.0.1" && $ip ne "::1") {
+	print "Status: 403\n";
+	exit;
+}
+
+# Config
+my $confdir = "/var/www/nivlheim";
+
+# Logging
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger();
+
+# Connect to database
+my %attr = ("AutoCommit" => 0, "RaiseError" => 0);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+
+# Check parameters
+my %params = parse_query_string();
+unless (exists $params{'fileid'}) {
+	print "Status: 400\n\nMissing parameter: fileid\n";
+	exit;
+}
+my $fileid = int($params{'fileid'});
+if ($fileid ne $params{'fileid'}) {
+	print "Status: 400\n\nfileid must be numeric\n";
+	exit;
+}
+
+eval{
+	$dbh->{RaiseError} = 1;
+
+	my $sth = $dbh->prepare("SELECT filename, content, " .
+		"received, is_command, certcn, ipaddr, certfp, clientversion " .
+		"FROM files WHERE fileid=?");
+	$sth->bind_param(1, $fileid);
+	my $rv = $sth->execute;
+	my $row = $sth->fetchrow_hashref;
+	$sth->finish;
+
+	# Set hostname, ip address, and lastseen
+	my @params = ($row->{'received'}, $row->{'certcn'},
+		$row->{'ipaddr'}, $row->{'clientversion'}, $row->{'certfp'});
+	my $rows = $dbh->do("UPDATE hostinfo SET lastseen=?,hostname=?,ipaddr=?, "
+		."clientversion=? WHERE certfp=?", undef, @params);
+	if ($rows == 0) {
+		$dbh->do("INSERT INTO hostinfo(lastseen,hostname,ipaddr,clientversion,certfp) "
+			."VALUES(?,?,?,?,?)", undef, @params);
+		$logger->info("New host: " . $row->{'certcn'} . " " . $row->{'certfp'});
+	}
+
+	# Detect if a host got a new certificate. Clean up the old one, in that case
+	my $rv = $dbh->do("DELETE FROM hostinfo WHERE hostname=? AND (certfp is null OR certfp != ?)",
+		undef, ($row->{'hostname'}, $row->{'certfp'}));
+	if ($rv > 0) {
+		$logger->info("It seems " . $row->{'hostname'} . " got a new certificate.");
+	}
+
+	# Different files must be parsed differently
+	if ($row->{'filename'} eq "/etc/redhat-release") {
+		my ($os, $type);
+		if ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Tikanga/) {
+			$os = 'RHEL5';
+			$type = $1;
+		}
+		elsif ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Santiago/) {
+			$os = 'RHEL6';
+			$type = $1;
+		}
+		elsif ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Maipo/) {
+			$os = 'RHEL7';
+			$type = $1;
+		}
+		elsif ($row->{'content'} =~ /^Fedora.*Schrödinger/) {
+			$os = 'Fedora19';
+			$type = 'Workstation';
+		}
+		elsif ($row->{'content'} =~ /^Fedora.*Heisenbug/) {
+			$os = 'Fedora20';
+			$type = 'Workstation';
+		}
+		elsif ($row->{'content'} =~ /^Fedora release (\d+)/i) {
+			$os = "Fedora$1";
+			$type = 'Workstation';
+		}
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', type=? WHERE certfp=?");
+		$sth->execute(($os, $type, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "/etc/debian_version") {
+		if ($row->{'content'} =~ /^(\d+)\./) {
+			my $os = "Debian$1";
+			my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', "
+						."type=null WHERE certfp=?");
+			$sth->execute(($os, $row->{'certfp'}));
+			$sth->finish;
+		}
+	}
+
+	if ($row->{'filename'} eq "/etc/lsb-release") {
+		if ($row->{'content'} =~ /DISTRIB_ID=Ubuntu.*DISTRIB_RELEASE=(\d+)\.(\d+)/s) {
+			my $os = "Ubuntu $1.$2";
+			my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', "
+						."type=null WHERE certfp=?");
+			$sth->execute(($os, $row->{'certfp'}));
+			$sth->finish;
+		}
+	}
+
+	if ($row->{'filename'} eq "/usr/bin/sw_vers"
+			&& $row->{'content'} =~ /ProductName:\s+Mac OS X\nProductVersion:\s+([\d\.]+)/) {
+		my $os = "OSX $1";
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Darwin', "
+					."type='Workstation' WHERE certfp=?");
+		$sth->execute(($os, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "(Get-WmiObject Win32_OperatingSystem).Caption") {
+		my $s = $row->{'content'};
+		my ($os, $type);
+		if ($s =~ /Microsoft Windows 7/) {
+			$os = 'Win7';
+			$type = 'Workstation';
+		}
+		elsif ($s =~ /Microsoft Windows Server 2008 R2/) {
+			$os = 'Win2008R2';
+			$type = 'Server';
+		}
+		elsif ($s =~ /Microsoft.+Windows.+Server.+2008.+(Standard|Enterprise)/) {
+			$os = 'Win2008';
+			$type = 'Server';
+		}
+		elsif ($s =~ /Microsoft Windows Server 2012 R2/) {
+			$os = 'Win2012R2';
+			$type = 'Server';
+		}
+		elsif ($s =~ /Microsoft Windows Server 2012/) {
+			$os = 'Win2012';
+			$type = 'Server';
+		}
+		elsif ($s =~ /Microsoft Windows Server 2016/) {
+			$os = 'Win2016';
+			$type = 'Server';
+		}
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, type=?, osclass='Windows' "
+					." WHERE certfp=?");
+		$sth->execute(($os, $type, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	# kernel and os
+	if ($row->{'filename'} eq "/bin/uname -a"
+			&& $row->{'content'} =~ /(\S+) \S+ (\S+)/) {
+		my $osclass = $1;
+		my $kernel = $2;
+		$dbh->do("UPDATE hostinfo SET kernel=? WHERE certfp=?", undef,
+				($kernel, $row->{'certfp'}));
+		if ($osclass eq 'Darwin') {
+			$dbh->do("UPDATE hostinfo SET osclass='Darwin' WHERE certfp=?", undef,
+                ($row->{'certfp'}));
+		}
+		if ($osclass eq 'FreeBSD' && $kernel =~ /^(\d+)/) {
+			my $os = "FreeBSD$1";
+			$dbh->do("UPDATE hostinfo SET osclass='BSD', os=? WHERE certfp=?", undef,
+				($os, $row->{'certfp'}));
+		}
+	}
+
+	if ($row->{'filename'} eq "[System.Environment]::OSVersion|ConvertTo-Json") {
+		eval {
+			my $content = decode_json($row->{'content'});
+			my $v = $content->{'Version'};
+			my $kernel = sprintf("%d.%d.%d.%d",
+				$v->{'Major'}, $v->{'Minor'}, $v->{'Build'}, $v->{'Revision'});
+			$dbh->do("UPDATE hostinfo SET kernel=? WHERE certfp=?", undef,
+                ($kernel, $row->{'certfp'}));
+		};
+	}
+
+	# dmidecode system information
+	if ($row->{'filename'} eq "/usr/sbin/dmidecode -t system") {
+		if ($row->{'content'} =~ /^System Information\n(.*?)^$/sm) {
+			my $info = $1;
+			my ($vendor, $model, $serial);
+			if ($info =~ /Manufacturer: (.*?)\s*$/m) {
+				$vendor = $1;
+				$vendor =~ s/^HP$/Hewlett-Packard/;
+				$vendor =~ s/HITACHI/Hitachi/;
+			}
+			if ($info =~ /Product Name: (.*?)\s*$/m) {
+				$model = $1;
+			}
+			if ($info =~ /Serial Number: ([a-zA-Z0-9]+)\s*$/m) {
+				$serial = $1;
+			}
+			$dbh->do("UPDATE hostinfo SET vendor=?, model=?, serialno=? WHERE certfp=?",
+				undef, ($vendor, $model, $serial, $row->{'certfp'}));
+		}
+	}
+
+	# Model and vendor from Windows
+	if ($row->{'filename'} eq "Get-WmiObject Win32_computersystemproduct|Select Name,Vendor|ConvertTo-Json") {
+		eval {
+			my $content = decode_json($row->{'content'});
+			$dbh->do("UPDATE hostinfo SET model=? WHERE certfp=?",
+				undef, ($content->{'Name'}, $row->{'certfp'}));
+			my $vendor = $content->{'Vendor'};
+			$vendor =~ s/^HP$/Hewlett-Packard/;
+			$vendor =~ s/HITACHI/Hitachi/;
+			$dbh->do("UPDATE hostinfo SET vendor=? WHERE certfp=?",
+				undef, ($vendor, $row->{'certfp'}));
+		};
+	}
+
+	$dbh->do("UPDATE files SET parsed = true WHERE fileid = ?",
+		undef, ($fileid));
+	$dbh->commit;
+};
+if ($@) {
+	my $err = $@;
+	$logger->error($err);
+	if ($err =~ /prepare/) {
+		$logger->error($dbh->{Statement});
+	}
+	$dbh->rollback;
+	print CGI::header(
+		-type => 'text/plain',
+		-status => '500 Internal Server Error'
+	);
+};
+
+# Clean up
+$dbh->disconnect;
+
+# Return OK
+print CGI::header('text/plain');
+print "OK\n";
+
+sub parse_query_string() {
+	my %result = ();
+	foreach (split /&/, $ENV{'QUERY_STRING'}) {
+		my ($key, $value) = split /=/;
+		$result{$key} = $value;
+	}
+	return %result;
+}
+
+sub uts_to_iso8601($) {
+	my $uts = shift;
+	my $date = DateTime->from_epoch(epoch => $uts, time_zone => 'UTC');
+	return $date->ymd().q{T}.$date->hms().'Z';
+}

@@ -1,0 +1,165 @@
+#!/usr/bin/perl -w
+
+# This file is part of Nivlheim.
+#
+# Nivlheim is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Nivlheim is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
+
+
+#****************************************************************************************
+#   This script is a part of Nivlheim.
+#   It takes no parameters. It creates a client certificate,
+#   signs it with the Nivlheim CA Certificate, and returns it.
+#   A previous, valid client certificate is required.
+#   The hostname is determined by looking up the previous certificate
+#   in the database and by looking at its common name.
+#   The requirement is policed by Apache httpd, by placing the scripte
+#   in the "secure" folder. Httpd must be configured to require a
+#   valid client certificate for access to anything in this folder.
+#****************************************************************************************
+
+use strict;
+use warnings;
+use File::Copy;
+use Log::Log4perl;
+use MIME::Base64;
+use Proc::PID::File;
+use DBI;
+use Crypt::OpenSSL::X509;
+
+# HTTP Header
+print "Content-Type: text/plain\n\n";
+
+# There is a race condition with openssl, so until that is solved
+# there can be only one instance of this script running at any time.
+if (Proc::PID::File->running("dir" => "/tmp")) {
+	print "Too busy, please try again later.\n";
+	exit;
+}
+
+# Config
+my $confdir = "/var/www/nivlheim";
+my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger("reqcert");
+
+# Temporary files
+my $id = int(rand()*100000000); # only used during the execution of this script
+my $keyfile = "/tmp/user$id.key";
+my $csrfile = "/tmp/user$id.csr";
+my $crtfile = "/tmp/user$id.crt";
+my $p12file = "/tmp/user$id.p12";
+
+# Compute the client cert fingerprint
+my $clientcert = $ENV{'SSL_CLIENT_CERT'};
+my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
+my $fingerprint = $x509->fingerprint_sha1();
+
+# Determine hostname by looking up the client certificate in the database.
+# Use the Common Name as a fallback.
+my $hostname;
+my $dbh = DBI->connect("dbi:Pg:", "", "");
+if (!$dbh) {
+	print $DBI::errstr;
+	exit;
+}
+my @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
+	undef, ($fingerprint));
+if (@row) {
+	$hostname = $row[0];
+} else {
+	if ($x509->subject() =~ /CN=(\S+)/) {
+		$hostname = $1;
+	}
+}
+if (!defined($hostname)) {
+	print "Unable to determine hostname based on the certificate.";
+	$logger->debug("Unable to determine hostname based on the certificate.");
+	exit;
+}
+$dbh->disconnect;
+print "Your hostname is: $hostname\n";
+$logger->debug("Hostname is: $hostname");
+
+eval {
+	# Generate client key
+	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+
+	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
+	$logger->debug("Key OK.");
+
+	# Generate client certificate request
+	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $opensslconf";
+	(system($cmd) == 0 and -f $csrfile) or die "Certificate request failed: $?";
+	$logger->debug("Certificate request OK.");
+
+	# find the id of the new certificate
+	open(F, "$confdir/db/serial") or die "Could not read db/serial";
+	$id = <F>; chomp $id;  # 6-sifret sertifikat-id fra openssl
+	close(F);
+	$logger->debug("The new id is $id");
+
+	# Sign the certificate request with the CA certificate. This will generate crt- and pem-files.
+	# openssl will store the pem-file in the certs directory (see openssl_ca.conf)
+	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
+		." -keyfile $confdir/CA/nivlheimca.key"
+		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
+		." -out $crtfile -config $opensslconf 2>/var/log/nivlheim/sign.log";
+	if (!(system($cmd) == 0 and -f $crtfile)) {
+		$logger->debug($cmd);
+		die "Signing failed: $?";
+	}
+	$logger->debug("Signing OK.");
+
+	# Keep a copy of the key/csr/crt-files too
+	copy($keyfile, "$confdir/certs/$id.key");
+	copy($csrfile, "$confdir/certs/$id.csr");
+	copy($crtfile, "$confdir/certs/$id.crt");
+
+	# Generate a P12 file
+	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
+		. "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
+	if (!(system($cmd) == 0 and -f $p12file)) {
+		$logger->debug($cmd);
+		die "P12 failed: $?";
+	}
+	copy($p12file, "$confdir/certs/$id.p12");
+
+	# Display the generated certificate and key
+	open(F, $crtfile) or die "Can't read crt file";
+	while (<F>) { last if (/--BEGIN CERTIFICATE--/) };
+	print; print while (<F>);
+	close(F);
+	open(F, $keyfile) or die "Can't read key file";
+	print while (<F>);
+	close(F);
+
+	# Display the P12-file, base64-encoded
+	open(F, $p12file);
+	my $p12bytes;
+	my $len = read(F, $p12bytes, 100000);
+	close(F);
+	print "-----BEGIN P12-----\n" . encode_base64($p12bytes, "\n") . "-----END P12-----\n";
+
+	$logger->info("Created new cert with id $id for $hostname");
+};
+if ($@) {
+	$logger->error("Failed to create new cert for $hostname: $@");
+	print "Failed to create new certificate for $hostname:\n$@\n";
+}
+
+# Clean up temp files
+unlink($keyfile) if (-f $keyfile);
+unlink($csrfile) if (-f $csrfile);
+unlink($crtfile) if (-f $crtfile);
+unlink($p12file) if (-f $p12file);

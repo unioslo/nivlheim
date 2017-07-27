@@ -1,0 +1,36 @@
+<!doctype html>
+<html>
+<head>
+	<title>Nivlheim</title>
+{{template "common_head.html"}}
+</head>
+<body>
+{{template "logo"}}
+{{template "searchbox" .}}
+
+<p>
+{{.count}} hits
+</p>
+
+{{range .hits}}
+<p>
+	<a href="/browse?h={{.Hostname}}"><span class="hostname">
+		{{.Hostname}}</span></a>:
+	<span class="filename"><a href="/browse?fid={{.Fileid}}">
+		{{.Filename}}</a></span><br>
+	<span class="excerpt">{{.Excerpt}}</span>
+</p>
+{{end}}
+
+</table>
+</body>
+</html>
+
+{{define "searchbox"}}
+<div class="searchbox">
+<form method="get" action="/search">
+<input name="q" type="text" size="30" value="{{.q}}">
+<button type="submit"><i class="fa fa-search fa-lg"></i> Search</button>
+</form>
+</div>
+{{end}}

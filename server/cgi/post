@@ -1,0 +1,258 @@
+#!/usr/bin/perl -w
+
+# This file is part of Nivlheim.
+#
+# Nivlheim is free software: you can redistribute it and/or modify
+# it under the terms of the GNU General Public License as published by
+# the Free Software Foundation, either version 3 of the License, or
+# (at your option) any later version.
+#
+# Nivlheim is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with Nivlheim.  If not, see <http://www.gnu.org/licenses/>.
+
+
+# This script receives a data file from the client.
+# Apache httpd controls access and verifies the client certificate.
+# A valid client certificate must be required.
+
+use strict;
+use warnings;
+
+use Log::Log4perl;
+use Log::Log4perl::Level;
+use CGI qw/:standard/;
+use Crypt::OpenSSL::X509;
+use IPC::Open3;
+use Symbol qw(gensym);
+use IO::File;
+use MIME::Base64 qw(decode_base64);
+use Encode qw(from_to);
+use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
+use File::Copy;
+
+sub run_command($);
+
+# Config
+my $confdir = "/var/www/nivlheim";
+my $queuedir = "/var/www/nivlheim/queue";
+
+# Logging
+Log::Log4perl->init("$confdir/log4perl.conf");
+my $logger = Log::Log4perl->get_logger();
+
+# div
+my $archivefile;
+my $signaturefile;
+my $shorthost = '';
+
+eval {
+	my $ipaddr = $ENV{'REMOTE_ADDR'};
+	my $query = CGI->new;
+	$logger->debug("post from $ipaddr");
+
+	# Compute the client cert fingerprint
+	my $clientcert = $ENV{'SSL_CLIENT_CERT'};
+	my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
+	my $fingerprint = $x509->fingerprint_sha1();
+	$logger->debug("cert fingerprint: '$fingerprint' from $ipaddr");
+	$fingerprint =~ s/://g;
+
+	# Look at the POST parameters
+	my $clienthostname = $query->param('hostname');
+	$logger->debug("client says its hostname is $clienthostname");
+	$shorthost = $clienthostname;
+	if ($shorthost =~ /^(\S+?)\./) { $shorthost = $1; }
+	my $clientversion =	$query->param('version');
+	if (!defined($clientversion)) { $clientversion = ''; }
+
+	# throw away the files if the system load is higher than 50
+	open(my $LOAD, "/proc/loadavg");
+	my $load_avg = <$LOAD>;
+	close $LOAD;
+	my ( $one_min_avg ) = split /\s/, $load_avg;
+	if ($one_min_avg >= 50) {
+		print CGI::header(
+			-type => 'text/plain',
+			-status => '503 Service Unavailable'
+		);
+		$logger->info("throwing away a post from $ipaddr ($shorthost) (v$clientversion) ($fingerprint)");
+		exit;
+	}
+
+	$logger->info("post from $ipaddr ($shorthost) (v$clientversion) ($fingerprint)");
+
+	# Receive the archive file
+	$archivefile = "/tmp/$fingerprint.tgz";
+	my $fh = $query->upload('archive');
+	if (defined($fh)) {
+		my $io_handle = $fh->handle;
+		my $buffer;
+		my $bytecount = 0;
+		open(my $F, ">$archivefile");
+		while (my $bytesread = $io_handle->read($buffer,1024)) {
+			$bytecount += $bytesread;
+			syswrite($F, $buffer, $bytesread);
+		}
+		close($F);
+		$io_handle->close;
+		$logger->debug("[$shorthost] received archive file ($bytecount bytes)");
+	}
+	elsif (defined($query->param('archive_base64'))) {
+		my $buffer = decode_base64($query->param('archive_base64'));
+		open(my $F, ">$archivefile");
+		print $F $buffer;
+		close($F);
+		$logger->debug("[$shorthost] received archive file (" . length($buffer) . " bytes)");
+	}
+	else {
+		die "missing file upload parameter 'archive' or 'archive_base64'";
+	}
+
+	# Check if the archive file is in Zip format instead of tar+gzip
+	if (`/usr/bin/file $archivefile` =~ /Zip archive data/) {
+		$logger->debug("The archive is in Zip format.");
+		my $newfname = $archivefile;
+		$newfname =~ s/.tgz$/.zip/;
+		rename($archivefile,$newfname);
+		$archivefile = $newfname;
+	}
+
+	# Check if the size of the unpacked archive file is above a certain limit
+	my $size = 0;
+	if ($archivefile =~ /\.tgz$/) {
+		$_ = `/bin/gunzip -l $archivefile`;
+		if (/\n\s+\d+\s+(\d+)/) {
+			$size = $1;
+		}
+	}
+	elsif ($archivefile =~ /\.zip$/) {
+		$_ = `/usr/bin/unzip -l $archivefile | tail -1`;
+		if (/^\s+(\d+)/) {
+			$size = $1;
+		}
+	}
+	$logger->debug("[$shorthost] Uncompressed size is $size bytes");
+	if ($size > 1024*1024*10) {
+		$logger->warn("[$shorthost] archive file is too large. Uncompressed size is $size bytes");
+		print CGI::header(
+			-type => 'text/plain',
+			-status => '413 Request Entity Too Large'
+		);
+		print "The archive file is too large.";
+		$signaturefile = "$archivefile.sign"; # so it can be safely deleted afterwards
+		return;
+	}
+
+	# Receive the signature file
+	$signaturefile = "$archivefile.sign";
+	$fh = $query->upload('signature');
+	if (defined($fh)) {
+		my $io_handle = $fh->handle;
+		my $buffer;
+		my $bytecount = 0;
+		open(my $F, ">$signaturefile");
+		while (my $bytesread = $io_handle->read($buffer,1024)) {
+			$bytecount += $bytesread;
+			syswrite($F, $buffer, $bytesread);
+		}
+		close($F);
+		$io_handle->close;
+		$logger->debug("[$shorthost] received signature file ($bytecount bytes)");
+	}
+	elsif (defined($query->param('signature_base64'))) {
+		my $buffer = decode_base64($query->param('signature_base64'));
+		open(my $F, ">$signaturefile");
+		print $F $buffer;
+		close($F);
+		$logger->debug("[$shorthost] received signature file (" . length($buffer) . " bytes)");
+	}
+	else {
+		die "missing file signature parameter 'signature' or 'signature_base64'";
+	}
+
+	# Check the signature of the received archive file
+	my $certfile = "/tmp/$fingerprint.cert";
+	my $pubkeyfile = "/tmp/$fingerprint.pubkey";
+	open(my $F, ">$certfile");
+	print $F $clientcert;
+	close($F);
+	run_command("openssl x509 -pubkey -noout -in $certfile > $pubkeyfile"); # extract public key from cert
+	unlink($certfile);
+	my $sha = "sha256";
+	if ($clientversion =~ /P$/) {
+		# Powershell clients use SHA-1
+		$sha = "sha1";
+	}
+	open($F, "openssl dgst -$sha -verify $pubkeyfile -signature $signaturefile $archivefile |");
+	my $verificationresult = <$F>;
+	chomp $verificationresult;
+	close($F);
+	unlink($pubkeyfile);
+	$logger->debug("[$shorthost] Signature verification: $verificationresult");
+	if ($verificationresult ne 'Verified OK') {
+		print CGI::header(
+			-type => 'text/plain',
+			-status => '403 Forbidden'
+		);
+		print "The signature didn't match the archive.";
+		return;
+	}
+
+	# Add a file with some metadata
+	open($F, ">$archivefile.meta");
+	print $F "clienthostname = $clienthostname\n";
+	print $F "certcn = $ENV{'SSL_CLIENT_S_DN_CN'}\n";
+	print $F "certfp = $fingerprint\n";
+	print $F "ip = $ipaddr\n";
+	print $F "clientversion = $clientversion\n";
+	close($F);
+
+	# Response
+	print CGI::header('text/plain');
+	print "OK";
+
+	# Enqueue the files
+	move($archivefile, $queuedir);
+	move("$archivefile.meta", $queuedir);
+};
+if ($@) {
+	$logger->error("[$shorthost] " . $@);
+	print CGI::header(
+		-type => 'text/plain',
+		-status => '500 Internal Server Error'
+	);
+};
+
+# Clean up
+unlink($archivefile) if (defined($archivefile));
+unlink($signaturefile) if (defined($signaturefile));
+unlink("$archivefile.meta") if (defined($archivefile));
+
+sub run_command($) {
+	# calls die() if anything gets written to stderr, or if the command has syntax errors.
+	# Output to stdout will be logged at debug level.
+	# Returns concatendated stdout from the child process.
+	my $cmd = shift;
+	local *CATCHOUT = IO::File->new_tmpfile;
+	local *CATCHERR = IO::File->new_tmpfile;
+	my $pid = open3(gensym, ">&CATCHOUT", ">&CATCHERR", $cmd);
+	waitpid($pid, 0);
+	seek $_, 0, 0 for \*CATCHOUT, \*CATCHERR;
+	my $stdout = '';
+	my $stderr = '';
+	while( <CATCHOUT> ) { $stdout .= $_; }
+	while( <CATCHERR> ) { $stderr .= $_; }
+	close CATCHOUT;
+	close CATCHERR;
+	# trim stdout and stderr
+	$stdout =~ s/^[\s]+|[\s]+$//g;
+	$stderr =~ s/^[\s]+|[\s]+$//g;
+	if ($stderr ne '') { die "$cmd\n$stderr"; }
+	if ($stdout ne '') { $logger->debug("[$shorthost] $cmd\n$stdout"); }
+	return $stdout;
+}

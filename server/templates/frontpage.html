@@ -1,0 +1,58 @@
+<!doctype html>
+<html>
+<head>
+	<title>Nivlheim</title>
+{{template "common_head.html"}}
+</head>
+<body>
+{{template "logo"}}
+
+<p>
+<h3>System status</h3>
+<span class="keyfigure">{{.filesLastHour}}</span>
+files were collected during the last hour.<br>
+<span class="keyfigure">{{.totalMachines}}</span>
+machines in the system.<br>
+{{if .reportingPercentage}}
+<span class="keyfigure">{{.reportingPercentage}}%</span>
+of machines sent in files during the last hour.<br>
+{{end}}
+</p>
+
+{{if .approval}}
+<p>
+<h3>Waiting for approval</h3>
+{{range .approval}}
+<div>
+	{{.Hostname.Value}} ({{.Ipaddr.Value}})
+	<form ic-post-to="/" class="inline">
+		<input type="hidden" name="ip" value="{{.Ipaddr.Value}}">
+		<input type="hidden" name="h" value="{{.Hostname.Value}}">
+		<button name="approve" value="1">
+			<i class="fa fa-thumbs-up fa-lg" style="color:#060;"></i> Approve
+		</button>
+		<button name="approve" value="0">
+			<i class="fa fa-thumbs-down fa-lg" style="color:#600;"></i> Deny
+		</button>
+	</form>
+</div>
+{{end}}
+</p>
+{{end}}
+
+{{if .machines}}
+<p>
+<h3>Machines</h3>
+{{template "searchbox" .}}
+{{range .machines}}
+<a href="/browse?h={{.}}">{{.}}</a><br>
+{{end}}
+</p>
+{{end}}
+
+</body>
+</html>
+
+{{define "logo"}}
+<div id="logo"><a href="/">Nivlheim</a></div>
+{{end}}

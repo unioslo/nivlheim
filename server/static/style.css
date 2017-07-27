@@ -1,0 +1,77 @@
+.noselect {
+	-webkit-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
+	cursor: default;
+}
+
+span.hostname {
+	color: green;
+}
+
+span.filename {
+	color: blue;
+}
+
+span.excerpt {
+	color: #333;
+}
+
+span.excerpt > em {
+	font-weight: bold;
+	font-style: normal;
+}
+
+body {
+	font-family: 'Open Sans', sans-serif;
+	background-image: url('/static/background.png');
+	background-repeat: repeat;
+	margin: 0px;
+}
+
+body > :not(#logo) {
+	margin-left: 50px;
+}
+
+div#logo {
+	background: linear-gradient(to right, rgba(0,0,0,0.5), rgba(0,0,0,0));
+	padding-left: 50px;
+	margin-bottom: 1em;
+}
+
+div#logo a {
+	text-decoration: none;
+	font-size: 24pt;
+	font-family: 'Open Sans', sans-serif;
+	color: #FFFFFF;
+}
+
+a, a:visited {
+	color: #008;
+}
+
+span.keyfigure {
+	color: #080;
+	font-weight: bold;
+}
+
+div.filecontent {
+	white-space: pre;
+	font-family: monospace;
+	background-color: rgba(0,0,0,0.1);
+	margin-right: 50px;
+}
+
+div.searchbox {
+	margin-top: 0.5em;
+	margin-bottom: 0.5em;
+}
+
+button {
+	font-family: 'Open Sans', sans-serif;
+}
+
+form.inline {
+	display: inline;
+}
