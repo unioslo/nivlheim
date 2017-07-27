@@ -28,7 +28,7 @@ server=localhost
 ```
 sudo /usr/sbin/nivlheim_client
 ```
-3. Open web admin pages in a browser, and you should see that there's a new machine waiting to be approved. Click "approve"
+3. Open web admin pages in a browser, and you should see that there's a new machine waiting to be approved. Click "approve".
 
 4. Run the client one more time:
 ```
@@ -39,17 +39,19 @@ sudo /usr/sbin/nivlheim_client
 
 ### Install more clients
 
-1. Spin up a new VM or use another existing machine
+1. Spin up a new VM or use another existing machine.
 
-2. Configure the yum repository as detailed above
+2. Configure the yum repository as detailed above.
 
-3. Install the `nivlheim_client` package
+3. Install the `nivlheim-client` package.
 
-4. Edit `/etc/nivlheim/client.conf`, add one line with the server address
-
+4. Edit `/etc/nivlheim/client.conf`, add one line with the server hostname or ip address
+```
+server=yourserver.example.com
+```
 5. If you are using a self-signed certificate for the web server (by default the nivlheim_server package will set it up with one), then the CA certificate file must be distributed to the clients.  
 Copy `/var/www/nivlheim/CA/nivlheimca.crt` from the server, and place it in `/var/nivlheim` on the machine you're installing the client software on.
 
-6. Optionally, run /usr/sbin/nivlheim_client manually, or wait for cron to run it (could take up to one hour)
+6. Run /usr/sbin/nivlheim_client manually (as root), or wait for cron to run it (could take up to one hour).
 
-7. On the web admin pages the new machine will show up as waiting for approval. After it has been approved, data from it will start showing  up in the system.
+7. On the web admin pages the new machine will show up as waiting for approval. After it has been approved, and the client has run one more time, data from it will start showing up in the system.

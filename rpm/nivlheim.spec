@@ -39,7 +39,6 @@ BuildRequires: perl(MIME::Base64)
 BuildRequires: perl(Net::CIDR)
 BuildRequires: perl(Net::DNS)
 BuildRequires: perl(Net::IP)
-BuildRequires: perl(NetAddr::IP)
 BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
@@ -57,7 +56,7 @@ This package is the base package for Nivlheim.
 Summary:  Client component of Nivlheim
 Group:    Applications/System
 Requires: %{name} = %{version}-%{release}
-Requires: perl, openssl
+Requires: perl, openssl, dmidecode
 Requires: perl(Archive::Tar)
 Requires: perl(File::Basename)
 Requires: perl(File::Path)
@@ -67,7 +66,6 @@ Requires: perl(IO::File)
 Requires: perl(IO::Socket::INET6)
 Requires: perl(IO::Socket::SSL)
 Requires: perl(Net::DNS)
-Requires: perl(NetAddr::IP)
 Requires: perl(Socket)
 Requires: perl(Sys::Syslog)
 

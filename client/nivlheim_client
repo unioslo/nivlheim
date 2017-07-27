@@ -17,13 +17,12 @@
 
 use strict;
 use warnings;
-use vars qw($localip $server_url);
+use vars qw($server_url);
 
 use IO::File;
 use IO::Socket::SSL;
 use IO::Socket::INET6;
 use Net::DNS;
-use NetAddr::IP;
 use Archive::Tar;
 use HTTP::Request::Common;
 use Sys::Syslog qw(:standard :macros);
@@ -38,8 +37,6 @@ sub readconfig($);
 sub printlog($);
 sub shortencmd($);
 sub reverse_dns_lookup($$);
-sub is_private($);
-sub select_ip();
 sub parse_certificate_response($);
 
 # Options with default values
@@ -185,19 +182,6 @@ if (!-r $real_ca_file) {
 }
 if ($opt{debug}) {
 	print "Using CA file $real_ca_file\n";
-}
-
-# Determine which local ip address to bind to for outgoing connections.
-# This is relevant for machines that have multiple ip addresses on
-# different subnets.
-my $myhostname = `hostname -f`;
-$myhostname =~ s/[\r\n]//g;
-my $localip;
-if ($opt{ip}) {
-	$localip = $opt{ip};
-}
-else {
-	$localip = select_ip();
 }
 
 my $have_cert = (-f $opt{cert_file} && -f $opt{key_file});
@@ -378,6 +362,8 @@ unlink($signaturefile); # In case it already exists
 system("openssl dgst -sha256 -sign $opt{key_file} -out $signaturefile $tarfile");
 
 # POST all of it
+my $myhostname = `hostname -f`;
+$myhostname =~ s/[\r\n]//g;
 my %postdata = (
 	'hostname' => $myhostname,
 	'archive' => [$tarfile],
@@ -408,7 +394,7 @@ if (!-t STDOUT) {
 
 # Establish an SSL connection to the server.
 sub ssl_connect($$$) {
-	my ($hostname, $service, $use_client_cert) = @_;
+	my ($hostname, $port, $use_client_cert) = @_;
 
 	if (!-r $opt{cert_file} || !-r $opt{key_file}) { $use_client_cert = 0; }
 	my $commonName;
@@ -418,6 +404,7 @@ sub ssl_connect($$$) {
 		$commonName = $hostname;
 	}
 	if ($opt{debug}) {
+		print "hostname=$hostname port=$port\n";
 		print "commonName=$commonName use_client_cert=$use_client_cert\n";
 		#$IO::Socket::SSL::DEBUG = 3;
 	}
@@ -427,25 +414,33 @@ sub ssl_connect($$$) {
 	# mobile clients to have an IPv6 address configured even though
 	# they do not in fact have a working IPv6 uplink.
 	my @addrlist = ();
-	my $dnsresolver = Net::DNS::Resolver->new;
-	my $dnsresponse = $dnsresolver->query($hostname, 'A');
-	if ($dnsresponse) {
-		foreach my $rr ($dnsresponse->answer) {
-			push @addrlist, $rr->address;
-		}
+	if ($hostname eq 'localhost') {
+		push @addrlist, '127.0.0.1';
 	}
-	$dnsresponse = $dnsresolver->query($hostname, 'AAAA');
-	if ($dnsresponse) {
-		foreach my $rr ($dnsresponse->answer) {
-			push @addrlist, $rr->address;
+	elsif ($hostname =~ m#([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})#) {
+		# IPv4-address
+		push @addrlist, $hostname;
+	}
+	else {
+		my $dnsresolver = Net::DNS::Resolver->new;
+		my $dnsresponse = $dnsresolver->query($hostname, 'A');
+		if ($dnsresponse) {
+			foreach my $rr ($dnsresponse->answer) {
+				push @addrlist, $rr->address;
+			}
+		}
+		$dnsresponse = $dnsresolver->query($hostname, 'AAAA');
+		if ($dnsresponse) {
+			foreach my $rr ($dnsresponse->answer) {
+				push @addrlist, $rr->address;
+			}
 		}
 	}
 
 	foreach my $ip (@addrlist) {
 		warn("Trying $ip\n") if $opt{debug};
 		if (my $socket = IO::Socket::INET6->new(
-				PeerAddr => $ip, PeerPort => $service,
-				Proto => 'tcp', LocalAddr => $localip)) {
+				PeerAddr => $ip, PeerPort => $port, Proto => 'tcp')) {
 			warn("Connected to $ip\n") if $opt{debug};
 			# We have a connection - try to start SSL
 			if (my $ssl = IO::Socket::SSL->new_from_fd(
@@ -504,11 +499,24 @@ sub split_url($) {
 		}
 		return ($proto,$host,$port,$path);
 	}
+	# localhost
+	elsif ($url =~ m#(https?)://localhost(:(\d+))?(/.*)#) {
+		my $proto = $1;
+		my $host = 'localhost';
+		my $port = $3;
+		my $path = $4;
+		if (!defined($port)) {
+			if ($proto eq 'http') { $port = 80; }
+			elsif ($proto eq 'https') { $port = 443; }
+			else { return (); }
+		}
+		return ($proto,$host,$port,$path);
+	}
 	else { return (); }
 }
 
 sub test_without_client_cert() {
-	# Tester kun SSL-koblingen
+	# Just test the SSL connection
 	my $url = $server_url;
 	my ($proto, $host, $port) = split_url($url);
 	if (!defined($host)) { die "Invalid url: $url\n"; }
@@ -618,7 +626,7 @@ sub http_post($$) {
 	return $result;
 }
 
-# Hverken Config::Tiny eller Config::IniFiles virket skikkelig
+# Neither Config::Tiny nor Config::IniFiles worked properly
 sub readconfig($) {
 	my $filename = shift;
 	my $F;
@@ -688,90 +696,6 @@ sub shortencmd($) {
 	}
 	return $s;
 }
-
-sub is_private($) {
-	my $a = shift;
-	my $ip = new NetAddr::IP($a);
-	my @priv;
-	if ($a !~ /:/) {
-		@priv = (
-			new NetAddr::IP("10.0.0.0/8"),
-			new NetAddr::IP("172.16.0.0/12"),
-			new NetAddr::IP("192.168.0.0/16"),
-			new NetAddr::IP("169.254.0.0/16")
-		);
-	}
-	else {
-		@priv = (
-			new NetAddr::IP("fd00::/8"),
-			new NetAddr::IP("fe80::/10")
-		);
-	}
-	return grep { $ip->within($_) } @priv;
-}
-
-sub select_ip() {
-	# Determine which local ip address to bind to for outgoing connections.
-	# This is relevant for machines that have multiple ip addresses on
-	# different subnets.
-
-	# Determine which platform this script is running on
-	my $platf = `uname -s`;
-
-	my @ips = ();
-
-	if ($platf =~ /Linux/) {
-		foreach (`ip -o address`) {
-			if (/\d+:\s+(\w+)\s+(\w+)\s+([0-9a-fA-F\.:]+)/) {
-				my ($interface, $class, $addr) = ($1,$2,$3);
-				next if ($interface eq 'lo');
-				push @ips, $addr;
-			}
-		}
-	}#fi
-
-	elsif ($platf =~ /Darwin/) {
-		my @ifs = ();
-
-		foreach (split(' ', `ifconfig -l`)) {
-			if (/en[0-9]/) {
-				push @ifs, $_
-			}
-		}
-
-		for my $if (@ifs){
-			foreach (`ifconfig -L $if`) {
-				if (/inet|inet6/) {
-					my @l = split(' ', $_);
-					$l[1] =~ s/\%en[0-9?]//;
-					push @ips, $l[1];
-				}
-			}
-		}
-	}#fisle
-
-	my $dnsresolver = Net::DNS::Resolver->new;
-	my $chosenip = ""; my $sc = -1;
-	foreach my $ip (@ips) {
-		my $is_public = !is_private($ip);
-		my $dns_matches = reverse_dns_lookup($ip,$dnsresolver) eq $myhostname;
-		my $score = ($is_public?1:0) + ($dns_matches?2:0);
-		if ($opt{debug}) {
-			print "Considering $ip: ";
-			print "public, " if $is_public;
-			print "dns matches hostname, " if $dns_matches;
-			print "Score:$score\n";
-		}
-		if ($score > $sc) {
-			$chosenip = $ip;
-			$sc = $score;
-		}
-	}
-
-	if ($opt{debug}) { print "Local IP is $chosenip\n"; }
-	return $chosenip;
-}
-
 
 sub reverse_dns_lookup($$) {
 	my $a = shift;
