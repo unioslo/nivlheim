@@ -58,3 +58,8 @@ Copy `/var/www/nivlheim/CA/nivlheimca.crt` from the server, and place it in `/va
 6. Run /usr/sbin/nivlheim_client manually (as root), or wait for cron to run it (could take up to one hour).
 
 7. On the web admin pages the new machine will show up as waiting for approval. After it has been approved, and the client has run one more time, data from it will start showing up in the system.
+
+# How to contribute
+- Do you have a suggestion, feature request, or idea? Or have you found a bug? Go to the "issues" page and create a new issue! Everything is welcome.
+- Would you like to contribute code? Fork the repository and create a pull request!
+- Questions? Contact me at oyvind.hagberg@usit.uio.no
