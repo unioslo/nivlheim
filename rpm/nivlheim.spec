@@ -1,8 +1,8 @@
-%global date 20170721
+%global date %(date +"%Y%m%d")
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
-Version:  0.1.0
+Version:  %{getenv:GIT_TAG}
 Release:  %{date}%{?dist}
 
 Summary:  File collector
@@ -10,8 +10,8 @@ Summary:  File collector
 Group:    Applications/System
 License:  GPLv3+
 
-URL:      https://github.com/oyvindhagberg/nivlheim
-Source0:  https://github.com/oyvindhagberg/nivlheim/archive/master.zip
+URL:      %{getenv:GIT_URL}
+Source0:  %{getenv:GIT_URL}/archive/%{getenv:GIT_BRANCH}.zip
 
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
@@ -141,6 +141,7 @@ cp -r server/web %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp -r server/jobrunner %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
 cp -r server/static/* %{buildroot}%{_localstatedir}/www/html/static/
+echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -161,6 +162,7 @@ rm -rf %{buildroot}
 %doc README.md
 %dir %{_localstatedir}/nivlheim
 %dir %{_sysconfdir}/nivlheim
+%{_sysconfdir}/nivlheim/version
 
 %files client
 %defattr(-, root, root, -)
@@ -195,5 +197,8 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
-* Fri Jul 21 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170721
+* Thu Sep 14 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+- Use macros for Source0 and URL. Values come from Jenkins
+
+* Fri Jul 21 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
 - First package build
