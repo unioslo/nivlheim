@@ -11,7 +11,7 @@ Group:    Applications/System
 License:  GPLv3+
 
 URL:      %{getenv:GIT_URL}
-Source0:  %{getenv:GIT_URL}/archive/%{getenv:GIT_BRANCH}.zip
+Source0:  %{getenv:GIT_URL}/archive/%{getenv:GIT_LOCAL_BRANCH}.zip
 
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
