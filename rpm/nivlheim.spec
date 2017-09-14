@@ -104,7 +104,7 @@ This package contains the client component of Nivlheim.
 This package contains the server components of Nivlheim.
 
 %prep
-%autosetup -n nivlheim-master
+%autosetup -n %{name}-%{getenv:GIT_BRANCH}
 
 %build
 
@@ -197,8 +197,8 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
-* Thu Sep 14 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+* Thu Sep 14 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170914
 - Use macros for Source0 and URL. Values come from Jenkins
 
-* Fri Jul 21 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+* Fri Jul 21 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170721
 - First package build
