@@ -58,7 +58,7 @@ my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo';
-open($F, "/etc/nivlheim/version");
+open(my $F, "/etc/nivlheim/version");
 chomp(my $VERSION = <$F>);
 close($F);
 
