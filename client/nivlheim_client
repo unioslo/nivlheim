@@ -53,12 +53,14 @@ my %defaultopt = (
 	'ip'        => 0  # override the ip address auto detection
 	);
 
-# Version and similar info
+# Version information
 my $NAME    = 'nivlheim_client';
-my $VERSION = '0.1.0';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo';
+open(my $F, "/etc/nivlheim/version");
+chomp(my $VERSION = <$F>);
+close($F);
 
 # Usage text
 my $USAGE = <<"END_USAGE";
