@@ -1,22 +1,30 @@
 package main
 
+// This program acts as a task queue manager.
+
 import (
 	"database/sql"
-	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 
 	"github.com/lib/pq"
 )
 
-type Job struct {
-	jobid   int64
+// Task is a struct that holds an entry in a task queue.
+// The queue itself is stored in a database table.
+// Other parts of the system can create tasks by inserting rows.
+// A task will be retried until it succeeds, and then discarded.
+// A task has an url. To run a task, a http get request will be performed.
+// A return status of 200 is interpreted as success, everything else is a failure.
+// In case of failure, the task will be retried after a while.
+// An exception is http status 410 which is interpreted as a permanent failure
+// that is pointless to retry.
+type Task struct {
+	taskid  int64
 	url     string
 	lasttry time.Time
 	status  int
@@ -24,8 +32,24 @@ type Job struct {
 	delay2  int
 }
 
-const queuedir = "/var/www/nivlheim/queue"
+// A Job is an internal piece of code that gets run periodically by this program
+type Job interface {
+	Run(db *sql.DB)
+	HowOften() time.Duration
+	//TODO gjør om HowOften denne til en parameter til RegisterJob,
+	//     og kall den minimumTimeBetweenRuns eller noe.
+}
 
+type JobListElement struct {
+	job     Job
+	lastrun time.Time
+}
+
+func RegisterJob(newjob Job) {
+	jobs = append(jobs, JobListElement{job: newjob})
+}
+
+var jobs []JobListElement
 var quit bool
 
 func main() {
@@ -48,85 +72,87 @@ func main() {
 	}
 	defer db.Close()
 	for !quit {
-		// Scan the directory for new files and create jobs for them
-		scanQueueDir(db)
-
-		// Create jobs to parse new files that have been read into the database
-		scanFilesDb(db)
-
-		// Read the current active jobs from the database
-		rows, err := db.Query("SELECT jobid, url, lasttry, " +
-			"status, delay, delay2 FROM jobs")
-		if err != nil {
-			log.Fatal(err)
-		}
-		jobs := make([]Job, 0, 0)
-		{
-			defer rows.Close()
-			for rows.Next() {
-				var job Job
-				var joburl sql.NullString
-				var timestamp pq.NullTime
-				err = rows.Scan(&job.jobid, &joburl, &timestamp,
-					&job.status, &job.delay, &job.delay2)
-				if err != nil {
-					log.Fatal(err)
-				}
-				if joburl.Valid {
-					job.url = joburl.String
-				}
-				if timestamp.Valid {
-					job.lasttry = timestamp.Time
-				}
-				jobs = append(jobs, job)
+		// Run jobs
+		for _, j := range jobs {
+			if time.Since(j.lastrun) > j.job.HowOften() {
+				j.job.Run(db)
+				j.lastrun = time.Now()
 			}
 		}
 
-		// Find jobs that should be run/re-tried right now
+		// Read the current active tasks from the database
+		rows, err := db.Query("SELECT taskid, url, lasttry, " +
+			"status, delay, delay2 FROM tasks")
+		if err != nil {
+			log.Fatal(err)
+		}
+		tasks := make([]Task, 0, 0)
+		{
+			defer rows.Close()
+			for rows.Next() {
+				var task Task
+				var taskurl sql.NullString
+				var timestamp pq.NullTime
+				err = rows.Scan(&task.taskid, &taskurl, &timestamp,
+					&task.status, &task.delay, &task.delay2)
+				if err != nil {
+					log.Fatal(err)
+				}
+				if taskurl.Valid {
+					task.url = taskurl.String
+				}
+				if timestamp.Valid {
+					task.lasttry = timestamp.Time
+				}
+				tasks = append(tasks, task)
+			}
+		}
+
+		// Find tasks that should be run/re-tried right now
 		canWait := 20
-		for i, job := range jobs {
-			if job.lasttry.IsZero() ||
-				time.Since(job.lasttry).Seconds() > float64(job.delay) {
-				resp, err := http.Get(job.url)
+		for i, task := range tasks {
+			if task.lasttry.IsZero() ||
+				time.Since(task.lasttry).Seconds() > float64(task.delay) {
+				resp, err := http.Get(task.url)
 				if err == nil {
-					job.status = resp.StatusCode
+					task.status = resp.StatusCode
 					resp.Body.Close()
 					if resp.StatusCode == 200 || resp.StatusCode == 410 {
-						db.Exec("DELETE FROM jobs WHERE jobid=$1", job.jobid)
-						// If a job was successful, it might have created
-						// more work to do, so, so don't sleep for very long
+						db.Exec("DELETE FROM tasks WHERE taskid=$1", task.taskid)
+						// If a task was successful, it might have created
+						// new tasks, so, so don't sleep for very long
 						canWait = 2
 						continue
 					}
 				} else {
-					job.status = 1
+					task.status = 1
 				}
-				job.lasttry = time.Now()
+				task.lasttry = time.Now()
 
 				// Fibonacci sequence determines the delay in seconds
-				if job.delay == 0 && job.delay2 == 0 {
-					job.delay = 1
-					job.delay2 = 0
+				if task.delay == 0 && task.delay2 == 0 {
+					task.delay = 1
+					task.delay2 = 0
 				} else {
-					newdelay := job.delay + job.delay2
-					job.delay2 = job.delay
-					job.delay = newdelay
+					newdelay := task.delay + task.delay2
+					task.delay2 = task.delay
+					task.delay = newdelay
 				}
 				// Max delay is 24 hours.
-				if job.delay > 86400 {
-					job.delay = 86400
+				if task.delay > 86400 {
+					task.delay = 86400
 				}
 
-				if job.delay < canWait {
-					canWait = job.delay
+				if task.delay < canWait {
+					canWait = task.delay
 				}
 
-				db.Exec("UPDATE jobs SET lasttry=$1, delay=$2, delay2=$3, status=$4 "+
-					" WHERE jobid=$5",
-					job.lasttry, job.delay, job.delay2, job.status, job.jobid)
-				jobs[i] = job
+				db.Exec("UPDATE tasks SET lasttry=$1, delay=$2, delay2=$3, status=$4 "+
+					" WHERE taskid=$5",
+					task.lasttry, task.delay, task.delay2, task.status, task.taskid)
+				tasks[i] = task
 			} else {
-				timeleft := job.delay - int(time.Since(job.lasttry).Seconds())
+				timeleft := task.delay - int(time.Since(task.lasttry).Seconds())
 				if timeleft < canWait {
 					canWait = timeleft
 				}
@@ -136,45 +162,6 @@ func main() {
 		// Sleep
 		for second := 0; second < canWait && !quit; second++ {
 			time.Sleep(time.Second)
-		}
-	}
-}
-
-func scanQueueDir(db *sql.DB) {
-	// Scan the directory for new files and create jobs for them
-	files, err := ioutil.ReadDir(queuedir)
-	if err != nil {
-		log.Fatal(err)
-	}
-	for _, f := range files {
-		if strings.HasSuffix(f.Name(), ".meta") {
-			// nope.
-			continue
-		}
-		joburl := "http://localhost/cgi-bin/processarchive?archivefile=" +
-			f.Name()
-		job := Job{url: joburl}
-		// New job
-		db.Exec("INSERT INTO jobs(url) VALUES($1) ON CONFLICT DO NOTHING",
-			job.url)
-	}
-}
-
-func scanFilesDb(db *sql.DB) {
-	rows, err := db.Query("SELECT fileid FROM files WHERE parsed = false")
-	if err != nil {
-		log.Fatal(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var fileid sql.NullInt64
-		rows.Scan(&fileid)
-		if fileid.Valid {
-			joburl := "http://localhost/cgi-bin/parsefile?fileid=" +
-				strconv.FormatInt(fileid.Int64, 10)
-			job := Job{url: joburl}
-			db.Exec("INSERT INTO jobs(url) VALUES($1) "+
-				"ON CONFLICT DO NOTHING", job.url)
 		}
 	}
 }

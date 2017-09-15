@@ -32,7 +32,7 @@ func main() {
 		dbConnectionString = "host=potetgull.mooo.com " +
 			"dbname=apache sslmode=disable user=apache"
 		http.HandleFunc("/static/", staticfiles)
-		http.ListenAndServe(":8080", nil)
+		http.ListenAndServe("127.0.0.1:8080", nil)
 	} else {
 		templatePath = "/var/www/nivlheim/templates"
 		dbConnectionString = "dbname=apache host=/var/run/postgresql"
