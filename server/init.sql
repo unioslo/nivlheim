@@ -21,8 +21,8 @@ CREATE TABLE IF NOT EXISTS files(
 
 CREATE INDEX files_parsed ON files(parsed);
 
-CREATE TABLE IF NOT EXISTS jobs(
-	jobid serial,
+CREATE TABLE IF NOT EXISTS tasks(
+	taskid serial,
 	url text not null unique,
 	lasttry timestamp with time zone,
 	status int not null default 0,
