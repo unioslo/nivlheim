@@ -1,7 +1,7 @@
 #!/bin/bash
-#=================================================
-#  Required packages: rpmdevtools, mock, git
-#=================================================
+#====================================================
+#  Required packages: rpmdevtools, rpmlint, mock, git
+#====================================================
 
 SOURCEDIR=$1
 BUILDDIR=~/rpmbuild
@@ -16,8 +16,8 @@ mkdir BUILD BUILDROOT RPMS SOURCES SPECS SRPMS
 cd "$SOURCEDIR"
 if [ ! -f *.spec ]
 then
-   echo "buildrpm: Missing spec file!"
-   exit 1
+	echo "buildrpm: Missing spec file!"
+	exit 1
 fi
 cp *.spec $BUILDDIR/SPECS/
 [ -f *.patch ] && cp *.patch $BUILDDIR/SOURCES/
@@ -34,21 +34,30 @@ sed -i -e "s|%{getenv:GIT_TAG}|$GIT_TAG|g" $SPEC
 export GIT_BRANCH=`echo $GIT_BRANCH | sed 's#.*/##'`
 echo "buildrpm: The git branch is $GIT_BRANCH"
 sed -i -e "s|%{getenv:GIT_BRANCH}|$GIT_BRANCH|g" $SPEC
-sed -i -e "s|%{getenv:GIT_URL}|$GIT_URL|g" $SPEC
 
 # Check the spec file for errors
 rpmlint -i $SPEC || exit 1
 
-echo "buildrpm: Downloading source tarball"
-cd $BUILDDIR/SOURCES
-spectool -g $SPEC > /dev/null
-if [ ! -f $BUILDDIR/SOURCES/* ]; then
-	echo "buildrpm: Didn't manage to produce the source package."
-	rpmbuild --nobuild --nodeps $SPEC
-	exit 1
+if [ "$2" = "" ]; then
+	echo "buildrpm: Downloading source archive file"
+	cd $BUILDDIR/SOURCES
+	spectool -g $SPEC > /dev/null
+	if [ ! -f $BUILDDIR/SOURCES/* ]; then
+		echo "buildrpm: Didn't manage to produce the source archive file."
+		rpmbuild --nobuild --nodeps $SPEC
+		exit 1
+	fi
+else
+	echo "buildrpm: Using source from $2"
+	mkdir /tmp/nivlheim-$GIT_BRANCH
+	cp -a $2/* /tmp/nivlheim-$GIT_BRANCH
+	cd /tmp
+	tar -czf $BUILDDIR/SOURCES/$GIT_BRANCH.tar.gz nivlheim-$GIT_BRANCH
+	rm -rf /tmp/nivlheim-$GIT_BRANCH
 fi
 
 echo "buildrpm: Building source rpm"
+cd $BUILDDIR
 rpmbuild -bs \
 	--define "_source_filedigest_algorithm md5" \
 	--define "_binary_filedigest_algorithm md5" \
@@ -71,20 +80,22 @@ fi
 configs=(fedora-26-x86_64 fedora-27-x86_64 epel-7-x86_64)
 for config in "${configs[@]}"
 do
-    echo "Building packages for $config"
-    mock --clean $config || exit 1
-    if ! mock -r $config $srpm; then
-    	echo "------------ build.log -------------"
-    	cat /var/lib/mock/$config/result/build.log
-    	echo "------------------------------------"
-    	exit 1
-    fi
-    rm -f /var/lib/mock/$config/result/*.src.rpm
-    rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
+	echo ""
+	echo "========================================================"
+	echo "  Mock-building packages for $config"
+	echo "========================================================"
+	if ! mock --root=$config --quiet --rebuild $srpm; then
+		echo "------------ build.log -------------"
+		cat /var/lib/mock/$config/result/build.log
+		echo "------------------------------------"
+		exit 1
+	fi
+	rm -f /var/lib/mock/$config/result/*.src.rpm
+	rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
 
-    #if [ "$GIT_BRANCH" = "origin/master" ]; then
-    #	cp -v /var/lib/mock/$config/result/*.rpm /var/www/html/repo || exit 1
-    #	cd /var/www/html/repo
-    #	createrepo . || exit 1
-    #fi
+	#if [ "$GIT_BRANCH" = "origin/master" ]; then
+	#	cp -v /var/lib/mock/$config/result/*.rpm /var/www/html/repo || exit 1
+	#	cd /var/www/html/repo
+	#	createrepo . || exit 1
+	#fi
 done

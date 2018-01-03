@@ -10,8 +10,8 @@ Summary:  File collector
 Group:    Applications/System
 License:  GPLv3+
 
-URL:      %{getenv:GIT_URL}
-Source0:  %{getenv:GIT_URL}/archive/%{getenv:GIT_BRANCH}.zip
+URL:      https://github.com/usit-gd/nivlheim
+Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
@@ -156,29 +156,30 @@ perl -c %{buildroot}/var/www/cgi-bin/parsefile
 %clean
 rm -rf %{buildroot}
 
-%files
-%defattr(-, root, root, -)
-%license LICENSE.txt
-%doc README.md
-%dir %{_localstatedir}/nivlheim
-%dir %{_sysconfdir}/nivlheim
-%{_sysconfdir}/nivlheim/version
-
 %files client
 %defattr(-, root, root, -)
+%dir %{_localstatedir}/nivlheim
+%dir %{_sysconfdir}/nivlheim
+%license LICENSE.txt
+%doc README.md
 %{_sbindir}/nivlheim_client
+%config %{_sysconfdir}/nivlheim/version
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
 %{_sysconfdir}/cron.hourly/nivlheim_client
 
 %files server
 %defattr(-, root, root, -)
+%dir %{_localstatedir}/nivlheim
+%dir %{_sysconfdir}/nivlheim
+%license LICENSE.txt
+%doc README.md
+%config %{_sysconfdir}/nivlheim/version
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_localstatedir}/nivlheim/init.sql
-%attr(0775, root, apache) %dir /var/www/nivlheim
-%attr(0775, root, apache) %dir /var/log/nivlheim
+%dir /var/log/nivlheim
 /var/www/nivlheim
 /var/www/cgi-bin
 /var/www/html/static
@@ -197,6 +198,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Wed Jan 03 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180103
+- Removed use of GIT_URL macro. Removed faulty %%attr directives.
+
 * Thu Sep 14 2017 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.0-20170914
 - Use macros for Source0 and URL. Values come from Jenkins
 
