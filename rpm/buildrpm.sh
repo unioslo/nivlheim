@@ -77,13 +77,13 @@ then
 fi
 
 # mock build
-configs=(fedora-26-x86_64 fedora-27-x86_64 epel-7-x86_64)
+configs=(fedora-27-x86_64)
 for config in "${configs[@]}"
 do
 	echo ""
-	echo "========================================================"
+	echo "--------------------------------------------------------"
 	echo "  Mock-building packages for $config"
-	echo "========================================================"
+	echo "--------------------------------------------------------"
 	if ! mock --root=$config --quiet --rebuild $srpm; then
 		echo "------------ build.log -------------"
 		cat /var/lib/mock/$config/result/build.log
