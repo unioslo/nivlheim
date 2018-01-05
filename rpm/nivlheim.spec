@@ -55,7 +55,6 @@ This package is the base package for Nivlheim.
 %package client
 Summary:  Client component of Nivlheim
 Group:    Applications/System
-Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl, dmidecode
 Requires: perl(Archive::Tar)
 Requires: perl(File::Basename)
@@ -72,7 +71,6 @@ Requires: perl(Sys::Syslog)
 %package server
 Summary:  Server components of Nivlheim
 Group:    Applications/System
-Requires: %{name} = %{version}-%{release}
 Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
 Requires: golang, unzip, file, git
 Requires: perl(Archive::Tar)
@@ -198,6 +196,10 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Fri Jan 05 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180105
+- Removed dependencies on the missing parent package "nivlheim",
+  since it isn't being build anymore.
+
 * Wed Jan 03 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180103
 - Removed use of GIT_URL macro. Removed faulty %%attr directives.
 
