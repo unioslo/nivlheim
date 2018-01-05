@@ -6,8 +6,9 @@
 sudo dnf copr enable oyvindh/Nivlheim
 ```
 or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim/),
-download the appropriate repository config file from there, and place it in 
-`/etc/yum.repos.d/`
+download the appropriate repository config file, and place it in 
+`/etc/yum.repos.d/`  
+
 3. Install the packages:
 ```
 sudo dnf -y install nivlheim-server nivlheim-client
