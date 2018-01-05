@@ -1,17 +1,17 @@
 # Getting started
 ### Install the server
-1. Spin up a clean VM running Fedora 25, 26 or RHEL 7
-2. Configure the yum repository:  
-`/etc/yum.repos.d/nivlheim.repo`
+1. Spin up a clean VM running Fedora 27, 26 or RHEL 7
+2. Configure the package repository:
 ```
-[nivlheim]
-name=Nivlheim
-baseurl=http://folk.uio.no/oyvihag/nivlheimrepo
-enabled=1
+sudo dnf copr enable oyvindh/Nivlheim
 ```
+or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim/),
+download the appropriate repository config file, and place it in 
+`/etc/yum.repos.d/`  
+
 3. Install the packages:
 ```
-sudo dnf -y --nogpgcheck install nivlheim-server nivlheim-client
+sudo dnf -y install nivlheim-server nivlheim-client
 ```
 4. Open the web admin interface in a browser:
 `https://<your server>/`
@@ -41,11 +41,11 @@ sudo /usr/sbin/nivlheim_client
 
 1. Spin up a new VM or use another existing machine.
 
-2. Configure the yum repository as detailed above.
+2. Configure the package repository as detailed above.
 
 3. Install the `nivlheim-client` package.
 ```
-sudo dnf -y --nogpgcheck install nivlheim-client
+sudo dnf -y install nivlheim-client
 ```
 
 4. Edit `/etc/nivlheim/client.conf`, add one line with the server hostname or ip address
