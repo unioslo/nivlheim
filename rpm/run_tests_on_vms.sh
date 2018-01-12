@@ -17,16 +17,27 @@ source ~/github_rc.sh # provides GitHub API token
 # Create an array containing the available machine images
 TMPFILE=$(mktemp)
 openstack image list | grep active | cut -d '|' -f 3 > $TMPFILE
-IFS=$'\r\n' GLOBIGNORE='*' command eval  'IMAGES=($(cat ${TMPFILE}))'
+IFS=$'\r\n' GLOBIGNORE='*' command eval  'LIST=($(cat ${TMPFILE}))'
 rm $TMPFILE
 
-for IMAGE in "${IMAGES[@]}"; do
+# Clean up the list, only keep the images we want to test on
+IMAGES=()
+for IMAGE in "${LIST[@]}"; do
 	if [[ $IMAGE != *"Fedora"* ]] && [[ $IMAGE != *"CentOS 7"* ]]; then
 		continue
 	fi
 	IMAGE=$(echo $IMAGE | xargs) # trim leading/trailing whitespace
+	IMAGES+=("$IMAGE")
+done
 
-	if [[ $GITHUB_TOKEN != "" ]] && [[ $GIT_COMMIT != "" ]]; then
+# If the list of machine images is empty, something is seriously wrong
+if [ ${#IMAGES[@]} -eq 0 ]; then
+	exit 1 # non-zero exit status will let Jenkins interpret this as a failure
+fi
+
+# set "pending" status on GitHub for all platforms
+if [[ $GITHUB_TOKEN != "" ]] && [[ $GIT_COMMIT != "" ]]; then
+	for IMAGE in "${IMAGES[@]}"; do
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"pending\",
@@ -34,10 +45,13 @@ for IMAGE in "${IMAGES[@]}"; do
 			\"description\": \"Results are pending...\",
 			\"context\": \"$IMAGE\"
 		}" -sS -o /dev/null
-	fi
+	done
+fi
 
+for IMAGE in "${IMAGES[@]}"; do
 	echo "Creating a VM with \"$IMAGE\""
 	NAME="voyager"
+	openstack server delete --wait $NAME 2>/dev/null # just to be sure
 	openstack server create --image "$IMAGE" --flavor m1.small \
 		--key-name jenkins_key --nic net-id=dualStack --wait $NAME \
 		> /dev/null
@@ -53,21 +67,31 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "User: $USER"
 
 	echo -n "Waiting for the VM to finish booting"
-	until (echo bleh | nc -w 2 $IP 22 1>/dev/null 2>/dev/null); do
+	OK=0
+	for try in {1..10}; do
+		if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
+			OK=1
+			break
+		fi
 		sleep 5
 		echo -n ".."
 	done
 	echo ""
+	if [ ! $OK -eq 1 ]; then
+		echo "Unable to connect to the VM, giving up."
+	else
+		echo "Installing and testing packages"
+		ssh $USER\@$IP -o StrictHostKeyChecking=no \
+			-q -o UserKnownHostsFile=/dev/null \
+			-C "cat > script" < $(dirname "$0")"test_packages.sh"
 
-	echo "Installing and testing packages"
-	ssh $USER\@$IP -o StrictHostKeyChecking=no \
-		-q -o UserKnownHostsFile=/dev/null \
-		-C "cat > script" < $(dirname "$0")"test_packages.sh"
+		LOGFILE="log $IMAGE.txt"
+		ssh $USER\@$IP -o StrictHostKeyChecking=no \
+			-q -o UserKnownHostsFile=/dev/null \
+			-C "chmod a+x script; ./script" > $LOGFILE 2>&1
 
-	LOGFILE="log $IMAGE.txt"
-	ssh $USER\@$IP -o StrictHostKeyChecking=no \
-		-q -o UserKnownHostsFile=/dev/null \
-		-C "chmod a+x script; ./script" > $LOGFILE 2>&1
+		scp "$LOGFILE" filedump@callisto.uio.no:
+	fi
 
 	openstack server delete --wait $NAME
 
