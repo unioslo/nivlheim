@@ -85,12 +85,13 @@ for IMAGE in "${IMAGES[@]}"; do
 			-q -o UserKnownHostsFile=/dev/null \
 			-C "cat > script" < $(dirname "$0")"test_packages.sh"
 
-		LOGFILE="log $IMAGE.txt"
+		TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
+		LOGFILE="${IMAGE}_${TIMESTAMP}.log"
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
 			-C "chmod a+x script; ./script" > $LOGFILE 2>&1
 
-		scp "$LOGFILE" filedump@callisto.uio.no:
+		scp "$LOGFILE" oyvihag@callisto.uio.no:
 	fi
 
 	openstack server delete --wait $NAME
@@ -100,10 +101,12 @@ for IMAGE in "${IMAGES[@]}"; do
 		if [ grep -c END_TO_END_SUCCESS "$LOGFILE" -gt 0 ]; then
 			STATUS="success"
 		fi
+		URL=""
+		if [ -f $LOGFILE ]; then URL="http://folk.uio.no/oyvihag/logs/$LOGFILE"; fi
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"$STATUS\",
-			\"target_url\": \"\",
+			\"target_url\": \"$URL\",
 			\"description\": \"$STATUS\",
 			\"context\": \"$IMAGE\"
 		}" -sS -o /dev/null
