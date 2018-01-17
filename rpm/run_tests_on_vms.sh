@@ -79,6 +79,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo ""
 	if [ ! $OK -eq 1 ]; then
 		echo "Unable to connect to the VM, giving up."
+		LOGFILE=""
 	else
 		echo "Installing and testing packages"
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
@@ -102,7 +103,8 @@ for IMAGE in "${IMAGES[@]}"; do
 			STATUS="success"
 		fi
 		URL=""
-		if [ -f $LOGFILE ]; then URL="http://folk.uio.no/oyvihag/logs/$LOGFILE"; fi
+		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]];
+		then URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"; fi
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"$STATUS\",
