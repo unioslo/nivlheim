@@ -84,7 +84,8 @@ do
 	echo "--------------------------------------------------------"
 	echo "  Mock-building packages for $config"
 	echo "--------------------------------------------------------"
-	if ! mock --root=$config --quiet --rebuild $srpm; then
+	if ! mock --bootstrap-chroot --root=$config --quiet --rebuild $srpm; then
+		echo "Mock build failed for $config."
 		echo "------------ build.log -------------"
 		cat /var/lib/mock/$config/result/build.log
 		echo "------------------------------------"
@@ -92,6 +93,7 @@ do
 	fi
 	rm -f /var/lib/mock/$config/result/*.src.rpm
 	rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
+	echo ""
 
 	#if [ "$GIT_BRANCH" = "origin/master" ]; then
 	#	cp -v /var/lib/mock/$config/result/*.rpm /var/www/html/repo || exit 1
