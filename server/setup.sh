@@ -54,9 +54,10 @@ chown -R apache:apache /var/www/nivlheim/{db,certs,rand,queue}
 chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
 setsebool httpd_can_network_connect_db on
 
-# initialize postgresql
-if ! /usr/bin/postgresql-setup --initdb; then
-	echo "There is apparently an existing PostgreSQL installation."
+# initialize postgresql. new/old syntax
+if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then
+	echo "Unable to initialize PostgreSQL database. Is there an existing installation?"
+	exit 1
 fi
 
 # restart apache httpd and postgres
