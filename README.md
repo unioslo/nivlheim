@@ -1,7 +1,8 @@
 # Getting started
 ### Install the server
-1. Spin up a clean VM running Fedora 27, 26 or RHEL 7
-2. Configure the package repository:
+1. Spin up a clean VM running Fedora 27, 26, RHEL 7, or CentOS 7
+2. If you're using RHEL or CentOS, you need to [enable the EPEL package repository](https://fedoraproject.org/wiki/EPEL).
+3. Configure the package repository:
 ```
 sudo dnf copr enable oyvindh/Nivlheim
 ```
@@ -9,11 +10,11 @@ or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/cop
 download the appropriate repository config file, and place it in 
 `/etc/yum.repos.d/`  
 
-3. Install the packages:
+4. Install the packages:
 ```
 sudo dnf -y install nivlheim-server nivlheim-client
 ```
-4. Open the web admin interface in a browser:
+5. Open the web admin interface in a browser:
 `https://<your server>/`
 
 At this point, there's no data in the system, because no clients have been configured yet.
@@ -61,5 +62,5 @@ Copy `/var/www/nivlheim/CA/nivlheimca.crt` from the server, and place it in `/va
 
 # How to contribute
 - Do you have a suggestion, feature request, or idea? Or have you found a bug? Go to the "issues" page and create a new issue! Everything is welcome.
-- Would you like to contribute code? Fork the repository and create a pull request!
+- Would you like to contribute code? Fork the repository and create a pull request! We try to use the [GitHub workflow](https://guides.github.com/introduction/flow/). You can also ask to be added as a collaborator.
 - Questions? Contact me at oyvind.hagberg@usit.uio.no
