@@ -29,7 +29,7 @@ echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 sudo /usr/sbin/nivlheim_client
 sudo -u apache psql -c 'update waiting_for_approval set approved=true;'
 sudo /usr/sbin/nivlheim_client
-if [ ! -f /var/nivlheim/my.crt ]; authenticate
+if [ ! -f /var/nivlheim/my.crt ]; then
 	echo "Certificate generation failed."
 	exit
 fi

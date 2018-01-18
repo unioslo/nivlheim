@@ -101,7 +101,7 @@ for IMAGE in "${IMAGES[@]}"; do
 
 	if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 		STATUS="failure"
-		if [ grep -c END_TO_END_SUCCESS "$LOGFILE" -gt 0 ]; then
+		if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
 			STATUS="success"
 		fi
 		URL=""
