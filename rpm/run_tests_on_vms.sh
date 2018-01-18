@@ -36,7 +36,7 @@ if [ ${#IMAGES[@]} -eq 0 ]; then
 fi
 
 # set "pending" status on GitHub for all platforms
-if [[ $GITHUB_TOKEN != "" ]] && [[ $GIT_COMMIT != "" ]]; then
+if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 	for IMAGE in "${IMAGES[@]}"; do
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
@@ -66,17 +66,19 @@ for IMAGE in "${IMAGES[@]}"; do
 	if [[ $IMAGE == *"CirrOS"* ]]; then USER=cirros; fi
 	echo "User: $USER"
 
-	echo -n "Waiting for the VM to finish booting"
 	OK=0
-	for try in {1..10}; do
-		if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
-			OK=1
-			break
-		fi
-		sleep 5
-		echo -n ".."
-	done
-	echo ""
+	if [ "$IP" != "" ]; then
+		echo -n "Waiting for the VM to finish booting"
+		for try in {1..10}; do
+			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
+				OK=1
+				break
+			fi
+			sleep 5
+			echo -n ".."
+		done
+		echo ""
+	fi
 	if [ ! $OK -eq 1 ]; then
 		echo "Unable to connect to the VM, giving up."
 		LOGFILE=""
@@ -84,20 +86,20 @@ for IMAGE in "${IMAGES[@]}"; do
 		echo "Installing and testing packages"
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "cat > script" < $(dirname "$0")"test_packages.sh"
+			-C "cat > script" < $(dirname "$0")"/test_packages.sh"
 
-		TIMESTAMP=$(date '+%Y-%m-%dT%H:%M:%S')
-		LOGFILE="${IMAGE}_${TIMESTAMP}.log"
+		TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
+		LOGFILE=$(echo "${IMAGE}_${TIMESTAMP}.log" | sed -e 's/ /_/g')
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "chmod a+x script; ./script" > $LOGFILE 2>&1
+			-C "chmod a+x script; ./script" > "$LOGFILE" 2>&1
 
-		scp "$LOGFILE" oyvihag@callisto.uio.no:
+		scp $LOGFILE oyvihag@callisto.uio.no:
 	fi
 
 	openstack server delete --wait $NAME
 
-	if [[ $GITHUB_TOKEN != "" ]] && [[ $GIT_COMMIT != "" ]]; then
+	if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 		STATUS="failure"
 		if [ grep -c END_TO_END_SUCCESS "$LOGFILE" -gt 0 ]; then
 			STATUS="success"
