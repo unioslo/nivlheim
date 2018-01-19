@@ -69,7 +69,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	OK=0
 	if [ "$IP" != "" ]; then
 		echo -n "Waiting for the VM to finish booting"
-		for try in {1..10}; do
+		for try in {1..20}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
@@ -101,12 +101,13 @@ for IMAGE in "${IMAGES[@]}"; do
 
 	if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 		STATUS="failure"
-		if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
-			STATUS="success"
-		fi
 		URL=""
-		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]];
-		then URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"; fi
+		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]]; then
+			URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"
+			if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
+				STATUS="success"
+			fi
+		fi
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"$STATUS\",

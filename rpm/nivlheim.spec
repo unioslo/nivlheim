@@ -1,4 +1,4 @@
-%global date %(date +"%Y%m%d")
+%global date %(date +"%Y%m%d%H%M")
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
