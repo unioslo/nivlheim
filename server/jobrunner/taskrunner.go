@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"syscall"
 	"time"
 
@@ -51,6 +52,7 @@ func RegisterJob(newjob Job) {
 
 var jobs []JobListElement
 var quit bool
+var postgresSupportsOnConflict bool
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -71,6 +73,31 @@ func main() {
 		log.Fatal(err)
 	}
 	defer db.Close()
+
+	// Determine capabilities of the database
+	var rePGVersion = regexp.MustCompile("PostgreSQL (\\d+.\\d+.\\d+)")
+	postgresSupportsOnConflict = false
+	rows, err := db.Query("select version()")
+	if err != nil {
+		log.Fatal(err)
+	} else {
+		defer rows.Close()
+		if rows.Next() {
+			var version sql.NullString
+			err = rows.Scan(&version)
+			if err == nil {
+				if version.Valid {
+					mat := rePGVersion.FindStringSubmatch(version.String)
+					if len(mat) >= 2 && len(mat[1]) > 0 {
+						vstr := mat[1]
+						log.Printf("PostgreSQL version: %s", vstr)
+						postgresSupportsOnConflict = vstr >= "9.5"
+					}
+				}
+			}
+		}
+	}
+
 	for !quit {
 		// Run jobs
 		for _, j := range jobs {
