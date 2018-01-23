@@ -14,6 +14,14 @@
 source ~/keystone_rc.sh # provides environment variables with authentication information
 source ~/github_rc.sh # provides GitHub API token
 
+KEYPAIRNAME="jenkins_key"
+while getopts k: option; do
+	case "${option}"
+	in
+		k) KEYPAIRNAME=${OPTARG};;
+	esac
+done
+
 # Create an array containing the available machine images
 TMPFILE=$(mktemp)
 openstack image list | grep active | cut -d '|' -f 3 > $TMPFILE
@@ -52,11 +60,15 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "Creating a VM with \"$IMAGE\""
 	NAME="voyager"
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
-	openstack server create --image "$IMAGE" --flavor m1.small \
-		--key-name jenkins_key --nic net-id=dualStack --wait $NAME \
-		> /dev/null
-	IP=$(openstack server list | grep $NAME | \
-		grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	IP=""
+	until [[ $IP != "" ]]; do
+		# Loop because unstable network connection to the openstack infrastructure
+		openstack server create --image "$IMAGE" --flavor m1.small \
+			--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
+			> /dev/null
+		IP=$(openstack server list | grep $NAME | \
+			grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
+	done
 	echo "IP address: \"$IP\""
 	USER=root
 	if [[ $IMAGE == *"CentOS"* ]]; then USER=centos; fi
@@ -67,7 +79,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "User: $USER"
 
 	OK=0
-	if [ "$IP" != "" ]; then
+	if [[ $IP != "" ]]; then
 		echo -n "Waiting for the VM to finish booting"
 		for try in {1..20}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
@@ -79,7 +91,7 @@ for IMAGE in "${IMAGES[@]}"; do
 		done
 		echo ""
 	fi
-	if [ ! $OK -eq 1 ]; then
+	if [[ ! $OK -eq 1 ]]; then
 		echo "Unable to connect to the VM, giving up."
 		LOGFILE=""
 	else
