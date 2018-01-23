@@ -16,7 +16,7 @@ func init() {
 }
 
 func (s scanQueueDirJob) HowOften() time.Duration {
-	return time.Second * 20
+	return time.Second * 10
 }
 
 func (s scanQueueDirJob) Run(db *sql.DB) {
@@ -35,9 +35,15 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 		}
 		taskurl := "http://localhost/cgi-bin/processarchive?archivefile=" +
 			f.Name()
-		task := Task{url: taskurl}
 		// New task
-		db.Exec("INSERT INTO tasks(url) VALUES($1) ON CONFLICT DO NOTHING",
-			task.url)
+		if postgresSupportsOnConflict {
+			_, err := db.Exec("INSERT INTO tasks(url) VALUES($1)"+
+				" ON CONFLICT DO NOTHING", taskurl)
+			if err != nil {
+				log.Println(err.Error())
+			}
+		} else {
+			db.Exec("INSERT INTO tasks(url) VALUES($1)", taskurl)
+		}
 	}
 }

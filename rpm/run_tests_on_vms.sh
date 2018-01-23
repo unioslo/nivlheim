@@ -14,6 +14,14 @@
 source ~/keystone_rc.sh # provides environment variables with authentication information
 source ~/github_rc.sh # provides GitHub API token
 
+KEYPAIRNAME="jenkins_key"
+while getopts k: option; do
+	case "${option}"
+	in
+		k) KEYPAIRNAME=${OPTARG};;
+	esac
+done
+
 # Create an array containing the available machine images
 TMPFILE=$(mktemp)
 openstack image list | grep active | cut -d '|' -f 3 > $TMPFILE
@@ -53,7 +61,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	NAME="voyager"
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
 	openstack server create --image "$IMAGE" --flavor m1.small \
-		--key-name jenkins_key --nic net-id=dualStack --wait $NAME \
+		--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
 		> /dev/null
 	IP=$(openstack server list | grep $NAME | \
 		grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
@@ -67,9 +75,9 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "User: $USER"
 
 	OK=0
-	if [ "$IP" != "" ]; then
+	if [[ $IP != "" ]]; then
 		echo -n "Waiting for the VM to finish booting"
-		for try in {1..10}; do
+		for try in {1..20}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
@@ -79,7 +87,7 @@ for IMAGE in "${IMAGES[@]}"; do
 		done
 		echo ""
 	fi
-	if [ ! $OK -eq 1 ]; then
+	if [[ ! $OK -eq 1 ]]; then
 		echo "Unable to connect to the VM, giving up."
 		LOGFILE=""
 	else
@@ -101,12 +109,13 @@ for IMAGE in "${IMAGES[@]}"; do
 
 	if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 		STATUS="failure"
-		if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
-			STATUS="success"
-		fi
 		URL=""
-		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]];
-		then URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"; fi
+		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]]; then
+			URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"
+			if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
+				STATUS="success"
+			fi
+		fi
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
 			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"$STATUS\",

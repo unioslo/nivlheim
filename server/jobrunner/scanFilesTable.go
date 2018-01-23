@@ -15,7 +15,7 @@ func init() {
 }
 
 func (s scanFilesTableJob) HowOften() time.Duration {
-	return 0
+	return time.Second
 }
 
 func (s scanFilesTableJob) Run(db *sql.DB) {
@@ -30,9 +30,15 @@ func (s scanFilesTableJob) Run(db *sql.DB) {
 		if fileid.Valid {
 			taskurl := "http://localhost/cgi-bin/parsefile?fileid=" +
 				strconv.FormatInt(fileid.Int64, 10)
-			task := Task{url: taskurl}
-			db.Exec("INSERT INTO tasks(url) VALUES($1) "+
-				"ON CONFLICT DO NOTHING", task.url)
+			if postgresSupportsOnConflict {
+				_, err := db.Exec("INSERT INTO tasks(url) VALUES($1)"+
+					" ON CONFLICT DO NOTHING", taskurl)
+				if err != nil {
+					log.Println(err.Error())
+				}
+			} else {
+				db.Exec("INSERT INTO tasks(url) VALUES($1)", taskurl)
+			}
 		}
 	}
 }
