@@ -60,15 +60,11 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "Creating a VM with \"$IMAGE\""
 	NAME="voyager"
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
-	IP=""
-	until [[ $IP != "" ]]; do
-		# Loop because unstable network connection to the openstack infrastructure
-		openstack server create --image "$IMAGE" --flavor m1.small \
-			--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
-			> /dev/null
-		IP=$(openstack server list | grep $NAME | \
-			grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
-	done
+	openstack server create --image "$IMAGE" --flavor m1.small \
+		--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
+		> /dev/null
+	IP=$(openstack server list | grep $NAME | \
+		grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	echo "IP address: \"$IP\""
 	USER=root
 	if [[ $IMAGE == *"CentOS"* ]]; then USER=centos; fi
