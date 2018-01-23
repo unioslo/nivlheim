@@ -16,7 +16,7 @@ func init() {
 }
 
 func (s scanQueueDirJob) HowOften() time.Duration {
-	return time.Second * 20
+	return time.Second * 10
 }
 
 func (s scanQueueDirJob) Run(db *sql.DB) {

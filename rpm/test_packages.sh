@@ -34,8 +34,16 @@ if [ ! -f /var/nivlheim/my.crt ]; then
 	exit
 fi
 
-sleep 10 # wait for server to process incoming data
-if [ $(curl -s -k https://localhost/ | grep -c "novalocal") -eq 0 ]; then
+# wait for server to process incoming data
+OK=0
+for try in {1..30}; do
+	sleep 1
+	if [ $(curl -s -k https://localhost/ | grep -c "novalocal") -gt 0 ]; then
+		OK=1
+		break
+	fi
+done
+if [ $OK -eq 0 ]; then
 	echo "Home page does not show the new machine."
 	exit
 fi
