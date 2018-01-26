@@ -14,10 +14,9 @@ type Hostinfo struct {
 	IPaddr        sql.NullString
 	Certfp        string
 	Kernel        sql.NullString
-	Type          sql.NullString
 	Lastseen      pq.NullTime
 	OS            sql.NullString
-	OSclass       sql.NullString
+	OSEdition      sql.NullString
 	Vendor        sql.NullString
 	Model         sql.NullString
 	Serialno      sql.NullString
@@ -88,11 +87,11 @@ func browse(w http.ResponseWriter, req *http.Request) {
 		// Hostinfo
 		var hi Hostinfo
 		err = db.QueryRow("SELECT hostname, ipaddr, certfp, kernel, "+
-			"type, lastseen, os, osclass, vendor, model, serialno, "+
-			"clientversion FROM hostinfo WHERE hostname=$1",
+			"lastseen, os, os_edition, vendor, model, serialno, clientversion "+
+			"FROM hostinfo WHERE hostname=$1",
 			req.FormValue("h")).Scan(&hi.Hostname, &hi.IPaddr,
-			&hi.Certfp, &hi.Kernel, &hi.Type, &hi.Lastseen,
-			&hi.OS, &hi.OSclass, &hi.Vendor, &hi.Model,
+			&hi.Certfp, &hi.Kernel, &hi.Lastseen,
+			&hi.OS, &hi.OSEdition, &hi.Vendor, &hi.Model,
 			&hi.Serialno, &hi.Clientversion)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)

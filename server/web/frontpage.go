@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"html/template"
 	"net/http"
 	"net/http/cgi"
@@ -14,7 +15,7 @@ var templatePath string
 var templates *template.Template
 var dbConnectionString string
 
-type WaitingForApproval struct {
+type waitingForApproval struct {
 	Ipaddr   sql.NullString
 	Hostname sql.NullString
 	Received pq.NullTime
@@ -29,8 +30,8 @@ func init() {
 func main() {
 	if len(os.Args) >= 2 && os.Args[1] == "--dev" {
 		templatePath = "../templates"
-		dbConnectionString = "host=potetgull.mooo.com " +
-			"dbname=apache sslmode=disable user=apache"
+		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+		fmt.Println("Listening on port 8080")
 		http.HandleFunc("/static/", staticfiles)
 		http.ListenAndServe("127.0.0.1:8080", nil)
 	} else {
@@ -116,7 +117,7 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	var totalMachines int
 	db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&totalMachines)
 
-	approval := make([]WaitingForApproval, 0, 0)
+	approval := make([]waitingForApproval, 0, 0)
 	rows, err = db.Query("SELECT ipaddr, hostname, received " +
 		"FROM waiting_for_approval WHERE approved IS NULL ORDER BY hostname")
 	if err != nil {
@@ -125,7 +126,7 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	} else {
 		defer rows.Close()
 		for rows.Next() {
-			var app WaitingForApproval
+			var app waitingForApproval
 			err = rows.Scan(&app.Ipaddr, &app.Hostname, &app.Received)
 			if err != nil && err != sql.ErrNoRows {
 				http.Error(w, "4: "+err.Error(), http.StatusInternalServerError)

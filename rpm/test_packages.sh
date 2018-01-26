@@ -36,8 +36,8 @@ fi
 
 # wait for server to process incoming data
 OK=0
-for try in {1..30}; do
-	sleep 1
+for try in {1..20}; do
+	sleep 3
 	if [ $(curl -s -k https://localhost/ | grep -c "novalocal") -gt 0 ]; then
 		OK=1
 		break

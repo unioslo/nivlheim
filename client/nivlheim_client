@@ -57,7 +57,7 @@ my %defaultopt = (
 my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
-my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo';
+my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
 open(my $F, "/etc/nivlheim/version");
 chomp(my $VERSION = <$F>);
 close($F);
@@ -293,6 +293,21 @@ elsif ($have_cert && !$cert_works) {
 # Determine which files to send
 my @filelist = keys %{$config{'files'}};
 
+# Make sure essential files are on the list
+my @essentials = (
+"/etc/redhat-release",
+"/etc/debian_version",
+"/etc/lsb-release",
+"/usr/lib/os.release.d/os-release-workstation",
+"/usr/lib/os.release.d/os-release-server",
+"/usr/lib/os.release.d/os-release-cloud"
+);
+foreach my $e (@essentials) {
+	if (!grep {$e eq $_} @filelist) {
+		push @filelist, $e;
+	}
+}
+
 # Create tar archive
 my $tar = Archive::Tar->new();
 
@@ -312,8 +327,23 @@ for my $filename (@filelist) {
 	}
 }
 
-# Run all the commands, collect the output and store it
+# Get the list of commands
 my @cmdlist = keys %{$config{'commands'}};
+
+# Make sure essential commands are on the list
+@essentials = (
+	"/bin/uname -a",
+	"/usr/bin/dpkg-query -l",
+	"/usr/bin/sw_vers",
+	"/usr/sbin/dmidecode -t system"
+);
+foreach my $e (@essentials) {
+	if (!grep {$e eq $_} @cmdlist) {
+		push @cmdlist, $e;
+	}
+}
+
+# Run all the commands, collect the output and store it
 foreach my $cmd (@cmdlist) {
 	# if it got parsed erroneously and is split on /=/, re-assemble it
 	if (defined($config{'commands'}{$cmd})) {

@@ -33,7 +33,7 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 			// nope.
 			continue
 		}
-		taskurl := "http://localhost/cgi-bin/processarchive?archivefile=" +
+		taskurl := "http://localhost/cgi-bin/processarchive?file=" +
 			f.Name()
 		// New task
 		if postgresSupportsOnConflict {

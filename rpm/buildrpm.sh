@@ -94,10 +94,4 @@ do
 	rm -f /var/lib/mock/$config/result/*.src.rpm
 	rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
 	echo ""
-
-	#if [ "$GIT_BRANCH" = "origin/master" ]; then
-	#	cp -v /var/lib/mock/$config/result/*.rpm /var/www/html/repo || exit 1
-	#	cd /var/www/html/repo
-	#	createrepo . || exit 1
-	#fi
 done

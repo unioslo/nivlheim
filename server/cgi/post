@@ -210,6 +210,7 @@ eval {
 	print $F "certfp = $fingerprint\n";
 	print $F "ip = $ipaddr\n";
 	print $F "clientversion = $clientversion\n";
+	print $F "received = ".time()."\n";
 	close($F);
 
 	# Response

@@ -45,15 +45,15 @@ if (!$dbh) {
 
 # Check parameters
 my %params = parse_query_string();
-unless (exists $params{'archivefile'}) {
-	print "Status: 400\n\nMissing parameter: archivefile\n";
+unless (exists $params{'file'}) {
+	print "Status: 400\n\nMissing parameter: file\n";
 	exit;
 }
-if ($params{'archivefile'} =~ m![\\/]!) {
+if ($params{'file'} =~ m![\\/]!) {
 	print "Status: 403\n\n";
 	exit;
 }
-my $archivefile = $params{'archivefile'};
+my $archivefile = $params{'file'};
 $archivefile = "$confdir/queue/$archivefile";
 unless (-r $archivefile) {
 	print "Status: 410\n\nCan't find the archive file.\n";
@@ -66,10 +66,10 @@ eval{
 	$logger->debug("Unpacking into $dir");
 	chdir($dir);
 	if ($archivefile =~ /\.tgz$/) {
-		run_command("/bin/tar -xzmf $archivefile");
+		run_command("/bin/tar -xzf $archivefile");
 	}
 	elsif ($archivefile =~ /\.zip$/) {
-		run_command("/usr/bin/unzip -Doqq $archivefile 2>&1");
+		run_command("/usr/bin/unzip -oqq $archivefile 2>&1");
 	}
 	else {
 		# The way the client is currently written, this will not happen.
@@ -118,9 +118,11 @@ eval{
 	}
 	close($F);
 
+	my $iso_received = uts_to_iso8601($meta{'received'});
+
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,clienthostname,"
-		."certcn,certfp,filename,received,content,is_command,clientversion) "
-		."VALUES(?,?,?, ?,?,?, ?,?,?)");
+		."certcn,certfp,filename,received,mtime,content,is_command,clientversion) "
+		."VALUES(?,?,?,?, ?,?,?,?, ?,?)");
 
 	# For each file
 	sub callback1 {
@@ -131,12 +133,12 @@ eval{
 		return unless $File::Find::name =~ m!/(files|commands)/!;
 		$logger->debug("Processing " . basename($File::Find::name));
 
-		# Make an ISO timestamp from the modified time of the archive
+		# Make an ISO timestamp from the modified time of the file
 		my $mtime = (stat($File::Find::name))[9];
-		my $isotime = uts_to_iso8601($mtime);
-		my ($content, $originalfilename);
+		my $iso_mtime = uts_to_iso8601($mtime);
 
 		# Read the content
+		my ($content, $originalfilename);
 		my $is_command = ($File::Find::name =~ m!/commands/!) ? 1 : 0;
 		my $F;
 		if (!open($F, $File::Find::name)) {
@@ -178,7 +180,7 @@ eval{
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{clienthostname},
 			$meta{certcn}, $meta{certfp}, $originalfilename,
-			$isotime, $content, $is_command,
+			$iso_received, $iso_mtime, $content, $is_command,
 			$meta{clientversion});
 		$sth->execute(@values) or $logger->error($sth->errstr);
 	}

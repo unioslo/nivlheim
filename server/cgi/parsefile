@@ -71,7 +71,7 @@ eval{
 	}
 
 	# Detect if a host got a new certificate. Clean up the old one, in that case
-	my $rv = $dbh->do("DELETE FROM hostinfo WHERE hostname=? AND (certfp is null OR certfp != ?)",
+	$rv = $dbh->do("DELETE FROM hostinfo WHERE hostname=? AND (certfp is null OR certfp != ?)",
 		undef, ($row->{'hostname'}, $row->{'certfp'}));
 	if ($rv > 0) {
 		$logger->info("It seems " . $row->{'hostname'} . " got a new certificate.");
@@ -79,41 +79,76 @@ eval{
 
 	# Different files must be parsed differently
 	if ($row->{'filename'} eq "/etc/redhat-release") {
-		my ($os, $type);
+		my ($os, $os_edition);
 		if ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Tikanga/) {
-			$os = 'RHEL5';
-			$type = $1;
+			$os = 'RHEL 5';
+			$os_edition = $1;
 		}
 		elsif ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Santiago/) {
-			$os = 'RHEL6';
-			$type = $1;
+			$os = 'RHEL 6';
+			$os_edition = $1;
 		}
 		elsif ($row->{'content'} =~ /^Red Hat Enterprise Linux (\w+).*Maipo/) {
-			$os = 'RHEL7';
-			$type = $1;
-		}
-		elsif ($row->{'content'} =~ /^Fedora.*Schrödinger/) {
-			$os = 'Fedora19';
-			$type = 'Workstation';
-		}
-		elsif ($row->{'content'} =~ /^Fedora.*Heisenbug/) {
-			$os = 'Fedora20';
-			$type = 'Workstation';
+			$os = 'RHEL 7';
+			$os_edition = $1;
 		}
 		elsif ($row->{'content'} =~ /^Fedora release (\d+)/i) {
-			$os = "Fedora$1";
-			$type = 'Workstation';
+			$os = "Fedora $1";
 		}
-		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', type=? WHERE certfp=?");
-		$sth->execute(($os, $type, $row->{'certfp'}));
+		elsif ($row->{'content'} =~ /^CentOS Linux release (\d+)/) {
+			$os = "CentOS $1";
+		}
+		my $sth;
+		if (defined($os_edition)) {
+			$sth = $dbh->prepare("UPDATE hostinfo SET os=?, os_edition=? WHERE certfp=?");
+			$sth->execute(($os, $os_edition, $row->{'certfp'}));
+		} else {
+			$sth = $dbh->prepare("UPDATE hostinfo SET os=? WHERE certfp=?");
+			$sth->execute(($os, $row->{'certfp'}));
+		}
 		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "/usr/lib/os.release.d/os-release-workstation") {
+		my $os_edition = 'Workstation';
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os_edition=? WHERE certfp=?");
+		$sth->execute(($os_edition, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "/usr/lib/os.release.d/os-release-server") {
+		my $os_edition = 'Server';
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os_edition=? WHERE certfp=?");
+		$sth->execute(($os_edition, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "/usr/lib/os.release.d/os-release-cloud") {
+		my $os_edition = 'Cloud';
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os_edition=? WHERE certfp=?");
+		$sth->execute(($os_edition, $row->{'certfp'}));
+		$sth->finish;
+	}
+
+	if ($row->{'filename'} eq "/usr/bin/dpkg-query -l") {
+		my $os_edition;
+		if ($row->{'content'} =~ /ubuntu-desktop/) {
+			$os_edition = 'Desktop';
+		} elsif ($row->{'content'} =~ /ubuntu-server/) {
+			$os_edition = 'Server';
+		}
+		if (defined($os_edition)) {
+			my $sth = $dbh->prepare("UPDATE hostinfo SET os_edition=? WHERE certfp=?");
+			$sth->execute(($os_edition, $row->{'certfp'}));
+			$sth->finish;
+		}
 	}
 
 	if ($row->{'filename'} eq "/etc/debian_version") {
 		if ($row->{'content'} =~ /^(\d+)\./) {
-			my $os = "Debian$1";
-			my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', "
-						."type=null WHERE certfp=?");
+			my $os = "Debian $1";
+			my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, "
+						."os_edition=null WHERE certfp=?");
 			$sth->execute(($os, $row->{'certfp'}));
 			$sth->finish;
 		}
@@ -122,69 +157,75 @@ eval{
 	if ($row->{'filename'} eq "/etc/lsb-release") {
 		if ($row->{'content'} =~ /DISTRIB_ID=Ubuntu.*DISTRIB_RELEASE=(\d+)\.(\d+)/s) {
 			my $os = "Ubuntu $1.$2";
-			my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Linux', "
-						."type=null WHERE certfp=?");
+			my $sth = $dbh->prepare("UPDATE hostinfo SET os=? "
+						."WHERE certfp=?");
 			$sth->execute(($os, $row->{'certfp'}));
 			$sth->finish;
 		}
 	}
 
 	if ($row->{'filename'} eq "/usr/bin/sw_vers"
-			&& $row->{'content'} =~ /ProductName:\s+Mac OS X\nProductVersion:\s+([\d\.]+)/) {
-		my $os = "OSX $1";
-		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, osclass='Darwin', "
-					."type='Workstation' WHERE certfp=?");
+			&& $row->{'content'} =~ /ProductName:\s+Mac OS X\nProductVersion:\s+(\d+\.\d+)/) {
+		my $os = "macOS $1";
+		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, "
+					."os_edition=null WHERE certfp=?");
 		$sth->execute(($os, $row->{'certfp'}));
 		$sth->finish;
+		# There is a product called macOS Server, but I don't know how to
+		# distinguish it from the "plain" macOS.
+		# https://en.wikipedia.org/wiki/MacOS_Server
 	}
 
 	if ($row->{'filename'} eq "(Get-WmiObject Win32_OperatingSystem).Caption") {
 		my $s = $row->{'content'};
-		my ($os, $type);
+		my ($os, $os_edition);
 		if ($s =~ /Microsoft Windows 7/) {
-			$os = 'Win7';
-			$type = 'Workstation';
+			$os = 'Windows 7';
+		}
+		elsif ($s =~ /Microsoft Windows 10/) {
+			$os = 'Windows 10';
 		}
 		elsif ($s =~ /Microsoft Windows Server 2008 R2/) {
-			$os = 'Win2008R2';
-			$type = 'Server';
+			$os = 'Windows 2008 R2';
+			$os_edition = 'Server';
 		}
 		elsif ($s =~ /Microsoft.+Windows.+Server.+2008.+(Standard|Enterprise)/) {
-			$os = 'Win2008';
-			$type = 'Server';
+			$os = 'Windows 2008';
+			$os_edition = 'Server';
 		}
 		elsif ($s =~ /Microsoft Windows Server 2012 R2/) {
-			$os = 'Win2012R2';
-			$type = 'Server';
+			$os = 'Windows 2012 R2';
+			$os_edition = 'Server';
 		}
 		elsif ($s =~ /Microsoft Windows Server 2012/) {
-			$os = 'Win2012';
-			$type = 'Server';
+			$os = 'Windows 2012';
+			$os_edition = 'Server';
 		}
 		elsif ($s =~ /Microsoft Windows Server 2016/) {
-			$os = 'Win2016';
-			$type = 'Server';
+			$os = 'Windows 2016';
+			$os_edition = 'Server';
 		}
-		my $sth = $dbh->prepare("UPDATE hostinfo SET os=?, type=?, osclass='Windows' "
-					." WHERE certfp=?");
-		$sth->execute(($os, $type, $row->{'certfp'}));
+		my $sth;
+		if (defined($os_edition)) {
+			$sth = $dbh->prepare("UPDATE hostinfo SET os=?, os_edition=? WHERE certfp=?");
+			$sth->execute(($os, $os_edition, $row->{'certfp'}));
+		} else {
+			$sth = $dbh->prepare("UPDATE hostinfo SET os=? WHERE certfp=?");
+			$sth->execute(($os, $row->{'certfp'}));
+		}
 		$sth->finish;
 	}
 
-	# kernel and os
+	# kernel
 	if ($row->{'filename'} eq "/bin/uname -a"
 			&& $row->{'content'} =~ /(\S+) \S+ (\S+)/) {
-		my $osclass = $1;
+		my $os = $1;
 		my $kernel = $2;
 		$dbh->do("UPDATE hostinfo SET kernel=? WHERE certfp=?", undef,
 				($kernel, $row->{'certfp'}));
-		if ($osclass eq 'Darwin') {
-			$dbh->do("UPDATE hostinfo SET osclass='Darwin' WHERE certfp=?", undef,
-                ($row->{'certfp'}));
-		}
-		if ($osclass eq 'FreeBSD' && $kernel =~ /^(\d+)/) {
-			my $os = "FreeBSD$1";
-			$dbh->do("UPDATE hostinfo SET osclass='BSD', os=? WHERE certfp=?", undef,
+		if ($os eq 'FreeBSD' && $kernel =~ /^(\d+)/) {
+			$os = "FreeBSD $1";
+			$dbh->do("UPDATE hostinfo SET os=? WHERE certfp=?", undef,
 				($os, $row->{'certfp'}));
 		}
 	}
@@ -213,7 +254,7 @@ eval{
 			if ($info =~ /Product Name: (.*?)\s*$/m) {
 				$model = $1;
 			}
-			if ($info =~ /Serial Number: ([a-zA-Z0-9]+)\s*$/m) {
+			if ($info =~ /Serial Number: ([^\s]+)\s*$/m) {
 				$serial = $1;
 			}
 			$dbh->do("UPDATE hostinfo SET vendor=?, model=?, serialno=? WHERE certfp=?",
