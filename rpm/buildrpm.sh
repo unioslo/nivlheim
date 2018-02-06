@@ -84,6 +84,8 @@ do
 	echo "--------------------------------------------------------"
 	echo "  Mock-building packages for $config"
 	echo "--------------------------------------------------------"
+	mock --root=$config --quiet --clean
+	mock --bootstrap-chroot --root=$config --quiet --clean
 	if ! mock --bootstrap-chroot --root=$config --quiet --rebuild $srpm; then
 		echo "Mock build failed for $config."
 		echo "------------ build.log -------------"
