@@ -51,7 +51,8 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 
 	if req.FormValue("approve") != "" {
 		approved := req.FormValue("approve") == "1"
-		res, err := db.Exec("UPDATE waiting_for_approval SET approved=$1 "+
+		var res sql.Result
+		res, err = db.Exec("UPDATE waiting_for_approval SET approved=$1 "+
 			"WHERE hostname=$2 AND ipaddr=$3",
 			approved,
 			req.FormValue("h"),
@@ -60,7 +61,8 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		rows, err := res.RowsAffected()
+		var rows int64
+		rows, err = res.RowsAffected()
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -91,7 +93,9 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, "1: "+err.Error(), http.StatusInternalServerError)
 		return
-	} else {
+	}
+
+	{
 		defer rows.Close()
 		for rows.Next() {
 			var hostname sql.NullString
@@ -123,7 +127,9 @@ func frontpage(w http.ResponseWriter, req *http.Request) {
 	if err != nil {
 		http.Error(w, "1: "+err.Error(), http.StatusInternalServerError)
 		return
-	} else {
+	}
+
+	{
 		defer rows.Close()
 		for rows.Next() {
 			var app waitingForApproval

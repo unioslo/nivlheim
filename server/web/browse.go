@@ -16,7 +16,7 @@ type Hostinfo struct {
 	Kernel        sql.NullString
 	Lastseen      pq.NullTime
 	OS            sql.NullString
-	OSEdition      sql.NullString
+	OSEdition     sql.NullString
 	Vendor        sql.NullString
 	Model         sql.NullString
 	Serialno      sql.NullString
