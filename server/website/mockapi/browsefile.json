@@ -1,0 +1,8 @@
+{
+	"filename": "/usr/sbin/dmidecode -t system",
+	"type": "command",
+	"lastmodified": "2018-02-08T13:00:22+01",
+	"content": "Line one\nLine two\nLine three",
+	"certfp": 817263,
+	"hostname": "flyndre.example.no"
+}

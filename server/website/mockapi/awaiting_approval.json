@@ -1,0 +1,14 @@
+{
+	"awaitingapproval": [
+		{
+			"ipaddress": "127.0.0.1",
+			"reversedns": "localhost",
+			"oshostname": "liksom.local"
+		},
+		{
+			"ipaddress": "129.240.202.63",
+			"reversedns": "callisto.uio.no",
+			"oshostname": "callisto.uio.no"
+		}
+	]
+}

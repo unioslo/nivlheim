@@ -1,0 +1,14 @@
+<p>
+<span>{{numberOfHits}}</span> hits
+{{#if hits}}:{{/if}}
+</p>
+
+{{#each hits}}
+<p>
+	<a href="/browse.html?c={{certfp}}"><span class="has-text-link">
+		{{hostname}}</span></a>:
+	<span class="has-text-link"><a href="/browse.html?fid={{fileid}}">
+		{{filename}}</a></span><br>
+	<span class="excerpt">{{{excerpt}}}</span>
+</p>
+{{/each}}

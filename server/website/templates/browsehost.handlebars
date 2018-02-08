@@ -1,0 +1,36 @@
+<h1 class="title">{{details.hostname}}</h1>
+
+<p>
+{{#with details}}
+<table>
+<tr><th>IP address</th><td>{{ipaddress}}</td></tr>
+<tr><th>Last seen</th><td>{{lastseen}}</td></tr>
+<tr><th>OS</th><td>{{os}}</td></tr>
+<tr><th>OS edition</th><td>{{os_edition}}</td></tr>
+<tr><th>Kernel</th><td>{{kernel}}</td></tr>
+<tr><th>Hardware vendor</th><td>{{vendor}}</td></tr>
+<tr><th>Hardware model</th><td>{{model}}</td></tr>
+<tr><th>Serial number</th><td>{{serial}}</td></tr>
+<tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
+<tr><th>Client version</th><td>{{clientversion}}</td></tr>
+</table>
+{{/with}}
+</p>
+
+<p>
+<h1 class="title is-4 is-marginless">Files</h1>
+{{#each files}}
+<a href="/browse.html?fid={{fileid}}"
+	onclick="APIcall('mockapi/browsefile.json?fid={{fileid}}',
+		'browsefile', '#placeholder_browse'); return false">{{filename}}</a><br>
+{{/each}}
+</p>
+
+<p>
+<h1 class="title is-4 is-marginless">Commands</h1>
+{{#each commands}}
+<a href="/browse.html?fid={{fileid}}"
+	onclick="APIcall('mockapi/browsefile.json?fid={{fileid}}',
+		'browsefile', '#placeholder_browse'); return false">{{filename}}</a><br>
+{{/each}}
+</p>
