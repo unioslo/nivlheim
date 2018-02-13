@@ -1,11 +1,11 @@
-{{#if awaitingapproval}}
+{{#if awaitingApproval}}
 <hr>
 <h1 class="title is-4">Waiting for approval</h1>
 <h1 class="subtitle is-6">
 	These machines are from ip address ranges not covered
 	by the ruleset, and must be manually approved/denied.
 </h1>
-{{#each awaitingapproval}}
+{{#each awaitingApproval}}
 <article class="media">
 	<figure class="media-left">
 		<p class="image is-64x64">
@@ -16,13 +16,13 @@
 	<div class="media-content">
 		<table>
 			<tr><th>IP address</th>
-				<td>{{ipaddress}}</td></tr>
+				<td>{{ipAddress}}</td></tr>
 			<tr><th>Reverse DNS</th>
-				<td>{{reversedns}}</td></tr>
+				<td>{{reverseDns}}</td></tr>
 			<tr><th>Hostname from OS</th>
-				<td>{{oshostname}}</td></tr>
+				<td>{{hostname}}</td></tr>
 			<tr><th>Name in Nivlheim</th><td>
-				<input class="input" type="text" value="liksom.local"></td></tr>
+				<input class="input" type="text" value="{{hostname}}"></td></tr>
 			<tr><td></td><td>
 				<button class="button">
 					<span class="icon is-small">

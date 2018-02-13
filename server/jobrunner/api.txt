@@ -1,0 +1,20 @@
+Liste over maskiner som venter på manuell godkjenning:
+/api/v0/awaitingapproval?fields=ipAddress,reverseDns,osHostname
+
+Hente 1 fil:
+/api/v0/file?fileid=1234&fields=filename,content
+
+Hente siste versjon av en fil:
+/api/v0/file?filename="/usr/sbin/dmidecode -t system"&hostname=callisto.uio.no&fields=content
+
+Liste ut filer fra en bestemt maskin:
+/api/v0/host?hostname=callisto.uio.no&fields=files,commands
+
+Hente noen detaljer for en bestemt maskin:
+/api/v0/host?hostname=callisto.uio.no&fields=details[lastseen,kernel]
+
+Liste alle maskiner som kjører Linux:
+/api/v0/host?os=Linux&fields=details[hostname]
+
+Søke i filer:
+/api/v0/search?q=søkeord&limit=10&offset=0&excerpt=80
