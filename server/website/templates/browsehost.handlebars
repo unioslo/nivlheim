@@ -1,7 +1,6 @@
-<h1 class="title">{{details.hostname}}</h1>
+<h1 class="title">{{hostname}}</h1>
 
 <p>
-{{#with details}}
 <table>
 <tr><th>IP address</th><td>{{ipAddress}}</td></tr>
 <tr><th>Last seen</th><td>{{lastseen}}</td></tr>
@@ -14,23 +13,20 @@
 <tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
 <tr><th>Client version</th><td>{{clientVersion}}</td></tr>
 </table>
-{{/with}}
 </p>
 
 <p>
 <h1 class="title is-4 is-marginless">Files</h1>
 {{#each files}}
-<a href="/browse.html?fid={{fileId}}"
-	onclick="APIcall('mockapi/browsefile.json?fid={{fileId}}',
-		'browsefile', '#placeholder_browse'); return false">{{filename}}</a><br>
+<a href="/browse.html?f={{fileId}}"
+	onclick="browseFile({{fileId}}); return false">{{filename}}</a><br>
 {{/each}}
 </p>
 
 <p>
 <h1 class="title is-4 is-marginless">Commands</h1>
 {{#each commands}}
-<a href="/browse.html?fid={{fileId}}"
-	onclick="APIcall('mockapi/browsefile.json?fid={{fileId}}',
-		'browsefile', '#placeholder_browse'); return false">{{filename}}</a><br>
+<a href="/browse.html?f={{fileId}}"
+	onclick="browseFile({{fileId}}); return false">{{filename}}</a><br>
 {{/each}}
 </p>

@@ -1,20 +1,27 @@
 Liste over maskiner som venter på manuell godkjenning:
 /api/v0/awaitingapproval?fields=ipAddress,reverseDns,osHostname
 
-Hente 1 fil:
-/api/v0/file?fileid=1234&fields=filename,content
+Hente en bestemt versjon av en fil:
+/api/v0/file?fileid=1234&fields=...
 
 Hente siste versjon av en fil:
-/api/v0/file?filename="/usr/sbin/dmidecode -t system"&hostname=callisto.uio.no&fields=content
+/api/v0/file?filename=/usr/sbin/dmidecode+-t+system&hostname=callisto.uio.no&fields=...
+/api/v0/file?filename=/usr/sbin/dmidecode+-t+system&certfp=ABCD1234&fields=...
+
+file returnerer 404 hvis ingen fil passer til kriteriene. (fileId eller kombinasjon filename og (hostname | certfp))
 
 Liste ut filer fra en bestemt maskin:
 /api/v0/host?hostname=callisto.uio.no&fields=files,commands
+/api/v0/host?certfp=ABCD1234&fields=files,commands
 
 Hente noen detaljer for en bestemt maskin:
-/api/v0/host?hostname=callisto.uio.no&fields=details[lastseen,kernel]
+/api/v0/host?hostname=callisto.uio.no&fields=lastseen,kernel
+/api/v0/host?certfp=ABCD1234&fields=lastseen,kernel
+
+host returnerer 404 hvis ingen maskin passer til kriteriene. (certfp eller hostname)
 
 Liste alle maskiner som kjører Linux:
-/api/v0/host?os=Linux&fields=details[hostname]
+/api/v0/hvaSkalDenneHete?os=Linux&fields=hostname
 
 Søke i filer:
 /api/v0/search?q=søkeord&limit=10&offset=0&excerpt=80

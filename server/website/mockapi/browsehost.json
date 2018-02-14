@@ -1,31 +1,29 @@
 {
-	"details": {
-		"ipAddress": "123.123.123.123",
-		"hostname": "flyndre.example.no",
-		"lastseen": "2018-02-08T11:22:33+01",
-		"os": "Fedora 27",
-		"osEdition": "Workstation",
-		"kernel": "4.14.16-300.fc27.x86_64",
-		"vendor": "Dell Inc.",
-		"model": "OptiPlex 7010",
-		"serial": "1YF2YF3",
-		"certfp": "298376ACBDFCBAFDC589356864ABCDEF",
-		"clientVersion": "0.1.2"
-	},
+	"ipAddress": "123.123.123.123",
+	"hostname": "flyndre.example.no",
+	"lastseen": "2018-02-08T11:22:33+01",
+	"os": "Fedora 27",
+	"osEdition": "Workstation",
+	"kernel": "4.14.16-300.fc27.x86_64",
+	"vendor": "Dell Inc.",
+	"model": "OptiPlex 7010",
+	"serial": "1YF2YF3",
+	"certfp": "298376ACBDFCBAFDC589356864ABCDEF",
+	"clientVersion": "0.1.2",
 	"files": [
 		{
 			"filename": "/etc/redhat-release",
-			"fileId": 123
+			"fileId": 1
 		}
 	],
 	"commands": [
 		{
 			"filename": "/bin/uname -a",
-			"fileId": 234
+			"fileId": 3
 		},
 		{
 			"filename": "/usr/sbin/dmidecode -t system",
-			"fileId": 345
+			"fileId": 4
 		}
 	],
 	"support": [

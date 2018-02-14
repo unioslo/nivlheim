@@ -13,8 +13,10 @@
 	</div>
 	<div class="control has-icons-left">
 		<div class="select">
-			<select>
-				<option>{{lastModified}}</option>
+			<select id="selectVersion">
+				{{#each versions}}
+				<option value="{{fileId}}">{{lastModified}}</option>
+				{{/each}}
 			</select>
 		</div>
 		<span class="icon is-left">
