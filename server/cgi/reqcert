@@ -103,7 +103,7 @@ print "Content-Type: text/plain\n\n";
 
 # There is a race condition with openssl, so until that is solved
 # there can be only one instance of this script running at any time.
-if (Proc::PID::File->running("dir" => "/tmp")) {
+if (Proc::PID::File->running({"dir" => "/tmp", "name" => "reqcert"})) {
 	print "Too busy, please try again later.\n";
 	$logger->debug("Too busy, let's hope they try again later.");
 	exit;

@@ -1,3 +1,5 @@
+//TODO: Error handling and proper deferred object in APIcall and renderTemplate.
+
 //  http://berzniz.com/post/24743062344/handling-handlebarsjs-like-a-pro
 function renderTemplate(name, templateValues, callback) {
 	if (Handlebars.templates === undefined || Handlebars.templates[name] === undefined) {

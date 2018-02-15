@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 )
@@ -32,8 +33,12 @@ func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	// If originating from localhost (typically on another port),
 	// allow that origin. This makes development easier.
-	if strings.Index(req.Header.Get("Origin"), "http://127.0.0.1") == 0 {
-		w.Header().Set("Access-Control-Allow-Origin", "http://127.0.0.1:8000")
+	match, err := regexp.MatchString("http://(127\\.0\\.0\\.1|localhost)",
+		req.Header.Get("Origin"))
+	if match {
+		w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
+	} else if err != nil {
+		log.Println(err);
 	}
 	w.Write(bytes)
 }
