@@ -56,6 +56,7 @@ var postgresSupportsOnConflict bool
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
+	devmode := len(os.Args) >= 2 && os.Args[1] == "--dev"
 
 	// handle ctrl-c (SIGINT) and SIGTERM
 	go func() {
@@ -70,7 +71,7 @@ func main() {
 
 	// Connect to database
 	var dbConnectionString string
-	if len(os.Args) >= 2 && os.Args[1] == "--dev" {
+	if devmode {
 		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
 	} else {
 		dbConnectionString = "dbname=apache host=/var/run/postgresql"
@@ -105,7 +106,7 @@ func main() {
 		}
 	}
 
-	go runAPI(db, 4040)
+	go runAPI(db, 4040, devmode)
 
 	for !quit {
 		// Run jobs

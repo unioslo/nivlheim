@@ -9,7 +9,7 @@
 <tr><th>Kernel</th><td>{{kernel}}</td></tr>
 <tr><th>Hardware vendor</th><td>{{vendor}}</td></tr>
 <tr><th>Hardware model</th><td>{{model}}</td></tr>
-<tr><th>Serial number</th><td>{{serial}}</td></tr>
+<tr><th>Serial number</th><td>{{serialNo}}</td></tr>
 <tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
 <tr><th>Client version</th><td>{{clientVersion}}</td></tr>
 </table>
@@ -18,15 +18,21 @@
 <p>
 <h1 class="title is-4 is-marginless">Files</h1>
 {{#each files}}
-<a href="/browse.html?f={{fileId}}"
-	onclick="browseFile({{fileId}}); return false">{{filename}}</a><br>
+{{#unless isCommand}}
+<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
+	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
+	{{filename}}</a><br>
+{{/unless}}
 {{/each}}
 </p>
 
 <p>
 <h1 class="title is-4 is-marginless">Commands</h1>
-{{#each commands}}
-<a href="/browse.html?f={{fileId}}"
-	onclick="browseFile({{fileId}}); return false">{{filename}}</a><br>
+{{#each files}}
+{{#if isCommand}}
+<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
+	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
+	{{filename}}</a><br>
+{{/if}}
 {{/each}}
 </p>

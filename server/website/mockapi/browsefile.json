@@ -1,7 +1,7 @@
 {
 	"fileId": 1234,
 	"filename": "/usr/sbin/dmidecode -t system",
-	"isCommand": "true",
+	"isCommand": true,
 	"lastModified": "2018-02-08T13:00:22+01",
 	"received": "2018-02-08T13:11:45+01",
 	"content": "Line one\nLine two\nLine three",

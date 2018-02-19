@@ -32,7 +32,7 @@ CREATE TABLE IF NOT EXISTS tasks(
 );
 
 CREATE TABLE IF NOT EXISTS hostinfo(
-	hostname text,
+	hostname text UNIQUE,
 	ipaddr text,
 	certfp text PRIMARY KEY NOT NULL,
 	lastseen timestamp with time zone,

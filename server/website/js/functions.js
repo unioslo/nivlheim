@@ -1,31 +1,3 @@
-//TODO: Error handling and proper deferred object in APIcall and renderTemplate.
-
-//  http://berzniz.com/post/24743062344/handling-handlebarsjs-like-a-pro
-function renderTemplate(name, templateValues, callback) {
-	if (Handlebars.templates === undefined || Handlebars.templates[name] === undefined) {
-		// must load and compile the template first
-		$.ajax({
-			url : 'templates/' + name + '.handlebars',
-			success : function(data) {
-				// compile and keep
-				if (Handlebars.templates === undefined) {
-					Handlebars.templates = {};
-				}
-				console.log("Compiling " + name + ".handlebars");
-				Handlebars.templates[name] = Handlebars.compile(data, {"strict":true});
-				// now, run the template
-				var output = Handlebars.templates[name](templateValues);
-				callback(output);
-			},
-			dataType : 'text'
-		}).fail(function(jqxhr, textStatus, error){
-			throw error;
-		});
-	} else {
-		callback(Handlebars.templates[name](templateValues));
-	}
-}
-
 function showError(error, domElement, faIconName) {
 	$(domElement).html('<nav class="level"><div class="level-left">'
 		+'<div class="level-item"><span class="icon">'
@@ -33,26 +5,67 @@ function showError(error, domElement, faIconName) {
 		+'</div><div class="level-item">'+error+'</div></div></nav>');
 }
 
+//  http://berzniz.com/post/24743062344/handling-handlebarsjs-like-a-pro
+function renderTemplate(name, templateValues, domElement, deferredObj) {
+	if (Handlebars.templates === undefined || Handlebars.templates[name] === undefined) {
+		// must load and compile the template first
+		$.ajax({
+			url : 'templates/' + name + '.handlebars',
+			dataType : 'text',
+			success : function(data) {
+				try {
+					// compile and keep
+					if (Handlebars.templates === undefined) {
+						Handlebars.templates = {};
+					}
+					console.log("Compiling " + name + ".handlebars");
+					Handlebars.templates[name] = Handlebars.compile(data, {"strict":true});
+					// now, run the template
+					var output = Handlebars.templates[name](templateValues);
+					$(domElement).html(output);
+					deferredObj.resolve();
+				} catch(err) {
+					showError(err, domElement, "fa-exclamation-triangle");
+					deferredObj.reject();
+				}
+			}
+		}).fail(function(jqxhr, textStatus){
+			showError(jqxhr.status + ' ' + jqxhr.statusCode().responseText,
+				domElement, "fa-exclamation-circle");
+			deferredObj.reject();
+		});
+	} else {
+		// The template is already compiled
+		try {
+			var output = Handlebars.templates[name](templateValues);
+			$(domElement).html(output);
+			deferredObj.resolve();
+		}
+		catch (err) {
+			showError(err, domElement, "fa-exclamation-triangle");
+			deferredObj.reject();
+		}
+	}
+}
+
 function APIcall(url, templateName, domElement) {
 	var deferredObj = $.Deferred();
 	$.getJSON(url, function(data){
 		try {
-			renderTemplate(templateName, data, function(output){
-				$(domElement).html(output);
-				deferredObj.resolve();
-			});
+			renderTemplate(templateName, data, domElement, deferredObj);
 		}
 		catch(error) {
 			showError(error, domElement, "fa-exclamation-triangle");
-			deferredObj.resolve();
+			deferredObj.reject();
 		}
 	})
-	.fail(function(jqxhr, textStatus, error){
+	.fail(function(jqxhr, textStatus){
 		if (jqxhr.status == 404)
-			showError(error, domElement, "fa-unlink");
+			showError("404 Not Found", domElement, "fa-unlink");
 		else
-			showError(error, domElement, "fa-exclamation-circle");
-		deferredObj.resolve();
+			showError(jqxhr.status + ' ' + jqxhr.statusCode().responseText,
+				domElement, "fa-exclamation-circle");
+		deferredObj.reject();
 	});
 	return deferredObj;
 }

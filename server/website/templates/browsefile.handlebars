@@ -1,9 +1,7 @@
 <h1 class="title">{{filename}}</h1>
 <h1 class="subtitle">From
 	<a href="browse.html?c={{certfp}}"
-		onclick="APIcall('mockapi/browsehost.json?c={{certfp}}',
-			'browsehost', '#placeholder_browse'); return false">
-			{{hostname}}</a></h1>
+		onclick="browseHost('{{certfp}}');return false">{{hostname}}</a></h1>
 
 <div class="field has-addons">
 	<div class="control">
@@ -15,7 +13,7 @@
 		<div class="select">
 			<select id="selectVersion">
 				{{#each versions}}
-				<option value="{{fileId}}">{{lastModified}}</option>
+				<option value="{{fileId}}">{{formatDateTime lastModified}}</option>
 				{{/each}}
 			</select>
 		</div>

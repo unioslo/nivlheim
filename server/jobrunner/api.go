@@ -10,13 +10,25 @@ import (
 	"regexp"
 	"strings"
 	"time"
+
+	"github.com/lib/pq"
 )
 
-func runAPI(theDB *sql.DB, port int) {
-	http.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
-	http.Handle("/api/v0/file", &apiMethodFile{db: theDB})
+func runAPI(theDB *sql.DB, port int, devmode bool) {
+	mux := http.NewServeMux()
+	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
+	mux.Handle("/api/v0/file", &apiMethodFile{db: theDB})
+	mux.Handle("/api/v0/host", &apiMethodHost{db: theDB})
+	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB})
+	var h http.Handler = mux
+	if devmode {
+		h = wrapLog(wrapAccessControlAllowOrigin(h))
+	}
 	log.Printf("Serving API requests on localhost:%d\n", port)
-	log.Println(http.ListenAndServe(fmt.Sprintf("localhost:%d", port), nil))
+	err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), h)
+	if err != nil {
+		log.Println(err.Error())
+	}
 }
 
 // returnJSON marshals the given object and writes it as the response,
@@ -31,26 +43,59 @@ func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
 	}
 	bytes = append(bytes, 0xA) // end with a line feed, because I'm a nice person
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	// If originating from localhost (typically on another port),
-	// allow that origin. This makes development easier.
-	match, err := regexp.MatchString("http://(127\\.0\\.0\\.1|localhost)",
-		req.Header.Get("Origin"))
-	if match {
-		w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
-	} else if err != nil {
-		log.Println(err);
-	}
 	w.Write(bytes)
 }
 
-type jsonTime time.Time
+// For requests originating from localhost (typically on another port),
+// this wrapper adds an http header that allows that origin.
+// This makes it easier to test locally when developing.
+func wrapAccessControlAllowOrigin(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		match, err := regexp.MatchString("http://(127\\.0\\.0\\.1|localhost)",
+			req.Header.Get("Origin"))
+		if match {
+			w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
+		} else if err != nil {
+			log.Println(err)
+		}
+		h.ServeHTTP(w, req)
+	})
+}
+
+type loggingResponseWriter struct {
+	http.ResponseWriter
+	statusCode int
+}
+
+func (lrw *loggingResponseWriter) WriteHeader(code int) {
+	lrw.statusCode = code
+	lrw.ResponseWriter.WriteHeader(code)
+}
+
+func wrapLog(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		lrw := &loggingResponseWriter{w, http.StatusOK}
+		h.ServeHTTP(lrw, req)
+		log.Printf("[%d] %s %s\n", lrw.statusCode, req.Method, req.URL)
+	})
+}
+
+// Wrappers for sql nulltypes that encodes the values when marshalling JSON
+type jsonTime pq.NullTime
+type jsonString sql.NullString
 
 func (jst jsonTime) MarshalJSON() ([]byte, error) {
-	tt := time.Time(jst)
-	if tt.IsZero() {
-		return []byte("\"\""), nil
+	if jst.Valid && !jst.Time.IsZero() {
+		return []byte(fmt.Sprintf("\"%s\"", jst.Time.Format(time.RFC3339))), nil
 	}
-	return []byte(fmt.Sprintf("\"%s\"", tt.Format(time.RFC3339))), nil
+	return []byte("null"), nil
+}
+
+func (ns jsonString) MarshalJSON() ([]byte, error) {
+	if ns.Valid {
+		return json.Marshal(ns.String)
+	}
+	return []byte("null"), nil
 }
 
 type httpError struct {
@@ -71,7 +116,7 @@ func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]boo
 		for _, af := range allowedFields {
 			if strings.EqualFold(f, af) {
 				ok = true
-				fields[strings.ToLower(f)] = true
+				fields[af] = true
 				break
 			}
 		}

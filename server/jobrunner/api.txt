@@ -20,8 +20,14 @@ Hente noen detaljer for en bestemt maskin:
 
 host returnerer 404 hvis ingen maskin passer til kriteriene. (certfp eller hostname)
 
-Liste alle maskiner som kjører Linux:
-/api/v0/hvaSkalDenneHete?os=Linux&fields=hostname
+Liste alle maskiner som kjører Fedora:
+/api/v0/hostlist?os=Fedora*&fields=hostname
 
-Søke i filer:
-/api/v0/search?q=søkeord&limit=10&offset=0&excerpt=80
+andre varianter:
+/api/v0/hostlist?os=!Fedora*&fields=hostname
+
+Søke i filer (fra GUI):
+/api/v0/searchpage?q=søkeord&limit=10&offset=0&excerpt=80
+
+Søke i filer for scripts:
+/api/v0/search?

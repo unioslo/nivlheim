@@ -21,23 +21,39 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if req.FormValue("fileId") == "" {
-		http.Error(w, "Missing parameter: fileId", http.StatusUnprocessableEntity)
-		return
-	}
-	fileid, err := strconv.Atoi(req.FormValue("fileId"))
-	if err != nil {
-		http.Error(w, "Unable to parse fileId", http.StatusBadRequest)
-		return
-	}
-
-	//TODO fileId -> fileID ??  les google standard
-
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
 		"certfp,hostname FROM files f " +
-		"LEFT JOIN hostinfo h USING (certfp) " +
-		"WHERE fileid=$1"
-	rows, err := vars.db.Query(statement, fileid)
+		"LEFT JOIN hostinfo h USING (certfp) "
+	var rows *sql.Rows
+	var err error
+
+	if req.FormValue("fileId") != "" {
+		var fileID int
+		fileID, err = strconv.Atoi(req.FormValue("fileId"))
+		if err != nil {
+			http.Error(w, "Unable to parse fileId", http.StatusBadRequest)
+			return
+		}
+		statement += "WHERE fileid=$1"
+		rows, err = vars.db.Query(statement, fileID)
+	} else if req.FormValue("filename") != "" {
+		statement += "WHERE filename=$1 "
+		if req.FormValue("hostname") != "" {
+			statement += "AND hostname=$2 ORDER BY mtime DESC LIMIT 1"
+			rows, err = vars.db.Query(statement, req.FormValue("filename"),
+				req.FormValue("hostname"))
+		} else if req.FormValue("certfp") != "" {
+			statement += "AND certfp=$2 ORDER BY mtime DESC LIMIT 1"
+			rows, err = vars.db.Query(statement, req.FormValue("filename"),
+				req.FormValue("certfp"))
+		}
+	}
+
+	if rows == nil && err == nil {
+		http.Error(w, "Missing parameters. Requires either fileId or (filename + hostname/certfp)",
+			http.StatusUnprocessableEntity)
+		return
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -56,29 +72,29 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		res := make(map[string]interface{}, 0)
-		if fields["fileid"] {
+		if fields["fileId"] {
 			res["fileId"] = fileID
 		}
 		if fields["filename"] {
-			res["filename"] = filename.String
+			res["filename"] = jsonString(filename)
 		}
-		if fields["iscommand"] {
+		if fields["isCommand"] {
 			res["isCommand"] = isCommand.Bool
 		}
-		if fields["lastmodified"] {
-			res["lastModified"] = jsonTime(mtime.Time)
+		if fields["lastModified"] {
+			res["lastModified"] = jsonTime(mtime)
 		}
 		if fields["received"] {
-			res["received"] = jsonTime(rtime.Time)
+			res["received"] = jsonTime(rtime)
 		}
 		if fields["content"] {
-			res["content"] = content.String
+			res["content"] = jsonString(content)
 		}
 		if fields["certfp"] {
-			res["certfp"] = certfp.String
+			res["certfp"] = jsonString(certfp)
 		}
 		if fields["hostname"] {
-			res["hostname"] = hostname.String
+			res["hostname"] = jsonString(hostname)
 		}
 		if fields["versions"] {
 			var rows2 *sql.Rows
@@ -101,7 +117,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				v := Version{FileID: fileID, Mtime: jsonTime(mtime.Time)}
+				v := Version{FileID: fileID, Mtime: jsonTime(mtime)}
 				versions = append(versions, v)
 			}
 			if err = rows2.Err(); err != nil {

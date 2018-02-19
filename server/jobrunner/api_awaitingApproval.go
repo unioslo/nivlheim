@@ -41,13 +41,13 @@ func (vars *apiMethodAwaitingApproval) ServeHTTP(w http.ResponseWriter, req *htt
 
 		item := make(map[string]interface{})
 		if fields["ipaddress"] {
-			item["ipAddress"] = ipaddress.String
+			item["ipAddress"] = jsonString(ipaddress)
 		}
 		if fields["hostname"] {
-			item["hostname"] = hostname.String
+			item["hostname"] = jsonString(hostname)
 		}
 		if fields["received"] {
-			item["received"] = jsonTime(received.Time)
+			item["received"] = jsonTime(received)
 		}
 		if fields["reversedns"] {
 			var r string
