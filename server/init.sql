@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS waiting_for_approval(
+	approvalid serial PRIMARY KEY NOT NULL,
 	ipaddr text,
 	hostname text,
 	received timestamp with time zone,

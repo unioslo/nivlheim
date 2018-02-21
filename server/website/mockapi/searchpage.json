@@ -1,33 +1,34 @@
 {
 	"query": "27",
 	"numberOfHits": 3,
+	"page": 1,
 	"hits": [
 		{
-			"fileid": 123,
+			"fileId": 123,
 			"filename": "/etc/redhat-release",
-			"type": "file",
+			"isCommand": false,
 			"excerpt": "Fedora release <em>27</em> (Twenty Seven)",
 			"hostname": "flyndre",
 			"certfp": "ABCD1234",
-			"number": 1
+			"displayNumber": 1
 		},
 		{
-			"fileid": 456,
+			"fileId": 456,
 			"filename": "/bin/uname -a",
-			"type": "command",
+			"isCommand": true,
 			"excerpt": "yndre 4.14.14-300.fc<em>27</em>.x86_64 #1 SMP Fri J",
 			"hostname": "flyndre",
 			"certfp": "DEFE3232",
-			"number": 2
+			"displayNumber": 2
 		},
 		{
-			"fileid": 789,
+			"fileId": 789,
 			"filename": "/usr/sbin/dmidecode -t system",
-			"type": "command",
+			"isCommand": true,
 			"excerpt": "0x0100, DMI type 1, <em>27</em bytes System Inform",
 			"hostname": "flyndre",
 			"certfp": "DCBA4321",
-			"number": 3
+			"displayNumber": 3
 		}
 	]
 }

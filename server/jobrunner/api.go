@@ -17,12 +17,15 @@ import (
 func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux := http.NewServeMux()
 	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
+	mux.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: theDB})
 	mux.Handle("/api/v0/file", &apiMethodFile{db: theDB})
 	mux.Handle("/api/v0/host", &apiMethodHost{db: theDB})
-	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB})
+	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
+	mux.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB})
+	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
 	var h http.Handler = mux
 	if devmode {
-		h = wrapLog(wrapAccessControlAllowOrigin(h))
+		h = wrapLog(wrapAllowLocalhostCORS(h))
 	}
 	log.Printf("Serving API requests on localhost:%d\n", port)
 	err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), h)
@@ -47,16 +50,25 @@ func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
 }
 
 // For requests originating from localhost (typically on another port),
-// this wrapper adds an http header that allows that origin.
+// this wrapper adds http headers that allow that origin.
 // This makes it easier to test locally when developing.
-func wrapAccessControlAllowOrigin(h http.Handler) http.Handler {
+func wrapAllowLocalhostCORS(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		match, err := regexp.MatchString("http://(127\\.0\\.0\\.1|localhost)",
 			req.Header.Get("Origin"))
 		if match {
 			w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
+			w.Header().Set("Access-Control-Allow-Methods",
+				"GET, POST, HEAD, OPTIONS, PUT, DELETE, PATCH")
+			w.Header().Set("Vary", "Origin")
 		} else if err != nil {
 			log.Println(err)
+		}
+		if req.Method == "OPTIONS" {
+			// When cross-domain, browsers sends OPTIONS first, to check for CORS headers
+			// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+			http.Error(w, "", http.StatusNoContent)
+			return
 		}
 		h.ServeHTTP(w, req)
 	})
@@ -128,4 +140,13 @@ func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]boo
 		}
 	}
 	return fields, nil
+}
+
+func contains(needle string, haystack []string) bool {
+	for _, s := range haystack {
+		if s == needle {
+			return true
+		}
+	}
+	return false
 }

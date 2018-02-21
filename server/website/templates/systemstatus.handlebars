@@ -1,10 +1,10 @@
 <p>
 <span class="has-text-info">{{filesLastHour}}</span>
 files were collected during the last hour.<br>
-<span class="has-text-info">{{totalMachines}}</span>
+<span class="has-text-info">{{numberOfMachines}}</span>
 machines are in the system.<br>
-{{#if reportingPercentage}}
-<span class="has-text-info">{{reportingPercentage}}%</span>
+{{#if numberOfMachines}}
+<span class="has-text-info">{{reportingPercentageLastHour}}%</span>
 of machines sent in files during the last hour.<br>
 {{/if}}
 </p>

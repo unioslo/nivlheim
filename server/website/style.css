@@ -19,11 +19,11 @@ th {
 span.excerpt em {
 	font-weight: normal;
 	font-style: normal;
-	background-color: rgba(255,255,200,0.4);
+	background-color: rgba(255,255,200,0.6);
 }
 
 div.filecontent {
-	white-space: pre;
+	white-space: pre-line;
 	font-family: monospace;
 	background-color: rgba(0,0,0,0.1);
 }

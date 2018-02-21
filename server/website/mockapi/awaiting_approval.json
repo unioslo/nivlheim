@@ -1,12 +1,14 @@
 {
 	"awaitingApproval": [
 		{
+			"approvalId": 1,
 			"ipAddress": "127.0.0.1",
 			"reverseDns": "localhost",
 			"hostname": "liksom.local",
 			"received": "2018-02-13T08:18:08+01:00"
 		},
 		{
+			"approvalId": 2,
 			"ipAddress": "129.240.202.63",
 			"reverseDns": "callisto.uio.no",
 			"hostname": "guesswho.local",

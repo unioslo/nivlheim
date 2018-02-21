@@ -22,15 +22,16 @@
 			<tr><th>Hostname from OS</th>
 				<td>{{hostname}}</td></tr>
 			<tr><th>Name in Nivlheim</th><td>
-				<input class="input" type="text" value="{{hostname}}"></td></tr>
+				<input class="input" id="hostname{{approvalId}}" type="text"
+					size="30" value="{{hostname}}"></td></tr>
 			<tr><td></td><td>
-				<button class="button">
+				<button class="button" onclick="approve({{approvalId}})">
 					<span class="icon is-small">
 						<i class="fas fa-thumbs-up color-approve"></i>
 					</span>
 					<span>Approve</span>
 				</button>
-				<button class="button">
+				<button class="button" onclick="deny({{approvalId}})">
 					<span class="icon is-small">
 						<i class="fas fa-thumbs-down color-deny"></i>
 					</span>
