@@ -1,4 +1,4 @@
 *.exe
 server/web/web
-server/jobrunner/jobrunner
+server/service/service
 server/website/libs

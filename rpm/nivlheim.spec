@@ -134,7 +134,7 @@ install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.servi
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
 cp -r server/web %{buildroot}%{_localstatedir}/nivlheim/go/src/
-cp -r server/jobrunner %{buildroot}%{_localstatedir}/nivlheim/go/src/
+cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
 cp -r server/static/* %{buildroot}%{_localstatedir}/www/html/static/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
