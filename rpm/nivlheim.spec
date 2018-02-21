@@ -110,9 +110,9 @@ mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
-mkdir -p %{buildroot}/var/www/nivlheim/templates
+mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
-mkdir -p %{buildroot}/var/www/html/static
+mkdir -p %{buildroot}/var/www/html
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
@@ -133,10 +133,8 @@ install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
-cp -r server/web %{buildroot}%{_localstatedir}/nivlheim/go/src/
 cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
-cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
-cp -r server/static/* %{buildroot}%{_localstatedir}/www/html/static/
+cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 
 %check
@@ -178,7 +176,7 @@ rm -rf %{buildroot}
 %dir /var/log/nivlheim
 /var/www/nivlheim
 /var/www/cgi-bin
-/var/www/html/static
+/var/www/html
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_localstatedir}/nivlheim
@@ -194,6 +192,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Wed Feb 21 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.4-20180221
+- New web frontend, installs in /var/www/html. frontpage.cgi is gone.
+
 * Fri Jan 05 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180105
 - Removed dependencies on the missing parent package "nivlheim",
   since it isn't being build anymore.
