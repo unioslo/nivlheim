@@ -56,7 +56,8 @@ chmod 0644 /var/www/nivlheim/default_cert.pem /var/www/nivlheim/CA/nivlheimca.cr
 chcon -R -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}
 chown -R apache:apache /var/www/nivlheim/{db,certs,rand,queue}
 chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
-setsebool httpd_can_network_connect_db on
+setsebool -P httpd_can_network_connect_db on
+setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 
 # initialize postgresql. new/old syntax
 if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then

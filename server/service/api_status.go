@@ -33,7 +33,11 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	status.ReportingPercentageLastHour = 100 * machinesLastHour / status.NumOfMachines
+	if status.NumOfMachines > 0 {
+		status.ReportingPercentageLastHour = 100 * machinesLastHour / status.NumOfMachines
+	} else {
+		status.ReportingPercentageLastHour = 0
+	}
 
 	returnJSON(w, req, status)
 }

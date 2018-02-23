@@ -26,6 +26,12 @@ if [ $(curl -s -k https://localhost/ | grep -c "<title>Nivlheim</title>") -eq 0 
 	exit
 fi
 
+# Check that the API is available through the main web server
+if ! curl -so /dev/null https://localhost/api/v0/status; then
+	echo "The API is unavailable."
+	exit
+fi
+
 # Configure the client to use the server at localhost
 echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
