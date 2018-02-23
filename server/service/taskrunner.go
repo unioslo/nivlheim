@@ -69,6 +69,10 @@ func main() {
 	defer log.Println("Stopped.")
 	log.Println("Starting up.")
 
+	if devmode {
+		log.Println("Running in development mode.")
+	}
+
 	// Connect to database
 	var dbConnectionString string
 	if devmode {

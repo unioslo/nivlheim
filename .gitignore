@@ -1,4 +1,4 @@
 *.exe
-server/web/web
 server/service/service
-server/website/libs
+server/website/libs/*
+!server/website/libs/download_libraries.sh

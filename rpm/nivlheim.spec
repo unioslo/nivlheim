@@ -13,6 +13,7 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 
+BuildRequires: curl, unzip, npm
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
 BuildRequires: perl(CGI)
@@ -134,8 +135,23 @@ install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.servi
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
 cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
-cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
+
+# Static website files
+cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
+%{buildroot}%{_localstatedir}/www/html/libs/download_libraries.sh
+rm %{buildroot}%{_localstatedir}/www/html/libs/*.sh
+rm -rf %{buildroot}%{_localstatedir}/www/html/mockapi
+
+# Compile web templates
+npm install handlebars -g
+cd %{buildroot}%{_localstatedir}/www/html/templates
+handlebars *.handlebars -min -f templates.js
+mv templates.js ../js/
+cd ../libs/
+mv handlebars.runtime.min.js handlebars.min.js
+cd %{_builddir}
+rm -rf %{buildroot}%{_localstatedir}/www/html/templates
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client

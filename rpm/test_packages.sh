@@ -5,6 +5,7 @@ set -x
 # It should signal success by outputting "END_TO_END_SUCCESS" if and only if
 # the test(s) succeeded.
 
+# Install the packages. Different methods on Fedora and CentOS.
 if [ -f /etc/fedora-release ]; then
 	sudo dnf copr -y enable oyvindh/Nivlheim-test
 	sudo dnf install -y nivlheim-client nivlheim-server || touch installerror
@@ -14,20 +15,27 @@ elif [ -f /etc/centos-release ]; then
 		https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim-test/repo/epel-7/oyvindh-Nivlheim-test-epel-7.repo
 	sudo yum install -y nivlheim-client nivlheim-server || touch installerror
 fi
-
 if [ -f installerror ]; then
 	echo "Package installation failed."
 	exit
 fi
 
-if [ $(curl -s -k https://localhost/ | grep -c "Nivlheim") -eq 0 ]; then
+# Check that the home page is being served
+if [ $(curl -s -k https://localhost/ | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
 	echo "The web server isn't properly configured and running."
 	exit
 fi
 
+# Configure the client to use the server at localhost
 echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
+# Run the client, it will be put on waiting list for a certificate
 sudo /usr/sbin/nivlheim_client
-sudo -u apache psql -c 'update waiting_for_approval set approved=true;'
+# Approve the client, using the API
+ID=`curl -s 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
+curl -X PUT -s "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
+
+# Run the client again, this time it will receive a certificate
+# and post data into the system
 sudo /usr/sbin/nivlheim_client
 if [ ! -f /var/nivlheim/my.crt ]; then
 	echo "Certificate generation failed."
@@ -38,7 +46,8 @@ fi
 OK=0
 for try in {1..20}; do
 	sleep 3
-	if [ $(curl -s -k https://localhost/ | grep -c "novalocal") -gt 0 ]; then
+	# Query the API for the new machine
+	if [ $(curl -s 'http://localhost:4040/api/v0/hostlist?fields=hostname' | grep -c "abcdef") -gt 0 ]; then
 		OK=1
 		break
 	fi

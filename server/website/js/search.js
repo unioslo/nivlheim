@@ -27,7 +27,7 @@ function newSearch() {
 function performSearch(q) {
 	APIcall(
 		//"mockapi/searchpage.json",
-		"http://127.0.0.1:4040/api/v0/searchpage?q="+encodeURIComponent(q)+
+		"/api/v0/searchpage?q="+encodeURIComponent(q)+
 		"&page=1&hitsPerPage=10&excerpt=80",
 		"search", "#placeholder_searchresult");
 }

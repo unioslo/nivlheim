@@ -5,7 +5,7 @@ function browseHost(certfp, pushState = true) {
 	}
 	APIcall(
 		//"mockapi/browsehost.json",
-		"http://127.0.0.1:4040/api/v0/host?certfp="+encodeURIComponent(certfp)+
+		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
 		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
 		"kernel,vendor,model,serialNo,clientVersion,certfp,files",
 		"browsehost", "#placeholder_browse");
@@ -18,7 +18,7 @@ function browseFile(fileId, pushState = true) {
 	}
 	APIcall(
 		//"mockapi/browsefile.json",
-		"http://127.0.0.1:4040/api/v0/file?fields=lastModified,hostname,filename,"+
+		"/api/v0/file?fields=lastModified,hostname,filename,"+
 		"content,certfp,versions&fileId="+encodeURIComponent(fileId),
 		"browsefile", "#placeholder_browse")
 	.done(function(){
@@ -40,7 +40,7 @@ function browseFile2(hostname, filename, pushState = true) {
 	}
 	APIcall(
 		//"mockapi/browsefile.json",
-		"http://127.0.0.1:4040/api/v0/file?fields=fileId,lastModified,"+
+		"/api/v0/file?fields=fileId,lastModified,"+
 		"hostname,filename,content,certfp,versions"+
 		"&filename="+encodeURIComponent(filename)+
 		"&hostname="+encodeURIComponent(hostname),

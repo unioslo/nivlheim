@@ -49,6 +49,10 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 }
 
 function APIcall(url, templateName, domElement) {
+	if (location.origin.match('http://(127\\.0\\.0\\.1|localhost)')) {
+		// Developer mode. Assumes the API is running locally on port 4040.
+		url = "http://localhost:4040" + url;
+	}
 	var deferredObj = $.Deferred();
 	$.getJSON(url, function(data){
 		try {
