@@ -17,17 +17,18 @@
 # <script defer src="https://use.fontawesome.com/releases/v5.0.6/js/all.js"></script>
 # <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css">
 
+set -e
 cd `dirname $0`
 echo "Downloading Javascript and CSS libraries into `pwd`"
 
-curl -s --remote-name https://code.jquery.com/jquery-3.3.1.min.js
-curl -s --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
-curl -s --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
-curl -s --remote-name https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
-curl -s --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
-curl -s --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
+curl -sS --remote-name https://code.jquery.com/jquery-3.3.1.min.js
+curl -sS --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
+curl -sS --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
+curl -sS --remote-name https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
+curl -sS --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
+curl -sS --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
 
-curl -s --remote-name https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
+curl -sS --remote-name https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
 rm -rf fontawesome-free-5.0.6 fontawesome
 unzip -q fontawesome-free-5.0.6.zip
 mv fontawesome-free-5.0.6/on-server fontawesome

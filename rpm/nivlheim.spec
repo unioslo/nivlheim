@@ -13,7 +13,8 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 
-BuildRequires: curl, unzip, npm
+BuildRequires: curl, unzip
+BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
 BuildRequires: perl(CGI)
@@ -137,21 +138,12 @@ install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/
 cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 
-# Static website files
-cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
-%{buildroot}%{_localstatedir}/www/html/libs/download_libraries.sh
-rm %{buildroot}%{_localstatedir}/www/html/libs/*.sh
-rm -rf %{buildroot}%{_localstatedir}/www/html/mockapi
-
 # Compile web templates
-npm install handlebars -g
-cd %{buildroot}%{_localstatedir}/www/html/templates
-handlebars *.handlebars -min -f templates.js
-mv templates.js ../js/
-cd ../libs/
-mv handlebars.runtime.min.js handlebars.min.js
-cd %{_builddir}
-rm -rf %{buildroot}%{_localstatedir}/www/html/templates
+handlebars server/website/templates --min -f server/website/js/templates.js
+
+# Copy static website files, excluding files that are only for development
+rm -rf server/website/mockapi server/website/templates
+cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -192,7 +184,7 @@ rm -rf %{buildroot}
 %dir /var/log/nivlheim
 /var/www/nivlheim
 /var/www/cgi-bin
-/var/www/html
+/var/www/html/*
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_localstatedir}/nivlheim
@@ -208,7 +200,7 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
-* Wed Feb 21 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.4-20180221
+* Fri Feb 23 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.4-20180223
 - New web frontend, installs in /var/www/html. frontpage.cgi is gone.
 
 * Fri Jan 05 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180105
