@@ -21,13 +21,13 @@ if [ -f installerror ]; then
 fi
 
 # Check that the home page is being served
-if [ $(curl -s -k https://localhost/ | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
+if [ $(curl -sSk https://localhost/ | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
 	echo "The web server isn't properly configured and running."
 	exit
 fi
 
 # Check that the API is available through the main web server
-if ! curl -so /dev/null https://localhost/api/v0/status; then
+if ! curl -sSko /dev/null https://localhost/api/v0/status; then
 	echo "The API is unavailable."
 	exit
 fi
@@ -37,8 +37,8 @@ echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
 sudo /usr/sbin/nivlheim_client
 # Approve the client, using the API
-ID=`curl -s 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
-curl -X PUT -s "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
+ID=`curl -sS 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
+curl -X PUT -sS "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
 
 # Run the client again, this time it will receive a certificate
 # and post data into the system
@@ -53,7 +53,7 @@ OK=0
 for try in {1..20}; do
 	sleep 3
 	# Query the API for the new machine
-	if [ $(curl -s 'http://localhost:4040/api/v0/hostlist?fields=hostname' | grep -c "abcdef") -gt 0 ]; then
+	if [ $(curl -sS 'http://localhost:4040/api/v0/hostlist?fields=hostname' | grep -c "abcdef") -gt 0 ]; then
 		OK=1
 		break
 	fi
