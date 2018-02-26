@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html>
+	<head>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, initial-scale=1">
+		<title>Nivlheim</title>
+
+		<script src="libs/jquery-3.3.1.min.js" type="text/javascript"></script>
+		<script src="libs/handlebars.min.js" type="text/javascript"></script>
+		<script src="libs/moment.min.js" type="text/javascript"></script>
+		<script src="libs/fontawesome/js/fontawesome-all.min.js"
+			defer type="text/javascript"></script>
+		<link rel="stylesheet" href="libs/bulma.min.css">
+
+		<link rel="stylesheet" href="style.css">
+		<script type="text/javascript" src="js/templates.js"></script>
+		<script type="text/javascript" src="js/functions.js"></script>
+		<script type="text/javascript" src="js/index.js"></script>
+	</head>
+	<body>
+		<section class="section">
+			<div class="container">
+				<h1 class="title is-4">System status</h1>
+				<h1 class="subtitle is-6"></h1>
+				<div id="placeholder_systemstatus">
+					<br>
+					<span class="icon">
+						<i class="fas fa-lg fa-spinner fa-pulse"></i>
+					</span>
+				</div>
+			</div>
+			<div class="container">
+				<hr>
+				<h1 class="title is-4">Machines</h1>
+				<h1 class="subtitle is-6"></h1>
+				<form action="search.html">
+					<div class="field has-addons">
+						<div class="control has-icons-left">
+							<input class="input" type="text" name="q"
+								id="search" placeholder="Search for...">
+							<span class="icon is-small is-left">
+								<i class="fas fa-search"></i>
+							</span>
+						</div>
+						<div class="control">
+							<input type="submit" class="button is-info"
+								value="Search"></input>
+						</div>
+					</div>
+				</form>
+				<br>
+				<div id="placeholder_latestnewmachines"></div>
+			</div>
+			<div class="container" id="placeholder_approval"></div>
+		</section>
+	</body>
+</html>

@@ -1,0 +1,38 @@
+<h1 class="title">{{hostname}}</h1>
+
+<p>
+<table>
+<tr><th>IP address</th><td>{{ipAddress}}</td></tr>
+<tr><th>Last seen</th><td>{{formatDateTime lastseen}}</td></tr>
+<tr><th>OS</th><td>{{os}}</td></tr>
+<tr><th>OS edition</th><td>{{osEdition}}</td></tr>
+<tr><th>Kernel</th><td>{{kernel}}</td></tr>
+<tr><th>Hardware vendor</th><td>{{vendor}}</td></tr>
+<tr><th>Hardware model</th><td>{{model}}</td></tr>
+<tr><th>Serial number</th><td>{{serialNo}}</td></tr>
+<tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
+<tr><th>Client version</th><td>{{clientVersion}}</td></tr>
+</table>
+</p>
+
+<p>
+<h1 class="title is-4 is-marginless">Files</h1>
+{{#each files}}
+{{#unless isCommand}}
+<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
+	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
+	{{filename}}</a><br>
+{{/unless}}
+{{/each}}
+</p>
+
+<p>
+<h1 class="title is-4 is-marginless">Commands</h1>
+{{#each files}}
+{{#if isCommand}}
+<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
+	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
+	{{filename}}</a><br>
+{{/if}}
+{{/each}}
+</p>

@@ -1,0 +1,38 @@
+{
+	"ipAddress": "123.123.123.123",
+	"hostname": "flyndre.example.no",
+	"lastseen": "2018-02-08T11:22:33+01",
+	"os": "Fedora 27",
+	"osEdition": "Workstation",
+	"kernel": "4.14.16-300.fc27.x86_64",
+	"vendor": "Dell Inc.",
+	"model": "OptiPlex 7010",
+	"serialNo": "1YF2YF3",
+	"certfp": "298376ACBDFCBAFDC589356864ABCDEF",
+	"clientVersion": "0.1.2",
+	"files": [
+		{
+			"filename": "/etc/redhat-release",
+			"lastModified": "2018-02-08T13:00:22+01",
+			"isCommand": false
+		},
+		{
+			"filename": "/bin/uname -a",
+			"lastModified": "2018-02-08T13:00:22+01",
+			"isCommand": true
+		},
+		{
+			"filename": "/usr/sbin/dmidecode -t system",
+			"lastModified": "2018-02-08T13:00:22+01",
+			"isCommand": true
+		}
+	],
+	"support": [
+		{
+			"start": "2018-01-02T11:22:33+01",
+			"expires": "2018-02-03T11:22:33+01",
+			"description": "On-site 4-hour premium support package",
+			"hasExpired": true
+		}
+	]
+}

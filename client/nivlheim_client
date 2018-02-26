@@ -186,8 +186,8 @@ if ($opt{debug}) {
 	print "Using CA file $real_ca_file\n";
 }
 
+# Verify access to the certificate files and directory
 my $have_cert = (-f $opt{cert_file} && -f $opt{key_file});
-
 if ($have_cert) {
 	if (-f $opt{cert_file} && ! -w $opt{cert_file}) {
 		printlog "Must have write access to $opt{cert_file}.";
@@ -196,6 +196,13 @@ if ($have_cert) {
 	if (-f $opt{key_file} && ! -w $opt{key_file}) {
 		printlog "Must have write access to $opt{key_file}.";
 		exit 1;
+	}
+} else {
+	# Verify that the directory exists
+	my $dirname = dirname($opt{cert_file});
+	if (!-d $dirname) {
+		mkpath($dirname, {error => \my $err});
+		if (!-d $dirname) { printlog "The path $dirname doesn't exist, and I am unable to create it.\n"; exit 1; }
 	}
 }
 
@@ -256,17 +263,20 @@ if (!$have_cert) {
 elsif ($have_cert && !$cert_works) {
 	eval {
 		printlog "Trying to renew the certificate.\n";
-		# Verify that the directory exists
-		my $dirname = dirname($opt{cert_file});
-		if (!-d $dirname) {
-			mkpath($dirname, {error => \my $err});
-			if (!-d $dirname) { printlog "The path $dirname doesn't exist, and I am unable to create it.\n"; exit 1; }
-		}
 		my $cert = undef;
 		my $key = undef;
 		# Request a new certificate on the grounds that we already have an old one
 		my $response = http_get($server_url . 'secure/renewcert');
 		($cert, $key) = parse_certificate_response($response);
+		if (defined($cert) && defined($key)) {
+			printlog "Successfully renewed the certificate.\n";
+		} else {
+			printlog "Wasn't able to renew the certificate. Requesting a new one instead...\n";
+			my $hostname = `hostname -f`;
+			chop $hostname;
+			my $response = http_get($server_url . "reqcert?hostname=$hostname");
+			($cert, $key) = parse_certificate_response($response);
+		}
 		# Did it work?
 		if (defined($cert) && defined($key)) {
 			printlog "Successfully renewed the certificate.\n";
@@ -280,7 +290,7 @@ elsif ($have_cert && !$cert_works) {
 			printlog "Received and stored a new certificate.\n";
 		}
 		else {
-			printlog "Wasn't able to renew the certificate.\n";
+			printlog "Did not receive any certificate.\n";
 			exit 1;
 		}
 	};

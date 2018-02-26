@@ -1,4 +1,5 @@
 CREATE TABLE IF NOT EXISTS waiting_for_approval(
+	approvalid serial PRIMARY KEY NOT NULL,
 	ipaddr text,
 	hostname text,
 	received timestamp with time zone,
@@ -6,7 +7,7 @@ CREATE TABLE IF NOT EXISTS waiting_for_approval(
 );
 
 CREATE TABLE IF NOT EXISTS files(
-	fileid serial,
+	fileid serial PRIMARY KEY NOT NULL,
 	ipaddr text,
 	clienthostname text,
 	certcn text,
@@ -23,7 +24,7 @@ CREATE TABLE IF NOT EXISTS files(
 CREATE INDEX files_parsed ON files(parsed);
 
 CREATE TABLE IF NOT EXISTS tasks(
-	taskid serial,
+	taskid serial PRIMARY KEY NOT NULL,
 	url text not null unique,
 	lasttry timestamp with time zone,
 	status int not null default 0,
@@ -32,7 +33,7 @@ CREATE TABLE IF NOT EXISTS tasks(
 );
 
 CREATE TABLE IF NOT EXISTS hostinfo(
-	hostname text,
+	hostname text UNIQUE,
 	ipaddr text,
 	certfp text PRIMARY KEY NOT NULL,
 	lastseen timestamp with time zone,
@@ -45,7 +46,8 @@ CREATE TABLE IF NOT EXISTS hostinfo(
 	clientversion text
 );
 
-CREATE TABLE IF NOT EXISTS warranty(
+CREATE TABLE IF NOT EXISTS support(
+	supportid serial PRIMARY KEY NOT NULL,
 	serialno text NOT NULL,
 	description text,
 	start timestamp with time zone,
@@ -54,6 +56,7 @@ CREATE TABLE IF NOT EXISTS warranty(
 );
 
 CREATE TABLE IF NOT EXISTS api_error(
+	api_error_id serial PRIMARY KEY NOT NULL,
 	serialno text NOT NULL,
 	http_status int,
 	api_status int,

@@ -56,6 +56,7 @@ var postgresSupportsOnConflict bool
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
+	devmode := len(os.Args) >= 2 && os.Args[1] == "--dev"
 
 	// handle ctrl-c (SIGINT) and SIGTERM
 	go func() {
@@ -63,12 +64,23 @@ func main() {
 		signal.Notify(c, os.Interrupt, syscall.SIGTERM)
 		<-c
 		quit = true
-		log.Println("Quitting...")
+		log.Println("\rShutting down...")
 	}()
-	defer log.Println("Quit.")
+	defer log.Println("Stopped.")
 	log.Println("Starting up.")
 
-	db, err := sql.Open("postgres", "dbname=apache host=/var/run/postgresql")
+	if devmode {
+		log.Println("Running in development mode.")
+	}
+
+	// Connect to database
+	var dbConnectionString string
+	if devmode {
+		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+	} else {
+		dbConnectionString = "dbname=apache host=/var/run/postgresql"
+	}
+	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -97,6 +109,8 @@ func main() {
 			}
 		}
 	}
+
+	go runAPI(db, 4040, devmode)
 
 	for !quit {
 		// Run jobs

@@ -1,0 +1,26 @@
+<h1 class="title">{{filename}}</h1>
+<h1 class="subtitle">From
+	<a href="browse.html?c={{certfp}}"
+		onclick="browseHost('{{certfp}}');return false">{{hostname}}</a></h1>
+
+<div class="field has-addons">
+	<div class="control">
+		<a class="button is-static">
+			Modified
+		</a>
+	</div>
+	<div class="control has-icons-left">
+		<div class="select">
+			<select id="selectVersion">
+				{{#each versions}}
+				<option value="{{fileId}}">{{formatDateTime lastModified}}</option>
+				{{/each}}
+			</select>
+		</div>
+		<span class="icon is-left">
+			<i class="far fa-clock fa-lg"></i>
+		</span>
+	</div>
+</div>
+
+<div class="filecontent">{{content}}</div>

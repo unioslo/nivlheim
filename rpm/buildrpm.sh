@@ -20,7 +20,7 @@ then
 	exit 1
 fi
 cp *.spec $BUILDDIR/SPECS/
-[ -f *.patch ] && cp *.patch $BUILDDIR/SOURCES/
+cp *.patch $BUILDDIR/SOURCES/ 2>/dev/null
 SPEC=`eval echo $BUILDDIR/SPECS/*.spec`
 echo "buildrpm: Spec file = $SPEC"
 

@@ -13,11 +13,11 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 
+BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)
 BuildRequires: perl(CGI)
 BuildRequires: perl(Crypt::OpenSSL::X509)
-BuildRequires: perl(DateTime)
 BuildRequires: perl(DBD::Pg)
 BuildRequires: perl(DBI)
 BuildRequires: perl(Encode)
@@ -77,7 +77,6 @@ Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
 Requires: perl(CGI)
 Requires: perl(Crypt::OpenSSL::X509)
-Requires: perl(DateTime)
 Requires: perl(DBD::Pg)
 Requires: perl(DBI)
 Requires: perl(Encode)
@@ -112,9 +111,9 @@ mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
-mkdir -p %{buildroot}/var/www/nivlheim/templates
+mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
-mkdir -p %{buildroot}/var/www/html/static
+mkdir -p %{buildroot}/var/www/html
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
@@ -135,11 +134,15 @@ install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
-cp -r server/web %{buildroot}%{_localstatedir}/nivlheim/go/src/
-cp -r server/jobrunner %{buildroot}%{_localstatedir}/nivlheim/go/src/
-cp server/templates/* %{buildroot}/var/www/nivlheim/templates/
-cp -r server/static/* %{buildroot}%{_localstatedir}/www/html/static/
+cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
+
+# Compile web templates
+handlebars server/website/templates --min -f server/website/js/templates.js
+
+# Copy static website files, excluding files that are only for development
+rm -rf server/website/mockapi server/website/templates
+cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -180,7 +183,7 @@ rm -rf %{buildroot}
 %dir /var/log/nivlheim
 /var/www/nivlheim
 /var/www/cgi-bin
-/var/www/html/static
+/var/www/html/*
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_localstatedir}/nivlheim
@@ -196,6 +199,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Fri Feb 23 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.4-20180223
+- New web frontend, installs in /var/www/html. frontpage.cgi is gone.
+
 * Fri Jan 05 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180105
 - Removed dependencies on the missing parent package "nivlheim",
   since it isn't being build anymore.

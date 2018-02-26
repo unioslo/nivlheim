@@ -9,7 +9,6 @@ use Log::Log4perl;
 use Net::DNS;
 
 sub parse_query_string();
-sub uts_to_iso8601($);
 
 # Restrict access to only localhost
 my $ip = $ENV{'REMOTE_ADDR'};
@@ -52,8 +51,8 @@ eval{
 	$dbh->{RaiseError} = 1;
 
 	my $sth = $dbh->prepare("SELECT filename, content, " .
-		"received, is_command, certcn, ipaddr, certfp, clientversion " .
-		"FROM files WHERE fileid=?");
+		"received, is_command, certcn, ipaddr, certfp, clientversion, " .
+		"clienthostname FROM files WHERE fileid=?");
 	$sth->bind_param(1, $fileid);
 	my $rv = $sth->execute;
 	my $row = $sth->fetchrow_hashref;
@@ -287,10 +286,13 @@ if ($@) {
 		$logger->error($dbh->{Statement});
 	}
 	$dbh->rollback;
+	$dbh->disconnect;
 	print CGI::header(
 		-type => 'text/plain',
 		-status => '500 Internal Server Error'
 	);
+	print $err;
+	exit 1;
 };
 
 # Clean up
@@ -307,10 +309,4 @@ sub parse_query_string() {
 		$result{$key} = $value;
 	}
 	return %result;
-}
-
-sub uts_to_iso8601($) {
-	my $uts = shift;
-	my $date = DateTime->from_epoch(epoch => $uts, time_zone => 'UTC');
-	return $date->ymd().q{T}.$date->hms().'Z';
 }

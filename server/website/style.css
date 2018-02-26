@@ -1,0 +1,37 @@
+html {
+	background-image: url('background.png');
+	background-repeat: repeat;
+	background-color: rgba(255,255,255,0.5);
+}
+
+hr {
+	background-color: #999;
+}
+
+p {
+	margin-bottom: 0.5em;
+}
+
+th {
+	padding-right: 1em;
+}
+
+span.excerpt em {
+	font-weight: normal;
+	font-style: normal;
+	background-color: rgba(255,255,200,0.6);
+}
+
+div.filecontent {
+	white-space: pre-line;
+	font-family: monospace;
+	background-color: rgba(0,0,0,0.1);
+}
+
+.color-approve {
+	color:#060;
+}
+
+.color-deny {
+	color:#600;
+}

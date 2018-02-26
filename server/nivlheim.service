@@ -4,7 +4,7 @@ Wants=network-online.target
 After=network.target network-online.target
 
 [Service]
-ExecStart=/usr/sbin/nivlheim_jobs
+ExecStart=/usr/sbin/nivlheim_service
 Restart=always
 RestartSec=10s
 

@@ -1,0 +1,45 @@
+{{#if awaitingApproval}}
+<hr>
+<h1 class="title is-4">Waiting for approval</h1>
+<h1 class="subtitle is-6">
+	These machines are from ip address ranges not covered
+	by the ruleset, and must be manually approved/denied.
+</h1>
+{{#each awaitingApproval}}
+<article class="media">
+	<figure class="media-left">
+		<p class="image is-64x64">
+			<span class="icon"><i class="fas fa-plus fa-lg"></i></span>
+			<span class="icon"><i class="fas fa-server fa-lg"></i></span>
+		</p>
+	</figure>
+	<div class="media-content">
+		<table>
+			<tr><th>IP address</th>
+				<td>{{ipAddress}}</td></tr>
+			<tr><th>Reverse DNS</th>
+				<td>{{reverseDns}}</td></tr>
+			<tr><th>Hostname from OS</th>
+				<td>{{hostname}}</td></tr>
+			<tr><th>Name in Nivlheim</th><td>
+				<input class="input" id="hostname{{approvalId}}" type="text"
+					size="30" value="{{hostname}}"></td></tr>
+			<tr><td></td><td>
+				<button class="button" onclick="approve({{approvalId}})">
+					<span class="icon is-small">
+						<i class="fas fa-thumbs-up color-approve"></i>
+					</span>
+					<span>Approve</span>
+				</button>
+				<button class="button" onclick="deny({{approvalId}})">
+					<span class="icon is-small">
+						<i class="fas fa-thumbs-down color-deny"></i>
+					</span>
+					<span>Deny</span>
+				</button>
+			</td></tr>
+		</table>
+	</div>
+</article>
+{{/each}}
+{{/if}}

@@ -6,6 +6,10 @@ if [ `whoami` != "root" ]; then
 	exit 1
 fi
 
+# download 3rd party Javascript and CSS libraries
+cd /var/www/html/libs
+./download_libraries.sh --prod && rm ./download_libraries.sh
+
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA,queue}
 
@@ -52,7 +56,8 @@ chmod 0644 /var/www/nivlheim/default_cert.pem /var/www/nivlheim/CA/nivlheimca.cr
 chcon -R -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}
 chown -R apache:apache /var/www/nivlheim/{db,certs,rand,queue}
 chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
-setsebool httpd_can_network_connect_db on
+setsebool -P httpd_can_network_connect_db on
+setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 
 # initialize postgresql. new/old syntax
 if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then
@@ -83,22 +88,15 @@ sudo -u postgres bash -c "psql -c \"grant apache to root\""
 sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
 
 # compile and install the Go code
-rm -f /usr/sbin/nivlheim_jobs
-rm -f /var/www/cgi-bin/frontpage.cgi
+rm -f /usr/sbin/nivlheim_service
 export GOPATH=/var/nivlheim/go
 export GOBIN=$GOPATH/bin
 #
-cd $GOPATH/src/jobrunner
+cd $GOPATH/src/service
 go get || exit 1
 go install || exit 1
-mv $GOBIN/jobrunner /usr/sbin/nivlheim_jobs
-chcon -t bin_t -u system_u /usr/sbin/nivlheim_jobs
-#
-cd $GOPATH/src/web
-go get || exit 1
-go install || exit 1
-mv $GOBIN/web /var/www/cgi-bin/frontpage.cgi
-chcon -t httpd_sys_script_exec_t -u system_u /var/www/cgi-bin/frontpage.cgi
+mv $GOBIN/service /usr/sbin/nivlheim_service
+chcon -t bin_t -u system_u /usr/sbin/nivlheim_service
 
 # enable the systemd service
 if which systemctl > /dev/null 2>&1; then
