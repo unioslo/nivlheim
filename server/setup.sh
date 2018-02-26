@@ -8,7 +8,7 @@ fi
 
 # download 3rd party Javascript and CSS libraries
 cd /var/www/html/libs
-./download_libraries.sh && rm ./download_libraries.sh
+./download_libraries.sh --prod && rm ./download_libraries.sh
 
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA,queue}

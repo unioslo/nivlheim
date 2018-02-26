@@ -21,13 +21,21 @@ if [ -f installerror ]; then
 fi
 
 # Check that the home page is being served
-if [ $(curl -sSk https://localhost/ | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
+if [ $(curl -sSk https://localhost/ | tee /tmp/homepage | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
 	echo "The web server isn't properly configured and running."
 	exit
 fi
+# 3rd party libraries
+for URL in $(perl -ne 'm!"(libs/.*?)"!&&print "$1\n"' < /tmp/homepage);
+do
+	if ! curl -sSkfo /dev/null "https://localhost/$URL"; then
+		echo "The web server returns an error code for $URL"
+		exit
+	fi
+done
 
 # Check that the API is available through the main web server
-if ! curl -sSko /dev/null https://localhost/api/v0/status; then
+if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
 	echo "The API is unavailable."
 	exit
 fi
