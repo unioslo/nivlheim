@@ -21,12 +21,12 @@ set -e
 cd `dirname $0`
 echo "Downloading Javascript and CSS libraries into `pwd`"
 
-if [[ "$1" == "--prod" ]] {
+if [[ "$1" == "--prod" ]]; then
 	curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
 	mv handlebars.runtime.min.js handlebars.min.js
-} else {
+else
 	curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
-}
+fi
 curl -sSf --remote-name https://code.jquery.com/jquery-3.3.1.min.js
 curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
 curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
