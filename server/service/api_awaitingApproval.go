@@ -124,5 +124,5 @@ func (vars *apiMethodAwaitingApproval) ServeHTTPREST(w http.ResponseWriter,
 			http.StatusNotFound)
 		return
 	}
-	http.Error(w, "", http.StatusNoContent)
+	http.Error(w, "", http.StatusNoContent) // 204 OK
 }

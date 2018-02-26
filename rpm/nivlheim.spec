@@ -13,7 +13,6 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 
-BuildRequires: curl, unzip
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
 BuildRequires: perl(Archive::Zip)

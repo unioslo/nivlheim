@@ -1,6 +1,5 @@
 package main
 
-// Create tasks to parse new files that have been read into the database
 import (
 	"database/sql"
 	"encoding/json"
@@ -67,7 +66,7 @@ func wrapAllowLocalhostCORS(h http.Handler) http.Handler {
 		if req.Method == "OPTIONS" {
 			// When cross-domain, browsers sends OPTIONS first, to check for CORS headers
 			// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-			http.Error(w, "", http.StatusNoContent)
+			http.Error(w, "", http.StatusNoContent) // 204 OK
 			return
 		}
 		h.ServeHTTP(w, req)
