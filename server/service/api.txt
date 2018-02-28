@@ -16,8 +16,8 @@ Hente siste versjon av en fil:
 file returnerer 404 hvis ingen fil passer til kriteriene. (fileId eller kombinasjon filename og (hostname | certfp))
 
 Liste ut filer fra en bestemt maskin:
-/api/v0/host?hostname=callisto.uio.no&fields=files,commands
-/api/v0/host?certfp=ABCD1234&fields=files,commands
+/api/v0/host?hostname=callisto.uio.no&fields=files
+/api/v0/host?certfp=ABCD1234&fields=files
 
 Hente noen detaljer for en bestemt maskin:
 /api/v0/host?hostname=callisto.uio.no&fields=lastseen,kernel

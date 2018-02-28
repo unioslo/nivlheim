@@ -23,7 +23,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 					// now, run the template
 					var output = Handlebars.templates[name](templateValues);
 					$(domElement).html(output);
-					deferredObj.resolve();
+					deferredObj.resolve(templateValues);
 				} catch(err) {
 					showError(err, domElement, "fa-exclamation-triangle");
 					deferredObj.reject();
@@ -39,7 +39,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 		try {
 			var output = Handlebars.templates[name](templateValues);
 			$(domElement).html(output);
-			deferredObj.resolve();
+			deferredObj.resolve(templateValues);
 		}
 		catch (err) {
 			showError(err, domElement, "fa-exclamation-triangle");
@@ -71,7 +71,7 @@ function APIcall(url, templateName, domElement) {
 				domElement, "fa-exclamation-circle");
 		deferredObj.reject();
 	});
-	return deferredObj;
+	return deferredObj.promise();
 }
 
 // Reads the page's URL parameters and returns them as an associative array

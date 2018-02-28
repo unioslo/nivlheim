@@ -23,9 +23,19 @@ span.excerpt em {
 }
 
 div.filecontent {
-	white-space: pre-line;
+	white-space: pre;
 	font-family: monospace;
 	background-color: rgba(0,0,0,0.1);
+}
+
+div.filecontent del {
+	background-color: rgba(255,0,0,0.3);
+	text-decoration: line-through;
+}
+
+div.filecontent ins {
+	background-color: rgba(0,255,0,0.3);;
+	text-decoration: underline;
 }
 
 .color-approve {
