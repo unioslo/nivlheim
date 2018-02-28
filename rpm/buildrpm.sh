@@ -38,21 +38,21 @@ sed -i -e "s|%{getenv:GIT_BRANCH}|$GIT_BRANCH|g" $SPEC
 # Check the spec file for errors
 rpmlint -i $SPEC || exit 1
 
-if [ "$2" = "" ]; then
-	echo "buildrpm: Downloading source archive file"
-	cd $BUILDDIR/SOURCES
-	spectool -g $SPEC > /dev/null
-	if [ ! -f $BUILDDIR/SOURCES/* ]; then
-		echo "buildrpm: Didn't manage to produce the source archive file."
-		rpmbuild --nobuild --nodeps $SPEC
-		exit 1
-	fi
-else
-	echo "buildrpm: Using source from $2"
+echo "buildrpm: Downloading source archive files"
+cd $BUILDDIR/SOURCES
+spectool -gf $SPEC > /dev/null 2>&1
+if [[ $(ls -1 $BUILDDIR/SOURCES | wc -l) -ne $(grep Source $SPEC|grep tar.gz| wc -l) ]]; then
+	echo "buildrpm: Didn't manage to produce the source archive files."
+	rpmbuild --nobuild --nodeps $SPEC
+	exit 1
+fi
+
+if [ "$2" != "" ]; then
+	echo "buildrpm: Replacing with source from $2"
 	mkdir /tmp/nivlheim-$GIT_BRANCH
 	cp -a $2/* /tmp/nivlheim-$GIT_BRANCH
 	cd /tmp
-	tar -czf $BUILDDIR/SOURCES/$GIT_BRANCH.tar.gz nivlheim-$GIT_BRANCH
+	tar -czf $BUILDDIR/SOURCES/nivlheim-$GIT_BRANCH.tar.gz nivlheim-$GIT_BRANCH
 	rm -rf /tmp/nivlheim-$GIT_BRANCH
 fi
 
@@ -77,23 +77,18 @@ then
 fi
 
 # mock build
-configs=(fedora-27-x86_64)
-for config in "${configs[@]}"
-do
-	echo ""
-	echo "--------------------------------------------------------"
-	echo "  Mock-building packages for $config"
-	echo "--------------------------------------------------------"
-	mock --root=$config --quiet --clean
-	mock --bootstrap-chroot --root=$config --quiet --clean
-	if ! mock --bootstrap-chroot --root=$config --quiet --rebuild $srpm; then
-		echo "Mock build failed for $config."
-		echo "------------ build.log -------------"
-		cat /var/lib/mock/$config/result/build.log
-		echo "------------------------------------"
-		exit 1
-	fi
-	rm -f /var/lib/mock/$config/result/*.src.rpm
-	rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
-	echo ""
-done
+config=$(basename -s .cfg $(readlink -f /etc/mock/default.cfg))
+echo ""
+echo "--------------------------------------------------------"
+echo "  Mock-building packages for $config"
+echo "--------------------------------------------------------"
+if ! mock --bootstrap-chroot --rebuild $srpm; then
+	echo "Mock build failed for $config."
+	exit 1
+fi
+rm -f /var/lib/mock/$config/result/*.src.rpm
+echo ""
+echo "--------------------------------------------------------"
+echo "  rpmlint report"
+echo "--------------------------------------------------------"
+rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1

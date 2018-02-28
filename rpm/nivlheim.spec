@@ -12,6 +12,7 @@ License:  GPLv3+
 
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
+Source1:  https://github.com/lib/pq/archive/master.tar.gz#/pq-master.tar.gz
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -43,11 +44,7 @@ BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
-BuildRequires: systemd
-
-%global _binary_filedigest_algorithm 1
-%global _source_filedigest_algorithm 1
-BuildArch: noarch
+BuildRequires: systemd, golang, git
 
 %description
 This package is the base package for Nivlheim.
@@ -55,6 +52,7 @@ This package is the base package for Nivlheim.
 %package client
 Summary:  Client component of Nivlheim
 Group:    Applications/System
+BuildArch: noarch
 Requires: perl, openssl, dmidecode
 Requires: perl(Archive::Tar)
 Requires: perl(File::Basename)
@@ -72,7 +70,7 @@ Requires: perl(Sys::Syslog)
 Summary:  Server components of Nivlheim
 Group:    Applications/System
 Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
-Requires: golang, unzip, file, git
+Requires: unzip, file
 Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
 Requires: perl(CGI)
@@ -101,16 +99,31 @@ This package contains the client component of Nivlheim.
 This package contains the server components of Nivlheim.
 
 %prep
-%autosetup -n %{name}-%{getenv:GIT_BRANCH}
+%setup -q -T -b 1 -n pq-master
+%autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 
 %build
+# Compile web templates
+handlebars server/website/templates --min -f server/website/js/templates.js
+# Compile system service
+rm -rf gopath
+mkdir -p gopath/{src,bin}
+export GOPATH=`pwd`/gopath
+export GOBIN="$GOPATH/bin"
+mv server/service gopath/src/
+mkdir -p gopath/src/github.com/lib/
+mv ../pq-master gopath/src/github.com/lib/pq
+go test -v service
+rm -f gopath/bin/*
+# Fix for the error "No build ID note found in ..."
+go install -ldflags=-linkmode=external service
 
 %install
 rm -rf %{buildroot}
 mkdir -p %{buildroot}%{_sbindir}
 mkdir -p %{buildroot}%{_sysconfdir}/nivlheim
 mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
-mkdir -p %{buildroot}%{_localstatedir}/nivlheim/go/{src,pkg,bin}
+mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/www/html
@@ -134,15 +147,10 @@ install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
-cp -r server/service %{buildroot}%{_localstatedir}/nivlheim/go/src/
-echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
-
-# Compile web templates
-handlebars server/website/templates --min -f server/website/js/templates.js
-
-# Copy static website files, excluding files that are only for development
 rm -rf server/website/mockapi server/website/templates
-cp -r server/website/* %{buildroot}%{_localstatedir}/www/html/
+cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
+install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
+echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
@@ -179,14 +187,13 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
+%{_sbindir}/nivlheim_service
 %{_localstatedir}/nivlheim/init.sql
 %dir /var/log/nivlheim
-/var/www/nivlheim
-/var/www/cgi-bin
+/var/www/cgi-bin/*
 /var/www/html/*
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
-%{_localstatedir}/nivlheim
 
 %post server
 %{_localstatedir}/nivlheim/setup.sh || exit 1
@@ -199,12 +206,15 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Feb 27 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.2.0-20180227
+- Compile Go code during build, distribute binaries instead of source.
+
 * Fri Feb 23 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.4-20180223
 - New web frontend, installs in /var/www/html. frontpage.cgi is gone.
 
 * Fri Jan 05 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180105
 - Removed dependencies on the missing parent package "nivlheim",
-  since it isn't being build anymore.
+  since it isn't built anymore.
 
 * Wed Jan 03 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.1.1-20180103
 - Removed use of GIT_URL macro. Removed faulty %%attr directives.
