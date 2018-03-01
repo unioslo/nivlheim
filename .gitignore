@@ -2,3 +2,4 @@
 server/service/service
 server/website/libs/*
 !server/website/libs/download_libraries.sh
+server/website/version.txt

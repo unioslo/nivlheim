@@ -151,6 +151,7 @@ rm -rf server/website/mockapi server/website/templates
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
 install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
+echo %{version} > %{buildroot}%{_localstatedir}/www/html/version.txt
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client

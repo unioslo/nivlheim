@@ -1,3 +1,6 @@
+<section class="section">
+<div class="container">
+
 <h1 class="title">{{hostname}}</h1>
 
 <p>
@@ -19,9 +22,7 @@
 <h1 class="title is-4 is-marginless">Files</h1>
 {{#each files}}
 {{#unless isCommand}}
-<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
-	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
-	{{filename}}</a><br>
+<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
 {{/unless}}
 {{/each}}
 </p>
@@ -30,9 +31,9 @@
 <h1 class="title is-4 is-marginless">Commands</h1>
 {{#each files}}
 {{#if isCommand}}
-<a href="/browse.html?h={{../hostname}}&fn={{filename}}"
-	onclick="browseFile2('{{../hostname}}', '{{filename}}');return false">
-	{{filename}}</a><br>
+<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
 {{/if}}
 {{/each}}
 </p>
+
+</div></section>

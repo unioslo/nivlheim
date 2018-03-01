@@ -5,53 +5,68 @@
 		<meta name="viewport" content="width=device-width, initial-scale=1">
 		<title>Nivlheim</title>
 
+		<!-- 3rd party libraries -->
 		<script src="libs/jquery-3.3.1.min.js" type="text/javascript"></script>
 		<script src="libs/handlebars.min.js" type="text/javascript"></script>
 		<script src="libs/moment.min.js" type="text/javascript"></script>
 		<script src="libs/fontawesome/js/fontawesome-all.min.js"
 			defer type="text/javascript"></script>
+		<script src="libs/tarantino.min.js" type="text/javascript"></script>
 		<link rel="stylesheet" href="libs/bulma.min.css">
 
+		<!-- own code -->
 		<link rel="stylesheet" href="style.css">
 		<script type="text/javascript" src="js/templates.js"></script>
 		<script type="text/javascript" src="js/functions.js"></script>
+		<script type="text/javascript" src="js/jsdiff.js"></script>
 		<script type="text/javascript" src="js/index.js"></script>
 	</head>
 	<body>
-		<section class="section">
-			<div class="container">
-				<h1 class="title is-4">System status</h1>
-				<h1 class="subtitle is-6"></h1>
-				<div id="placeholder_systemstatus">
-					<br>
-					<span class="icon">
-						<i class="fas fa-lg fa-spinner fa-pulse"></i>
-					</span>
-				</div>
+		<nav class="navbar is-transparent" role="navigation" aria-label="navigation">
+			<div class="navbar-brand">
+				<!-- navbar items, navbar burger... -->
 			</div>
-			<div class="container">
-				<hr>
-				<h1 class="title is-4">Machines</h1>
-				<h1 class="subtitle is-6"></h1>
-				<form action="search.html">
-					<div class="field has-addons">
-						<div class="control has-icons-left">
-							<input class="input" type="text" name="q"
-								id="search" placeholder="Search for...">
-							<span class="icon is-small is-left">
-								<i class="fas fa-search"></i>
-							</span>
-						</div>
-						<div class="control">
-							<input type="submit" class="button is-info"
-								value="Search"></input>
+			<div class="navbar-menu">
+				<div class="navbar-start">
+					<a class="navbar-item" href="#/">
+						<span class="icon"><i class="fas fa-home"></i></span>
+						Home
+					</a>
+					<a class="navbar-item" href="#/browse">
+						<span class="icon"><i class="fas fa-desktop"></i></span>
+						Browse machines
+					</a>
+					<a class="navbar-item" href="#/search">
+						<span class="icon"><i class="fas fa-search"></i></span>
+						Search
+					</a>
+					<div class="navbar-item has-dropdown is-hoverable">
+						<a class="navbar-link">
+							<span class="icon"><i class="fas fa-book"></i></span>
+							Docs
+						</a>
+						<div class="navbar-dropdown is-boxed">
+							<a class="navbar-item" href="https://github.com/usit-gd/nivlheim/wiki/API">API</a>
 						</div>
 					</div>
-				</form>
-				<br>
-				<div id="placeholder_latestnewmachines"></div>
+				</div>
+				<div class="navbar-end">
+					<div class="navbar-item">
+						<a href="https://github.com/usit-gd/nivlheim/releases"
+							class="has-text-grey-dark">
+							<span id="navbarVersion"></span>
+						</a>
+					</div>
+					<div class="navbar-item">
+						<a href="https://github.com/usit-gd/nivlheim">
+							<span class="icon">
+								<i class="fab fa-github fa-lg"></i>
+							</span>
+						</a>
+					</div>
+				</div>
 			</div>
-			<div class="container" id="placeholder_approval"></div>
-		</section>
+		</nav>
+		<div id="pageContent"></div>
 	</body>
 </html>

@@ -21,18 +21,22 @@ set -e
 cd `dirname $0`
 echo "Downloading Javascript and CSS libraries into `pwd`"
 
+# clean
+rm -rf *.js *.css *.map fontawesome
+
 if [[ "$1" == "--prod" ]]; then
-	curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
+	curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
 	mv handlebars.runtime.min.js handlebars.min.js
 else
-	curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
+	curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
 fi
-curl -sSf --remote-name https://code.jquery.com/jquery-3.3.1.min.js
-curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
-curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
-curl -sSf --remote-name https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
+curl -sSfO https://code.jquery.com/jquery-3.3.1.min.js
+curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
+curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
+curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
+curl -sSfO https://raw.githubusercontent.com/CodeYellowBV/tarantino/master/build/tarantino.min.js
 
-curl -sSf --remote-name https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
+curl -sSfO https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
 rm -rf fontawesome-free-5.0.6 fontawesome
 unzip -q fontawesome-free-5.0.6.zip
 mv fontawesome-free-5.0.6/on-server fontawesome

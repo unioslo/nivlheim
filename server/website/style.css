@@ -45,3 +45,16 @@ div.filecontent ins {
 .color-deny {
 	color:#600;
 }
+
+.is-not-displayed {
+	display: none;
+}
+
+.position-absolute {
+	position: absolute;
+}
+
+nav.navbar.is-transparent {
+	background-color: rgba(255,255,255,0.5);
+	background-image: none;
+}
