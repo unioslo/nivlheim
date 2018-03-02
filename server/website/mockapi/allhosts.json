@@ -1,0 +1,10 @@
+[
+	{
+		"hostname": "aaa.example.no",
+		"certfp": "ABCD1234"
+	},
+	{
+		"hostname": "bbb.example.no",
+		"certfp": "DEFE3232"
+	}
+]

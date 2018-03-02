@@ -59,8 +59,10 @@ function getAPIURLprefix() {
 }
 
 function APIcall(url, templateName, domElement) {
+	if (url.startsWith("/api/"))
+		url = getAPIURLprefix() + url;
 	var deferredObj = $.Deferred();
-	$.getJSON(getAPIURLprefix()+url, function(data){
+	$.getJSON(url, function(data){
 		try {
 			renderTemplate(templateName, data, domElement, deferredObj);
 		}

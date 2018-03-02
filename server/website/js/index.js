@@ -10,6 +10,7 @@ $(document).ready(function(){
 	});
 
 	var routes = {
+		'/allhosts': allHosts,
 		'/browsehost/:certfp': browseHostByCert,
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:hostname/:filename': browseFileByName,
@@ -134,4 +135,10 @@ function searchPage(q) {
 			if(e.keyCode===13){newSearch();}
 		}).focus(); // focus the input field
 	});
+}
+
+function allHosts() {
+	//APIcall("mockapi/allhosts.json", "allhosts", "div#pageContent");
+	APIcall("/api/v0/hostlist?fields=hostname,certfp&sort=hostname&limit=30",
+		"allhosts", "div#pageContent");
 }
