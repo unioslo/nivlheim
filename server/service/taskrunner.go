@@ -114,10 +114,10 @@ func main() {
 
 	for !quit {
 		// Run jobs
-		for _, j := range jobs {
+		for i, j := range jobs {
 			if time.Since(j.lastrun) > j.job.HowOften() {
 				j.job.Run(db)
-				j.lastrun = time.Now()
+				jobs[i].lastrun = time.Now()
 			}
 		}
 
