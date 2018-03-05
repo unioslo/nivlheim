@@ -63,3 +63,10 @@ CREATE TABLE IF NOT EXISTS api_error(
 	api_message text,
 	ts timestamp with time zone
 );
+
+CREATE TABLE IF NOT EXISTS ipranges(
+	iprangeid serial PRIMARY KEY NOT NULL,
+	iprange text NOT NULL,
+	comment text,
+	use_dns boolean
+);

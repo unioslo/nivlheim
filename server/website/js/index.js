@@ -2,7 +2,14 @@ $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
 		var t = moment(s);
-		return t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
+		var str = t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
+		str = Handlebars.Utils.escapeExpression(str);
+		if (t.isAfter(moment().subtract(1,'days'))) {
+			return str;
+		} else {
+			return new Handlebars.SafeString(
+				'<span class="underline-warning">'+str+'</span>');
+		}
 	});
 	Handlebars.registerHelper('urlescape', function(s){
 		if (!s) return "";
@@ -16,6 +23,7 @@ $(document).ready(function(){
 		'/browsefile/:hostname/:filename': browseFileByName,
 		'/search/:query': searchPage,
 		'/search': searchPage,
+		'/settings': settingsPage,
 		'/': showFrontPage
 	};
 
@@ -141,4 +149,11 @@ function allHosts() {
 	//APIcall("mockapi/allhosts.json", "allhosts", "div#pageContent");
 	APIcall("/api/v0/hostlist?fields=hostname,certfp&sort=hostname&limit=30",
 		"allhosts", "div#pageContent");
+}
+
+function settingsPage() {
+	renderTemplate("settingspage", {}, "div#pageContent")
+	.done(function(){
+		APIcall("mockapi/ipranges.json", "ipranges", "div#ipranges_placeholder");
+	});
 }

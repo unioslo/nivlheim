@@ -54,7 +54,30 @@ div.filecontent ins {
 	position: absolute;
 }
 
+/* By default, the Bulma navbar doesn't have a background when it is transparent.
+   Add a semi-transparent background here. */
 nav.navbar.is-transparent {
 	background-color: rgba(255,255,255,0.5);
 	background-image: none;
+}
+
+.underline-warning {
+	text-decoration: underline;
+	text-decoration-style: dotted;
+	text-decoration-color: hsl(48, 100%, 67%);
+}
+
+label.checkbox > input[type=checkbox] {
+	transform: scale(1.5);
+}
+
+/* Make the text in the labels for checkboxes unselectable,
+   so it won't get selected when you click on it to toggle the checkbox. */
+label.checkbox {
+	-webkit-touch-callout: none;
+	-webkit-user-select: none;
+	-khtml-user-select: none;
+	-moz-user-select: none;
+	-ms-user-select: none;
+	user-select: none;
 }

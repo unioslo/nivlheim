@@ -1,0 +1,16 @@
+{
+	"ipranges": [
+		{
+			"ipRangeId": 1,
+			"ipRange": "123.123.123.0/24",
+			"comment": "This is an example",
+			"useDns": true
+		},
+		{
+			"ipRangeId": 2,
+			"ipRange": "210.210.210.210/21",
+			"comment": "This is also an example",
+			"useDns": false
+		}
+	]
+}

@@ -1,0 +1,55 @@
+<h1 class="title is-4">DNS</h1>
+<h1 class="subtitle is-6">Automatic approval and naming of new machines</h1>
+<div class="columns">
+	<div class="column">
+		{{#each ipranges}}
+		<div class="field has-addons">
+			<p class="control is-expanded">
+				<input class="input" type="text" value="{{ipRange}}" readonly>
+			</p>
+			{{#if useDns}}
+			<p class="control">
+				<a class="button is-static">DNS</a>
+			</p>
+			{{/if}}
+			<p class="control">
+				<a class="button is-static">{{comment}}</a>
+			</p>
+			<p class="control">
+				<a class="button is-danger">
+					<span class="icon">
+						<i class="far fa-trash-alt"></i>
+					</span>
+					<span>Delete</span>
+				</a>
+			</p>
+		</div>
+		{{/each}}
+		{{#if ipranges}}<hr>{{/if}}
+		<div class="field">
+			<label class="label">IP range (CIDR notation)</label>
+			<div class="control">
+				<input class="input" type="text" placeholder="123.456.789.0/24">
+			</div>
+		</div>
+		<div class="field">
+			<label class="label">Comment or description</label>
+			<div class="control">
+				<input class="input" type="text" placeholder="Comment">
+			</div>
+		</div>
+		<div class="field">
+			<label class="checkbox">
+				<input type="checkbox" name="strategy">
+				Use DNS as authorative source for machine names for this ip range
+			</label>
+		</div>
+		<a class="button is-primary">
+			<span class="icon">
+				<i class="fas fa-plus"></i>
+			</span>
+			<span>Add new IP range</span>
+		</a>
+		</div>
+	<div class="column"></div>
+</div>
