@@ -20,23 +20,30 @@
 set -e
 cd `dirname $0`
 echo "Downloading Javascript and CSS libraries into `pwd`"
+OPTS="-sSfO --retry 10"
 
 # clean
 rm -rf *.js *.css *.map fontawesome
 
+echo "Handlebars"
 if [[ "$1" == "--prod" ]]; then
-	curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
+	curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.runtime.min.js
 	mv handlebars.runtime.min.js handlebars.min.js
 else
-	curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
+	curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.11/handlebars.min.js
 fi
-curl -sSfO https://code.jquery.com/jquery-3.3.1.min.js
-curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
-curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
-curl -sSfO https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
-curl -sSfO https://raw.githubusercontent.com/CodeYellowBV/tarantino/master/build/tarantino.min.js
+echo "jQuery"
+curl $OPTS https://code.jquery.com/jquery-3.3.1.min.js
+echo "Moment"
+curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.20.1/moment.min.js
+echo "Bulma"
+curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css
+curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/bulma/0.6.2/css/bulma.min.css.map
+echo "Tarantino"
+curl $OPTS https://raw.githubusercontent.com/CodeYellowBV/tarantino/master/build/tarantino.min.js
 
-curl -sSfO https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
+echo "Font Awesome"
+curl $OPTS https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
 rm -rf fontawesome-free-5.0.6 fontawesome
 unzip -q fontawesome-free-5.0.6.zip
 mv fontawesome-free-5.0.6/on-server fontawesome
