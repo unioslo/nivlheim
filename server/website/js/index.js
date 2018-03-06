@@ -154,6 +154,30 @@ function allHosts() {
 function settingsPage() {
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
-		APIcall("mockapi/ipranges.json", "ipranges", "div#ipranges_placeholder");
+		APIcall("mockapi/ipranges.json", "ipranges", "div#ipranges_placeholder")
+		.done(function(){
+			$("input[type='text']").change(function(){
+				if ($(this).is('.iprange')) {
+					$(this).toggleClass('is-danger',
+						!(validateIPv4cidr($(this).val()) ||
+						  validateIPv6cidr($(this).val()) ||
+						  $(this).val().match(/^\s*$/)));
+				} else {
+					$(this).toggleClass('is-danger', $(this).is(':invalid'));
+				}
+			});
+		});
 	});
+}
+
+function validateIPv4cidr(addr) {
+	// http://stackoverflow.com/questions/5284147/validating-ipv4-addresses-with-regexp
+	let re = /^\s*((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[012]|[12]?[0-9])\s*$/;
+	return addr.match(re);
+}
+
+function validateIPv6cidr(addr) {
+	// http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
+	let re = /^\s*([0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{1,4}\/(12[0-8]|1[01][0-9]|[0-9]{1,2})\s*$/;
+	return addr.match(re);
 }
