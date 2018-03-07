@@ -21,6 +21,8 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux.Handle("/api/v0/host", &apiMethodHost{db: theDB})
 	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
 	mux.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB})
+	mux.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
+	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
 	var h http.Handler = mux
 	if devmode {

@@ -59,11 +59,16 @@ function getAPIURLprefix() {
 }
 
 function APIcall(url, templateName, domElement) {
+	let origurl = url;
 	if (url.startsWith("/api/"))
 		url = getAPIURLprefix() + url;
 	var deferredObj = $.Deferred();
 	$.getJSON(url, function(data){
 		try {
+			$(domElement).attr({
+				"data-api-url": origurl,
+				"data-handlebars-template": templateName
+			});
 			renderTemplate(templateName, data, domElement, deferredObj);
 		}
 		catch(error) {
@@ -100,6 +105,106 @@ function getUrlParams() {
 		vars[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g,' '));
 	}
 	return vars;
+}
+
+function validateIPv4cidr(addr) {
+	// http://stackoverflow.com/questions/5284147/validating-ipv4-addresses-with-regexp
+	let re = /^\s*((25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/(3[012]|[12]?[0-9])\s*$/;
+	return addr.match(re);
+}
+
+function validateIPv6cidr(addr) {
+	// http://stackoverflow.com/questions/53497/regular-expression-that-matches-valid-ipv6-addresses
+	let re = /^\s*([0-9A-Fa-f]{0,4}:){2,7}[0-9A-Fa-f]{1,4}\/(12[0-8]|1[01][0-9]|[0-9]{1,2})\s*$/;
+	return addr.match(re);
+}
+
+function attachHandlersToForms() {
+	$("input[type='text']").change(function(){
+		if ($(this).is('.iprange')) {
+			$(this).toggleClass('is-danger',
+				!(validateIPv4cidr($(this).val()) ||
+				  validateIPv6cidr($(this).val()) ||
+				  $(this).val().match(/^\s*$/)));
+		} else {
+			$(this).toggleClass('is-danger', $(this).is(':invalid'));
+		}
+	});
+	$("form").submit(submitForm);
+}
+
+function submitForm(event) {
+	// prevent the browser from loading the whole page
+	event.preventDefault();
+	// Use the ACTION attribute from the FORM tag
+	let path = (new URL(this.action).pathname);
+	let url = getAPIURLprefix() + path;
+	// Serialize the form values
+	let data = $(this).serialize();
+	// Perform the HTTP request
+	$.ajax({
+		"url": url,
+		"method": this.method, // Using the METHOD attribute from the FORM tag
+		"data": data,
+		"processData": false, // Tell jQuery that the data is already encoded
+	})
+	.fail(function(jqxhr){
+		// Error. Display error messages, if any
+		let text = jqxhr.statusCode().responseText;
+		try {
+			// Error messages next to input fields
+			let obj = JSON.parse(text);
+			for (let prop in obj) {
+				if (!obj.hasOwnProperty(prop)) continue;
+				$(event.target).find("[data-error-for='"+prop+"']").html(obj[prop]);
+			}
+		} catch (e) {
+			// Generic error message
+			alert(text);
+		}
+	})
+	.done(function(data,textStatus,jqxhr){
+		// Success. Find the outer placeholder container
+		let container = $(event.target).parents("[data-api-url]");
+		if (container.length == 0) {
+			console.log("Couldn't find container to refresh.");
+			return;
+		}
+		// Make an API call to refresh the appropriate part of the page
+		APIcall(container.data("apiUrl"),
+			container.data("handlebarsTemplate"),
+			"#"+container.attr("id"))
+		.done(attachHandlersToForms);
+		// Reset the form
+		//event.target.reset();
+	});
+}
+
+function restDelete(element, apiPath) {
+	// Find the outer placeholder container
+	let container = $(element).parents("[data-api-url]");
+	if (container.length == 0) {
+		console.log("Couldn't find the container to refresh.");
+		return;
+	}
+	// Perform the HTTP request
+	let url = getAPIURLprefix()+apiPath;
+	$.ajax({
+		"url": url,
+		"method": "DELETE"
+	})
+	.fail(function(jqxhr){
+		// Error. Display error messages, if any
+		let text = jqxhr.statusCode().responseText;
+		alert(text);
+	})
+	.done(function(data,textStatus,jqxhr){
+		// Success.
+		// Make an API call to refresh the appropriate part of the page
+		APIcall(container.data("apiUrl"), container.data("handlebarsTemplate"),
+			"#"+container.attr("id"))
+		.done(attachHandlersToForms);
+	});
 }
 
 //----====----====----====-- Frontpage --====----====----====

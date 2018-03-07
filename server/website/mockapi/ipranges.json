@@ -1,5 +1,5 @@
 {
-	"ipranges": [
+	"ipRanges": [
 		{
 			"ipRangeId": 1,
 			"ipRange": "123.123.123.0/24",
@@ -9,7 +9,7 @@
 		{
 			"ipRangeId": 2,
 			"ipRange": "210.210.210.210/21",
-			"comment": "This is also an example",
+			"comment": "This is also an example. The UI should be able to handle long comments that may need line breaks.",
 			"useDns": false
 		}
 	]

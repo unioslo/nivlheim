@@ -66,7 +66,7 @@ CREATE TABLE IF NOT EXISTS api_error(
 
 CREATE TABLE IF NOT EXISTS ipranges(
 	iprangeid serial PRIMARY KEY NOT NULL,
-	iprange text NOT NULL,
+	iprange cidr NOT NULL,
 	comment text,
 	use_dns boolean
 );

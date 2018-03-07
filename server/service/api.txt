@@ -38,3 +38,9 @@ Søke i filer (fra GUI):
 
 Søke i filer for scripts:
 /api/v0/search?q=søkefrase&fields=hostname,filename
+
+Se på og redigere ip-områder for godkjenning av maskiner:
+Liste ut eksisterende. fields: ipRangeId, ipRange, useDns, comment
+GET /api/v0/settings/ipranges
+POST /api/v0/settings/ipranges      lage ny. parametre: ipRange, useDns, comment
+DELETE /api/v0/settings/ipranges/<id>  slette en
