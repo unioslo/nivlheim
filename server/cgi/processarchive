@@ -120,9 +120,11 @@ eval{
 
 	my $iso_received = uts_to_rfc3339($meta{'received'});
 
-	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,clienthostname,"
-		."certcn,certfp,filename,received,mtime,content,is_command,clientversion) "
-		."VALUES(?,?,?,?, ?,?,?,?, ?,?)");
+	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,os_hostname,"
+		."certcn,certfp,filename,received,mtime,content,is_command,clientversion,"
+		."originalcertid) "
+		."VALUES(?,?,?,?, ?,?,?,?, ?,?, "
+		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
 	# For each file
 	sub callback1 {
@@ -178,10 +180,10 @@ eval{
 		$content =~ tr/\016-\037/ /;
 
 		# Run the database INSERT operation
-		my @values = ($meta{ip}, $meta{clienthostname},
+		my @values = ($meta{ip}, $meta{os_hostname},
 			$meta{certcn}, $meta{certfp}, $originalfilename,
 			$iso_received, $iso_mtime, $content, $is_command,
-			$meta{clientversion});
+			$meta{clientversion}, $meta{certfp});
 		$sth->execute(@values) or $logger->error($sth->errstr);
 	}
 	find(\&callback1, $dir);

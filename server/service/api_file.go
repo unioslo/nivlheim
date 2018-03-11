@@ -13,6 +13,11 @@ type apiMethodFile struct {
 }
 
 func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		[]string{"fileId", "filename", "isCommand", "lastModified", "received",
 			"content", "certfp", "hostname", "versions"})

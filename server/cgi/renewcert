@@ -63,31 +63,44 @@ my $p12file = "/tmp/user$id.p12";
 # Compute the client cert fingerprint
 my $clientcert = $ENV{'SSL_CLIENT_CERT'};
 my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
-my $fingerprint = $x509->fingerprint_sha1();
+my $fingerprint = $x509->fingerprint_sha256();
+
+# Connect to Postgres
+my %attr = ("AutoCommit" => 0);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+
+# Check if the certificate has been revoked
+my @row = $dbh->selectrow_array(
+	"SELECT revoked FROM certificates WHERE fingerprint=?",
+	undef, ($fingerprint));
+if (@row && $row[0]) {
+	# This certificate is revoked. Reject the client
+	print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
+	exit;
+}
 
 # Determine hostname by looking up the client certificate in the database.
 # Use the Common Name as a fallback.
 my $hostname;
-my $dbh = DBI->connect("dbi:Pg:", "", "");
-if (!$dbh) {
-	print $DBI::errstr;
-	exit;
-}
-my @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
+@row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
 	undef, ($fingerprint));
 if (@row) {
 	$hostname = $row[0];
 } else {
-	if ($x509->subject() =~ /CN=(\S+)/) {
-		$hostname = $1;
-	}
+	$hostname = $x509->subject_cn();
 }
 if (!defined($hostname)) {
-	print "Unable to determine hostname based on the certificate.";
-	$logger->debug("Unable to determine hostname based on the certificate.");
+	print "Unable to determine the hostname.";
+	$logger->debug("Unable to determine the hostname.");
 	exit;
 }
-$dbh->disconnect;
 print "Your hostname is: $hostname\n";
 $logger->debug("Hostname is: $hostname");
 
@@ -121,10 +134,38 @@ eval {
 	}
 	$logger->debug("Signing OK.");
 
-	# Keep a copy of the key/csr/crt-files too
-	copy($keyfile, "$confdir/certs/$id.key");
-	copy($csrfile, "$confdir/certs/$id.csr");
-	copy($crtfile, "$confdir/certs/$id.crt");
+	# Clean up the generated pem file; don't need it
+	unlink("$confdir/certs/$id.pem");
+
+	# Keep the certificate in the database
+	my ($previous, $first);
+	@row = $dbh->selectrow_array("SELECT certid,first FROM certificates WHERE certfp=?",
+		undef, ($fingerprint));
+	if (@row) {
+		$previous = $row[0];
+		$first = $row[1];
+	}
+	my $cert;
+	{
+		open(my $F, $crtfile);
+		binmode($F);
+		local $/ = undef;
+		$cert = <$F>;
+		close($F);
+	}
+	$x509 = Crypt::OpenSSL::X509->new_from_string($cert);
+	my $new_fingerprint = $x509->fingerprint_sha256();
+	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
+		."commonname,previous,first,cert) VALUES(now(),?,?,?,?,?)");
+	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert));
+	$sth->finish;
+
+	# Update the hostinfo and files tables
+	$dbh->do("UPDATE hostinfo SET certfp=? WHERE certfp=?", undef,
+		($new_fingerprint, $fingerprint));
+	$dbh->do("UPDATE files SET certfp=? WHERE certfp=?", undef,
+		($new_fingerprint, $fingerprint));
+	$dbh->commit;
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
@@ -133,7 +174,6 @@ eval {
 		$logger->debug($cmd);
 		die "P12 failed: $?";
 	}
-	copy($p12file, "$confdir/certs/$id.p12");
 
 	# Display the generated certificate and key
 	open(F, $crtfile) or die "Can't read crt file";
@@ -163,3 +203,5 @@ unlink($keyfile) if (-f $keyfile);
 unlink($csrfile) if (-f $csrfile);
 unlink($crtfile) if (-f $crtfile);
 unlink($p12file) if (-f $p12file);
+
+$dbh->disconnect;

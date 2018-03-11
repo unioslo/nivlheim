@@ -7,6 +7,7 @@ use DBI;
 use JSON;
 use Log::Log4perl;
 use Net::DNS;
+use LWP::Simple;
 
 sub parse_query_string();
 
@@ -50,30 +51,22 @@ if ($fileid ne $params{'fileid'}) {
 eval{
 	$dbh->{RaiseError} = 1;
 
-	my $sth = $dbh->prepare("SELECT filename, content, " .
+	my $row = $dbh->selectrow_hashref("SELECT filename, content, " .
 		"received, is_command, certcn, ipaddr, certfp, clientversion, " .
-		"clienthostname FROM files WHERE fileid=?");
-	$sth->bind_param(1, $fileid);
-	my $rv = $sth->execute;
-	my $row = $sth->fetchrow_hashref;
-	$sth->finish;
+		"os_hostname FROM files WHERE fileid=?", undef, $fileid);
 
-	# Set hostname, ip address, and lastseen
-	my @params = ($row->{'received'}, $row->{'certcn'},
-		$row->{'ipaddr'}, $row->{'clientversion'}, $row->{'certfp'});
-	my $rows = $dbh->do("UPDATE hostinfo SET lastseen=?,hostname=?,ipaddr=?, "
-		."clientversion=? WHERE certfp=?", undef, @params);
-	if ($rows == 0) {
-		$dbh->do("INSERT INTO hostinfo(lastseen,hostname,ipaddr,clientversion,certfp) "
-			."VALUES(?,?,?,?,?)", undef, @params);
-		$logger->info("New host: " . $row->{'certcn'} . " " . $row->{'certfp'});
-	}
-
-	# Detect if a host got a new certificate. Clean up the old one, in that case
-	$rv = $dbh->do("DELETE FROM hostinfo WHERE hostname=? AND (certfp is null OR certfp != ?)",
-		undef, ($row->{'hostname'}, $row->{'certfp'}));
-	if ($rv > 0) {
-		$logger->info("It seems " . $row->{'hostname'} . " got a new certificate.");
+	# Update lastseen, ip address, os_hostname, client version
+	my @params = ($row->{'received'}, $row->{'ipaddr'}, $row->{'clientversion'},
+		$row->{'os_hostname'}, $row->{'certfp'});
+	my $rowcount = $dbh->do("UPDATE hostinfo SET lastseen=?,ipaddr=?, "
+		."clientversion=?,os_hostname=? WHERE certfp=?", undef, @params);
+	if ($rowcount == 0) {
+		# Insert a row where hostname is null. It will be filled in later,
+		# by a system service. While hostname is null, this row will not
+		# be visible through the API.
+		$dbh->do("INSERT INTO hostinfo(lastseen,ipaddr,clientversion,"
+				."os_hostname,certfp) VALUES(?,?,?,?,?)");
+		get("http://127.0.0.1:4040/api/v0/triggerJob/handleDNSchangesJob");
 	}
 
 	# Different files must be parsed differently

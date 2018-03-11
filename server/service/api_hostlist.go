@@ -30,6 +30,11 @@ var apiHostListSourceFields = []string{"ipAddress", "hostname", "lastseen", "os"
 	"clientVersion"}
 
 func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		apiHostListSourceFields)
 	if hErr != nil {
@@ -53,7 +58,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		"kernel, vendor, model, serialno, certfp, clientversion " +
 		"FROM hostinfo "
 	if len(where) > 0 {
-		statement += " WHERE " + where
+		statement += " WHERE hostname IS NOT NULL AND " + where
 	}
 
 	var desc string

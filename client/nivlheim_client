@@ -50,7 +50,6 @@ my %defaultopt = (
 	'debug'     => 0,  # debugging / verbose output
 	'help'      => 0,  # display help output
 	'version'   => 0,  # plugin version info
-	'ip'        => 0  # override the ip address auto detection
 	);
 
 # Version information
@@ -75,7 +74,6 @@ OPTIONS:
    --ssl-ca        SSL CA file
    --ssl-cert      SSL CERT file
    --ssl-key       SSL key file
-   --ip            IP address to bind to when communicating with the server
    -d, --debug     Debug output, reports everything
    -h, --help      Display this help text
    -V, --version   Display version info
@@ -98,7 +96,6 @@ GetOptions('c|config=s'  => \$opt{config},
 	   'ssl-ca=s'    => \$opt{ca_file},
 	   'ssl-cert=s'  => \$opt{cert_file},
 	   'ssl-key=s'   => \$opt{key_file},
-	   'ip=s'        => \$opt{ip},
 	   'd|debug'     => \$opt{debug},
 	   'h|help'      => \$opt{help},
 	   'V|version'   => \$opt{version},
@@ -403,6 +400,16 @@ my $signaturefile = "$tarfile.sign";
 unlink($signaturefile); # In case it already exists
 system("openssl dgst -sha256 -sign $opt{key_file} -out $signaturefile $tarfile");
 
+# nonce
+my $nonce = 0;
+my $noncefile = "/var/nivlheim/nonce";
+if (-r $noncefile) {
+	open(my $F, $file);
+	$nonce = <$F>;
+	chomp $nonce;
+	close($F);
+}
+
 # POST all of it
 my $myhostname = `hostname -f`;
 $myhostname =~ s/[\r\n]//g;
@@ -410,7 +417,8 @@ my %postdata = (
 	'hostname' => $myhostname,
 	'archive' => [$tarfile],
 	'signature' => [$signaturefile],
-	'version' => $VERSION
+	'version' => $VERSION,
+	'nonce' => $nonce
 );
 eval {
 	my $result = http_post($server_url . 'secure/post', \%postdata);
@@ -421,6 +429,12 @@ eval {
 		utime(undef,undef,$file);
 		# make sure that file is readable for everyone
 		chmod 0644, $file;
+	}
+	if ($result =~ /nonce=(\d+)/) {
+		# save the new nonce, it shall be used next time
+		open(my $F, $noncefile);
+		print $F, $1;
+		close($F);
 	}
 };
 printlog $@ if ($@);

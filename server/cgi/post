@@ -51,6 +51,7 @@ my $signaturefile;
 my $shorthost = '';
 
 eval {
+	#
 	my $ipaddr = $ENV{'REMOTE_ADDR'};
 	my $query = CGI->new;
 	$logger->debug("post from $ipaddr");
@@ -58,14 +59,41 @@ eval {
 	# Compute the client cert fingerprint
 	my $clientcert = $ENV{'SSL_CLIENT_CERT'};
 	my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
-	my $fingerprint = $x509->fingerprint_sha1();
+	my $fingerprint = $x509->fingerprint_sha256();
 	$logger->debug("cert fingerprint: '$fingerprint' from $ipaddr");
 	$fingerprint =~ s/://g;
 
+	# Connect to Postgres
+	my $dbh = DBI->connect("dbi:Pg:", "", "");
+	if (!$dbh) {
+		print "Status: 500\nContent-Type: text/plain\n\n";
+		print "Unable to connect to Postgres database:\n";
+		print $DBI::errstr . "\n";
+		$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+		exit 1;
+	}
+
+	# Check if the certificate has been revoked, and check the nonce
+	my @row = $dbh->selectrow_array(
+		"SELECT revoked,nonce FROM certificates WHERE fingerprint=?",
+		undef, ($fingerprint));
+	if (@row && $row[0]) {
+		# This certificate is revoked. Reject the client
+		print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
+		return;
+	}
+	if (@row && defined($row[1]) && $row[1]>0
+	&& $row[1] ne $query->param('nonce')) {
+		print "Status: 403\nContent-Type: text/plain\n\nThe nonce is incorrect. Your certificate has been revoked.\n";
+		$dbh->do("UPDATE certificates SET revoked=true WHERE fingerprint=?",
+			undef, ($fingerprint));
+		return;
+	}
+
 	# Look at the POST parameters
-	my $clienthostname = $query->param('hostname');
-	$logger->debug("client says its hostname is $clienthostname");
-	$shorthost = $clienthostname;
+	my $os_hostname = $query->param('hostname');
+	$logger->debug("client says its hostname is $os_hostname");
+	$shorthost = $os_hostname;
 	if ($shorthost =~ /^(\S+?)\./) { $shorthost = $1; }
 	my $clientversion =	$query->param('version');
 	if (!defined($clientversion)) { $clientversion = ''; }
@@ -205,7 +233,7 @@ eval {
 
 	# Add a file with some metadata
 	open($F, ">$archivefile.meta");
-	print $F "clienthostname = $clienthostname\n";
+	print $F "os_hostname = $os_hostname\n";
 	print $F "certcn = $ENV{'SSL_CLIENT_S_DN_CN'}\n";
 	print $F "certfp = $fingerprint\n";
 	print $F "ip = $ipaddr\n";
@@ -214,8 +242,11 @@ eval {
 	close($F);
 
 	# Response
+	my $nonce = int(rand(1000000));
+	$dbh->do("UPDATE certificates SET nonce=? WHERE fingerprint=?",
+		undef, ($nonce, $fingerprint));
 	print CGI::header('text/plain');
-	print "OK";
+	print "OK. nonce=$nonce";
 
 	# Enqueue the files
 	move($archivefile, $queuedir);
@@ -233,6 +264,7 @@ if ($@) {
 unlink($archivefile) if (defined($archivefile));
 unlink($signaturefile) if (defined($signaturefile));
 unlink("$archivefile.meta") if (defined($archivefile));
+$dbh->disconnect;
 
 sub run_command($) {
 	# calls die() if anything gets written to stderr, or if the command has syntax errors.

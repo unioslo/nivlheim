@@ -91,8 +91,12 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 		// Verify that the new range is not contained within, or contains,
 		// any of the existing ranges.
 		var count int
-		vars.db.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+
+		err = vars.db.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+
 			"OR $1 >> iprange", iprange).Scan(&count)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		if count > 0 {
 			http.Error(w, "{\"ipRange\":\"This range is contained within, "+
 				"or contains, one of the existing ranges.\"}",

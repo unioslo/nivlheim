@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"reflect"
 	"regexp"
 	"strings"
 	"time"
@@ -24,6 +25,7 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
+	mux.HandleFunc("/api/v0/triggerJob/", runJob)
 	var h http.Handler = mux
 	if devmode {
 		h = wrapLog(wrapAllowLocalhostCORS(h))
@@ -150,4 +152,30 @@ func contains(needle string, haystack []string) bool {
 		}
 	}
 	return false
+}
+
+func runJob(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+	match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
+	if match == nil {
+		http.Error(w, "Missing job name in URL path", http.StatusUnprocessableEntity)
+		return
+	}
+	for i, jobitem := range jobs {
+		t := reflect.TypeOf(jobitem.job)
+		if t.Name() == match[1] {
+			// this will make the taskrunner run the job
+			jobs[i].lastrun = time.Unix(0, 0)
+			http.Error(w, "OK", http.StatusNoContent)
+			return
+		}
+	}
+	http.Error(w, "Job not found.", http.StatusNotFound)
 }

@@ -13,6 +13,11 @@ type apiMethodHost struct {
 }
 
 func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		[]string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
 			"kernel", "vendor", "model", "serialNo", "certfp",
@@ -30,7 +35,7 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		statement += "WHERE hostname=$1"
 		qparams = append(qparams, req.FormValue("hostname"))
 	} else if req.FormValue("certfp") != "" {
-		statement += "WHERE certfp=$1"
+		statement += "WHERE certfp=$1 AND hostname IS NOT NULL"
 		qparams = append(qparams, req.FormValue("certfp"))
 	} else {
 		http.Error(w, "Missing parameters. Requires either hostname or certfp.",

@@ -56,47 +56,58 @@ if (!$dbh) {
 	exit 1;
 }
 
-# Check if this client has been approved, and if not,
-# add them to the waiting list.
+# 1. Check to see if this ip address qualifies for automatic naming.
+my $hostname;
+my %params = parse_query_string();
 my $ipaddr = $ENV{'REMOTE_ADDR'};
-my @row = $dbh->selectrow_array(
-	"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
-	undef, ($ipaddr));
-if (!@row) {
-	$logger->debug("The host $ipaddr has not been pre-approved");
-	my %params = parse_query_string();
-	my $hostname = $params{'hostname'};
-	if (!defined($hostname) || $hostname eq "") {
-		print "Status: 400\nContent-Type: text/plain\n\n";
-		print "Missing required parameter: hostname\n";
-		$logger->warn("Missing required parameter: hostname");
+my @row = $dbh->selectrow_array("SELECT count(*) FROM ipranges "
+	."WHERE ? <<= iprange", undef, ($ipaddr));
+if (@row && $row[0]>0) {
+	# Determine what to put as "common name" in the new certificate,
+	# i.e. the hostname of the machine.
+	# This is just a qualified guess for now, it doesn't have to be correct.
+	# If it is wrong, a new certificate will be issued later with the correct value.
+	$hostname = forwardConfirmReverseDNS($ipaddr) || $params{'hostname'};
+} else {
+	# Check if this client has been approved, and if not,
+	# add them to the waiting list.
+	my @row = $dbh->selectrow_array(
+		"SELECT ipaddr, hostname, approved FROM waiting_for_approval WHERE ipaddr=?",
+		undef, ($ipaddr));
+	if (!@row) {
+		$logger->debug("The host $ipaddr has not been pre-approved");
+		$hostname = $params{'hostname'};
+		if (!defined($hostname) || $hostname eq "") {
+			print "Status: 400\nContent-Type: text/plain\n\n";
+			print "Missing required parameter: hostname\n";
+			$logger->warn("Missing required parameter: hostname");
+			$dbh->disconnect;
+			exit 1;
+		}
+		$logger->debug("$ipaddr says its hostname is \"" . $params{'hostname'} . "\"");
+		my $dnsresult = forwardConfirmReverseDNS($ipaddr);
+		if (defined($dnsresult)) {
+			$hostname = $dnsresult;
+			$logger->debug("DNS lookup says $ipaddr is $hostname");
+		} else {
+			$logger->debug("DNS lookup is inconclusive.");
+		}
+		$logger->info("Adding $hostname to the waiting for approval list.");
+		$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
+			."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
+		print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
 		$dbh->disconnect;
-		exit 1;
+		exit;
 	}
-	$logger->debug("$ipaddr says its hostname is \"" . $params{'hostname'} . "\"");
-	my $dnsresult = forwardConfirmReverseDNS($ipaddr);
-	if (defined($dnsresult)) {
-		$hostname = $dnsresult;
-		$logger->debug("DNS lookup says $ipaddr is $hostname");
-	} else {
-		$logger->debug("DNS lookup is inconclusive.");
+	if (!$row[2]) {
+		# Not approved yet
+		$logger->debug("The host ".$row[1]." / $ipaddr is already on the waiting list.");
+		print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
+		$dbh->disconnect;
+		exit;
 	}
-	$logger->info("Adding $hostname to the waiting for approval list.");
-	$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
-		."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
-	print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
-	$dbh->disconnect;
-	exit;
+	$hostname = $row[1];
 }
-if (!$row[2]) {
-	# Not approved yet
-	$logger->debug("The host ".$row[1]." / $ipaddr is already on the waiting list.");
-	print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
-	$dbh->disconnect;
-	exit;
-}
-
-my $hostname = $row[1];
 
 # HTTP Header
 print "Content-Type: text/plain\n\n";
@@ -146,10 +157,24 @@ eval {
 	}
 	print "Signing OK.\n";
 
-	# Keep a copy of the key/csr/crt-files too
-	copy($keyfile, "$confdir/certs/$id.key");
-	copy($csrfile, "$confdir/certs/$id.csr");
-	copy($crtfile, "$confdir/certs/$id.crt");
+	# Clean up the generated pem file; don't need it
+	unlink("$confdir/certs/$id.pem");
+
+	# Keep the certificate in the database
+	my $cert;
+	{
+		open(my $F, $crtfile);
+		binmode($F);
+		local $/ = undef;
+		$cert = <$F>;
+		close($F);
+	}
+	$x509 = Crypt::OpenSSL::X509->new_from_string($cert);
+	my $new_fingerprint = $x509->fingerprint_sha256();
+	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
+		."commonname,cert) VALUES(now(),?,?,?)");
+	$sth->execute(($new_fingerprint, $hostname, $cert));
+	$sth->finish;
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "

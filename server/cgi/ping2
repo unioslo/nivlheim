@@ -1,16 +1,6 @@
 #!/usr/bin/perl
 use Time::Piece;
 
-# If the client cert is based on an old CA cert, politely ask it to renew
-if ($ENV{SSL_CLIENT_I_DN_CN} eq 'USIT Nivlheim 2016') {
-	my $queuesize = `/bin/ls -1 /data/queue | /usr/bin/wc -l`;
-	chomp $queuesize;
-	if ($queuesize < 100 && !-e "/tmp/reqcert.pid") {
-		print "Status: 403\nContent-Type: text/plain\n\nThe server CA cert is about to expire, please renew your cert.\n";
-		exit;
-	}
-}
-
 # If the client cert will expire soon, politely ask it to renew
 my $timestamp = $ENV{'SSL_CLIENT_V_END'};
 $timestamp =~ s/\s+GMT$//;
@@ -21,4 +11,41 @@ if ($left->days < 30) {
 	exit;
 }
 
+# Compute the client cert fingerprint
+my $clientcert = $ENV{'SSL_CLIENT_CERT'};
+my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
+my $fingerprint = $x509->fingerprint_sha256();
+
+# Check revoked status and compare commonname with the current hostname
+my %attr = ("AutoCommit" => 1);
+my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
+if (!$dbh) {
+	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Unable to connect to Postgres database:\n";
+	print $DBI::errstr . "\n";
+	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
+	exit 1;
+}
+my @row = $dbh->selectrow_array(
+	"SELECT revoked FROM certificates WHERE fingerprint=?",
+	undef, ($fingerprint));
+if (@row && $row[0]) {
+	# This certificate is revoked. Reject the client
+	print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
+	$dbh->disconnect;
+	exit;
+}
+
+# Check if the machine has been renamed
+my $cn = $x509->subject_cn() || "";
+@row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
+	undef, ($fingerprint));
+if (@row && $row[0] ne $cn) {
+	# The machine has been renamed. It should renew its certificate.
+	print "Status: 403\nContent-Type: text/plain\n\nPlease renew your certificate.\n";
+	$dbh->disconnect;
+	exit;
+}
+
+$dbh->disconnect;
 print "Content-Type: text/plain\n\npong\n";

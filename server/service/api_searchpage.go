@@ -32,6 +32,11 @@ type apiSearchPageResult struct {
 }
 
 func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != "GET" {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	result := new(apiSearchPageResult)
 	err := req.ParseForm()
 	if err != nil {
