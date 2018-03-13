@@ -1,5 +1,7 @@
 #!/usr/bin/perl
 use Time::Piece;
+use Crypt::OpenSSL::X509;
+use DBI;
 
 # If the client cert will expire soon, politely ask it to renew
 my $timestamp = $ENV{'SSL_CLIENT_V_END'};
@@ -14,9 +16,10 @@ if ($left->days < 30) {
 # Compute the client cert fingerprint
 my $clientcert = $ENV{'SSL_CLIENT_CERT'};
 my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
-my $fingerprint = $x509->fingerprint_sha256();
+my $fingerprint = $x509->fingerprint_sha1();
+$fingerprint =~ s/://g;
 
-# Check revoked status and compare commonname with the current hostname
+# Check revoked status
 my %attr = ("AutoCommit" => 1);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
@@ -24,7 +27,7 @@ if (!$dbh) {
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
 	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-	exit 1;
+	exit;
 }
 my @row = $dbh->selectrow_array(
 	"SELECT revoked FROM certificates WHERE fingerprint=?",
@@ -36,8 +39,9 @@ if (@row && $row[0]) {
 	exit;
 }
 
-# Check if the machine has been renamed
-my $cn = $x509->subject_cn() || "";
+# Check if the machine has been renamed (compare commonname with the current hostname)
+my $cn = "";
+if ($x509->subject() =~ /CN=(\S+)/) { $cn = $1; }
 @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
 	undef, ($fingerprint));
 if (@row && $row[0] ne $cn) {

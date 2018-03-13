@@ -35,6 +35,7 @@ use Log::Log4perl;
 use MIME::Base64;
 use Proc::PID::File;
 use DBI;
+use Crypt::OpenSSL::X509;
 
 sub forwardConfirmReverseDNS($);
 sub parse_query_string();
@@ -169,12 +170,16 @@ eval {
 		$cert = <$F>;
 		close($F);
 	}
-	$x509 = Crypt::OpenSSL::X509->new_from_string($cert);
-	my $new_fingerprint = $x509->fingerprint_sha256();
+	my $x509 = Crypt::OpenSSL::X509->new_from_string($cert);
+	my $new_fingerprint = $x509->fingerprint_sha1();
+	$new_fingerprint =~ s/://g;
 	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
 		."commonname,cert) VALUES(now(),?,?,?)");
 	$sth->execute(($new_fingerprint, $hostname, $cert));
 	$sth->finish;
+	$dbh->do("UPDATE certificates SET first=".
+		"(SELECT certid FROM certificates WHERE fingerprint=?) ".
+		"WHERE fingerprint=?", undef, ($new_fingerprint, $new_fingerprint));
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
@@ -183,7 +188,6 @@ eval {
 		$logger->debug($cmd);
 		die "P12 failed: $?";
 	}
-	copy($p12file, "$confdir/certs/$id.p12");
 
 	# Display the generated certificate and key
 	open(F, $crtfile) or die "Can't read crt file";

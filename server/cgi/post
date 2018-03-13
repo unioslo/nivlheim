@@ -34,6 +34,7 @@ use MIME::Base64 qw(decode_base64);
 use Encode qw(from_to);
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use File::Copy;
+use DBI;
 
 sub run_command($);
 
@@ -49,6 +50,7 @@ my $logger = Log::Log4perl->get_logger();
 my $archivefile;
 my $signaturefile;
 my $shorthost = '';
+my $dbh;
 
 eval {
 	#
@@ -59,9 +61,9 @@ eval {
 	# Compute the client cert fingerprint
 	my $clientcert = $ENV{'SSL_CLIENT_CERT'};
 	my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
-	my $fingerprint = $x509->fingerprint_sha256();
-	$logger->debug("cert fingerprint: '$fingerprint' from $ipaddr");
+	my $fingerprint = $x509->fingerprint_sha1();
 	$fingerprint =~ s/://g;
+	$logger->debug("cert fingerprint: '$fingerprint' from $ipaddr");
 
 	# Connect to Postgres
 	my $dbh = DBI->connect("dbi:Pg:", "", "");
@@ -82,8 +84,7 @@ eval {
 		print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
 		return;
 	}
-	if (@row && defined($row[1]) && $row[1]>0
-	&& $row[1] ne $query->param('nonce')) {
+	if (@row && defined($row[1]) && $row[1]>0 && $row[1] ne $query->param('nonce')) {
 		print "Status: 403\nContent-Type: text/plain\n\nThe nonce is incorrect. Your certificate has been revoked.\n";
 		$dbh->do("UPDATE certificates SET revoked=true WHERE fingerprint=?",
 			undef, ($fingerprint));
@@ -92,6 +93,10 @@ eval {
 
 	# Look at the POST parameters
 	my $os_hostname = $query->param('hostname');
+	if (!defined($os_hostname)) {
+		print "Status: 422\nContent-Type: text/plain\n\nMissing parameters.";
+		return;
+	}
 	$logger->debug("client says its hostname is $os_hostname");
 	$shorthost = $os_hostname;
 	if ($shorthost =~ /^(\S+?)\./) { $shorthost = $1; }
@@ -251,8 +256,11 @@ eval {
 	# Enqueue the files
 	move($archivefile, $queuedir);
 	move("$archivefile.meta", $queuedir);
+
+	$dbh->disconnect;
 };
 if ($@) {
+	$dbh->disconnect if ($dbh);
 	$logger->error("[$shorthost] " . $@);
 	print CGI::header(
 		-type => 'text/plain',
@@ -264,7 +272,6 @@ if ($@) {
 unlink($archivefile) if (defined($archivefile));
 unlink($signaturefile) if (defined($signaturefile));
 unlink("$archivefile.meta") if (defined($archivefile));
-$dbh->disconnect;
 
 sub run_command($) {
 	# calls die() if anything gets written to stderr, or if the command has syntax errors.

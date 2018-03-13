@@ -85,7 +85,7 @@ sudo -u postgres bash -c "createuser root"
 sudo -u postgres bash -c "psql -c \"grant apache to root\""
 
 # create tables
-sudo -u apache bash -c "psql < /var/nivlheim/init.sql"
+sudo -u apache bash -c "psql -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
 
 # enable the systemd service
 if which systemctl > /dev/null 2>&1; then

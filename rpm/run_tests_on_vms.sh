@@ -56,6 +56,8 @@ if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 	done
 fi
 
+EXITCODE=0
+
 for IMAGE in "${IMAGES[@]}"; do
 	echo "Creating a VM with \"$IMAGE\""
 	NAME="voyager"
@@ -123,5 +125,10 @@ for IMAGE in "${IMAGES[@]}"; do
 			\"description\": \"$STATUS\",
 			\"context\": \"$IMAGE\"
 		}" -sS -o /dev/null
+		if [[ "$STATUS" == "failure" ]]; then
+			EXITCODE=1
+		fi
 	fi
 done
+
+exit $EXITCODE

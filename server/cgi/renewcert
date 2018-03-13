@@ -63,7 +63,8 @@ my $p12file = "/tmp/user$id.p12";
 # Compute the client cert fingerprint
 my $clientcert = $ENV{'SSL_CLIENT_CERT'};
 my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
-my $fingerprint = $x509->fingerprint_sha256();
+my $fingerprint = $x509->fingerprint_sha1();
+$fingerprint =~ s/://g;
 
 # Connect to Postgres
 my %attr = ("AutoCommit" => 0);
@@ -94,7 +95,8 @@ my $hostname;
 if (@row) {
 	$hostname = $row[0];
 } else {
-	$hostname = $x509->subject_cn();
+	$hostname = "";
+	if ($x509->subject() =~ /CN=(\S+)/) { $hostname = $1; }
 }
 if (!defined($hostname)) {
 	print "Unable to determine the hostname.";
@@ -139,7 +141,7 @@ eval {
 
 	# Keep the certificate in the database
 	my ($previous, $first);
-	@row = $dbh->selectrow_array("SELECT certid,first FROM certificates WHERE certfp=?",
+	@row = $dbh->selectrow_array("SELECT certid,first FROM certificates WHERE fingerprint=?",
 		undef, ($fingerprint));
 	if (@row) {
 		$previous = $row[0];
@@ -154,7 +156,8 @@ eval {
 		close($F);
 	}
 	$x509 = Crypt::OpenSSL::X509->new_from_string($cert);
-	my $new_fingerprint = $x509->fingerprint_sha256();
+	my $new_fingerprint = $x509->fingerprint_sha1();
+	$new_fingerprint =~ s/://g;
 	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
 		."commonname,previous,first,cert) VALUES(now(),?,?,?,?,?)");
 	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert));

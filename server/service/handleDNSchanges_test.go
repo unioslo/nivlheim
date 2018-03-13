@@ -1,0 +1,129 @@
+package main
+
+import (
+	"database/sql"
+	"io/ioutil"
+	"testing"
+)
+
+func TestForwardConfirmReverseDNS(t *testing.T) {
+	type dnstest struct {
+		ipaddr string
+		name   string
+	}
+	tests := []dnstest{
+		dnstest{
+			ipaddr: "129.240.2.42",
+			name:   "ns2.uio.no",
+		},
+		dnstest{
+			ipaddr: "2001:700:100:425::42",
+			name:   "ns2.uio.no",
+		},
+		dnstest{
+			ipaddr: "193.157.198.51",
+			name:   "1x-193-157-198-51.uio.no",
+		},
+		dnstest{
+			ipaddr: "192.168.0.1",
+			name:   "",
+		},
+	}
+	for _, test := range tests {
+		result := forwardConfirmReverseDNS(test.ipaddr)
+		if result != test.name {
+			t.Errorf("Looked up %s, got \"%s\" but expected %s", test.ipaddr,
+				result, test.name)
+		}
+	}
+}
+
+func TestHandleDNSchanges(t *testing.T) {
+	// Create a database connection
+	db, err := sql.Open("postgres", "sslmode=disable host=/var/run/postgresql")
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer db.Close()
+	// Use a temporary tablespace that cleans up after the connection is closed
+	_, err = db.Exec("SET search_path TO pg_temp")
+	if err != nil {
+		t.Fatal(err)
+	}
+	// It is important that the connection pool only uses this one connection,
+	// because if it opens more, they won't have search_path set to pg_temp.
+	db.SetMaxOpenConns(1)
+	// Run the sql script that creates all the tables
+	bytes, err := ioutil.ReadFile("../init.sql")
+	if err != nil {
+		t.Fatal("Couldn't read init.sql")
+	}
+	_, err = db.Exec(string(bytes))
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Set up some test data
+	_, err = db.Exec("INSERT INTO ipranges(iprange,use_dns) " +
+		"VALUES('129.240.0.0/16',true),('193.157.111.0/24',false)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	type testname struct {
+		certfp     string
+		ipAddress  string
+		osHostname string
+		hostname   sql.NullString
+		expected   string
+	}
+	tests := []testname{
+		testname{
+			certfp:     "a",
+			ipAddress:  "129.240.202.63",
+			osHostname: "bottleneck.bestchoice.com",
+			expected:   "callisto.uio.no",
+		},
+		testname{
+			certfp:     "b",
+			ipAddress:  "193.157.111.23",
+			osHostname: "paperweight.withoutdns.com",
+			expected:   "paperweight.withoutdns.com.local",
+		},
+		testname{
+			certfp:     "c",
+			ipAddress:  "129.240.2.6",
+			osHostname: "not-the-correct-name.no",
+			expected:   "",
+		},
+		testname{
+			certfp:     "d",
+			ipAddress:  "129.240.2.6",
+			osHostname: "ns1.uio.no",
+			hostname:   sql.NullString{String: "ns1.uio.no", Valid: true},
+			expected:   "ns1.uio.no",
+		},
+	}
+	for _, test := range tests {
+		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,os_hostname,hostname) "+
+			"VALUES($1,$2,$3,$4)", test.certfp, test.ipAddress, test.osHostname,
+			test.hostname)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	// Run the function
+	job := handleDNSchangesJob{}
+	job.Run(db)
+	// Check the results
+	for _, test := range tests {
+		var hostname sql.NullString
+		err = db.QueryRow("SELECT hostname FROM hostinfo WHERE certfp=$1",
+			test.certfp).Scan(&hostname)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hostname.String != test.expected {
+			t.Errorf("Got hostname \"%s\", expected %s", hostname.String,
+				test.expected)
+		}
+	}
+}

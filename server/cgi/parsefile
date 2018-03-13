@@ -55,18 +55,27 @@ eval{
 		"received, is_command, certcn, ipaddr, certfp, clientversion, " .
 		"os_hostname FROM files WHERE fileid=?", undef, $fileid);
 
-	# Update lastseen, ip address, os_hostname, client version
-	my @params = ($row->{'received'}, $row->{'ipaddr'}, $row->{'clientversion'},
-		$row->{'os_hostname'}, $row->{'certfp'});
-	my $rowcount = $dbh->do("UPDATE hostinfo SET lastseen=?,ipaddr=?, "
-		."clientversion=?,os_hostname=? WHERE certfp=?", undef, @params);
+	# Update lastseen and client version
+	my $rowcount = $dbh->do("UPDATE hostinfo SET lastseen=?,clientversion=? ".
+		"WHERE certfp=?", undef, ($row->{'received'}, $row->{'clientversion'}));
 	if ($rowcount == 0) {
 		# Insert a row where hostname is null. It will be filled in later,
 		# by a system service. While hostname is null, this row will not
 		# be visible through the API.
 		$dbh->do("INSERT INTO hostinfo(lastseen,ipaddr,clientversion,"
-				."os_hostname,certfp) VALUES(?,?,?,?,?)");
+				."os_hostname,certfp) VALUES(?,?,?,?,?)", undef,
+				($row->{'received'}, $row->{'ipaddr'}, $row->{'clientversion'},
+				$row->{'os_hostname'}, $row->{'certfp'}));
+		# Trigger the system service to speed up the process
+		# (It would have caught it eventually anyway)
 		get("http://127.0.0.1:4040/api/v0/triggerJob/handleDNSchangesJob");
+	} else {
+		# The row exists already. This statement will set dnsttl to null only if
+		# ipaddr or os_hostname changed.
+		$dbh->do("UPDATE hostinfo SET ipaddr=?, os_hostname=?, ".
+		 	"dnsttl=null WHERE (ipaddr!=? OR os_hostname!=?) AND certfp=?",
+			undef, ($row->{'ipaddr'}, $row->{'os_hostname'},
+				$row->{'ipaddr'}, $row->{'os_hostname'}, $row->{'certfp'}));
 	}
 
 	# Different files must be parsed differently

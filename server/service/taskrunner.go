@@ -8,7 +8,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"reflect"
 	"regexp"
 	"syscall"
 	"time"
@@ -117,10 +116,10 @@ func main() {
 		// Run jobs
 		for i, j := range jobs {
 			if time.Since(j.lastrun) > j.job.HowOften() {
-				if devmode {
+				/*if devmode {
 					t := reflect.TypeOf(j.job)
 					log.Printf("Running job: %s\n", t.Name())
-				}
+				}*/
 				j.job.Run(db)
 				jobs[i].lastrun = time.Now()
 			}
