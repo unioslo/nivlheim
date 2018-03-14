@@ -77,6 +77,12 @@ func TestHandleDNSchanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = db.Exec("INSERT INTO waiting_for_approval(ipaddr,hostname,approved) " +
+		"VALUES('80.90.100.110', 'manual.example.com', true)," +
+		"('80.90.100.112', 'manual.example.com', true)")
+	if err != nil {
+		t.Fatal(err)
+	}
 	type testname struct {
 		certfp     string
 		ipAddress  string
@@ -98,6 +104,12 @@ func TestHandleDNSchanges(t *testing.T) {
 			expected:   "paperweight.withoutdns.com.local",
 		},
 		testname{
+			certfp:     "e",
+			ipAddress:  "193.157.111.55",
+			osHostname: "paperweight.withoutdns.com", // same name as previous
+			expected:   "paperweight.withoutdns.com.2.local",
+		},
+		testname{
 			certfp:     "c",
 			ipAddress:  "129.240.2.6",
 			osHostname: "not-the-correct-name.no",
@@ -109,6 +121,18 @@ func TestHandleDNSchanges(t *testing.T) {
 			osHostname: "ns1.uio.no",
 			hostname:   sql.NullString{String: "ns1.uio.no", Valid: true},
 			expected:   "ns1.uio.no",
+		},
+		testname{
+			certfp:     "g",
+			ipAddress:  "80.90.100.110", // outside ranges, manually approved
+			osHostname: "foo",           // shouldn't matter
+			expected:   "manual.example.com",
+		},
+		testname{
+			certfp:     "h",
+			ipAddress:  "80.90.100.112", // outside ranges, manually approved
+			osHostname: "foo",           // shouldn't matter
+			expected:   "",              // the name "manual.example.com" is already taken now
 		},
 	}
 	for _, test := range tests {

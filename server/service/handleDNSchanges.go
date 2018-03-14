@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"net"
 	"time"
@@ -114,10 +115,41 @@ func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string)
 		return "", err
 	}
 	if count > 0 {
-		// Create a hostname based on OS + a suffix then.
+		// Automatic naming without using DNS.
+		// If the machine claims to have the hostname "donut.yourdomain.com",
+		// the automatic name shouldn't conflict with other machines
+		// with valid DNS records on the same domain.
+		// Therefore, a suffix is added, so the name in Nivlheim becomes
+		// "donut.yourdomain.com.local".
+		// If another machine already has that name, the new name becomes
+		// "donut.yourdomain.com.2.local".
+		db.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname LIKE $1||'%.local'",
+			osHostname).Scan(&count)
+		if count > 0 {
+			return fmt.Sprintf("%s.%d.local", osHostname, count+1), nil
+		}
 		return osHostname + ".local", nil
 	}
-	return "", nil
+	// Cannot be named automatically. Check if it has been manually approved.
+	var hostname sql.NullString
+	err = db.QueryRow("SELECT hostname FROM waiting_for_approval WHERE ipaddr=$1 "+
+		"AND approved", ipAddress).Scan(&hostname)
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+	if !hostname.Valid {
+		return "", nil
+	}
+	count = 1
+	err = db.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1",
+		hostname.String).Scan(&count)
+	if err != nil {
+		return "", err
+	}
+	if count > 0 {
+		return "", nil
+	}
+	return hostname.String, nil
 }
 
 // returns hostname or empty string
