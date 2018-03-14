@@ -48,12 +48,19 @@ if [[ $(ls -1 $BUILDDIR/SOURCES | wc -l) -ne $(grep Source $SPEC|grep tar.gz| wc
 fi
 
 if [ "$2" != "" ]; then
-	echo "buildrpm: Replacing with source from $2"
-	mkdir /tmp/nivlheim-$GIT_BRANCH
-	cp -a $2/* /tmp/nivlheim-$GIT_BRANCH
-	cd /tmp
-	tar -czf $BUILDDIR/SOURCES/nivlheim-$GIT_BRANCH.tar.gz nivlheim-$GIT_BRANCH
-	rm -rf /tmp/nivlheim-$GIT_BRANCH
+	cd $2
+	echo "buildrpm: Replacing with source from $(pwd)"
+	if [[ ! -f ./README.md ]]; then
+		echo "This directory doesn't look like it contains the source!"
+		exit 1
+	fi
+	tempdir=$(mktemp -d -t tmp.XXXXXXXXXX)
+	mkdir $tempdir/nivlheim-$GIT_BRANCH
+	cp -a * $tempdir/nivlheim-$GIT_BRANCH
+	cd $tempdir
+	tar -czf $BUILDDIR/SOURCES/$GIT_BRANCH.tar.gz nivlheim-$GIT_BRANCH
+	cd $BUILDDIR
+	rm -rf "$tempdir"
 fi
 
 echo "buildrpm: Building source rpm"

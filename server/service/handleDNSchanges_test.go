@@ -3,10 +3,15 @@ package main
 import (
 	"database/sql"
 	"io/ioutil"
+	"os"
 	"testing"
 )
 
 func TestForwardConfirmReverseDNS(t *testing.T) {
+	if os.Getenv("NONETWORK") != "" {
+		t.Log("No network, skipping test")
+		return
+	}
 	type dnstest struct {
 		ipaddr string
 		name   string
@@ -39,6 +44,10 @@ func TestForwardConfirmReverseDNS(t *testing.T) {
 }
 
 func TestHandleDNSchanges(t *testing.T) {
+	if os.Getenv("NONETWORK") != "" || os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No network and/or Postgres, skipping test")
+		return
+	}
 	// Create a database connection
 	db, err := sql.Open("postgres", "sslmode=disable host=/var/run/postgresql")
 	if err != nil {

@@ -113,7 +113,7 @@ export GOBIN="$GOPATH/bin"
 mv server/service gopath/src/
 mkdir -p gopath/src/github.com/lib/
 mv ../pq-master gopath/src/github.com/lib/pq
-go test -v service
+NONETWORK=1 NOPOSTGRES=1 go test -v service
 rm -f gopath/bin/*
 # Fix for the error "No build ID note found in ..."
 go install -ldflags=-linkmode=external service

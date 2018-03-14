@@ -15,10 +15,12 @@ source ~/keystone_rc.sh # provides environment variables with authentication inf
 source ~/github_rc.sh # provides GitHub API token
 
 KEYPAIRNAME="jenkins_key"
-while getopts k: option; do
+SECGROUP=""
+while getopts "s:k:" option; do
 	case "${option}"
 	in
 		k) KEYPAIRNAME=${OPTARG};;
+		s) SECGROUP="--security-group ${OPTARG}";;
 	esac
 done
 
@@ -64,6 +66,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
 	openstack server create --image "$IMAGE" --flavor m1.small \
 		--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
+		$SECGROUP \
 		> /dev/null
 	IP=$(openstack server list | grep $NAME | \
 		grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
@@ -76,23 +79,29 @@ for IMAGE in "${IMAGES[@]}"; do
 	if [[ $IMAGE == *"CirrOS"* ]]; then USER=cirros; fi
 	echo "User: $USER"
 
+	bootstart=`date +%s`
 	OK=0
 	if [[ $IP != "" ]]; then
 		echo -n "Waiting for the VM to finish booting"
-		for try in {1..20}; do
+		for try in {1..40}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
 			fi
 			sleep 5
-			echo -n ".."
+			echo -n "."
 		done
 		echo ""
 	fi
 	if [[ ! $OK -eq 1 ]]; then
 		echo "Unable to connect to the VM, giving up."
+		openstack server show $NAME
+		exit
 		LOGFILE=""
 	else
+		bootend=`date +%s`
+		boottime=$((bootend-bootstart))
+		echo "That only took $boottime seconds, good job."
 		echo "Installing and testing packages"
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
@@ -102,7 +111,19 @@ for IMAGE in "${IMAGES[@]}"; do
 		LOGFILE=$(echo "${IMAGE}_${TIMESTAMP}.log" | sed -e 's/ /_/g')
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "chmod a+x script; ./script" > "$LOGFILE" 2>&1
+			-C "chmod a+x script; ./script || echo 'FAIL'" > "$LOGFILE" 2>&1
+
+		scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
+			tests/* $USER\@$IP:~
+		for T in tests/*; do
+			ssh $USER\@$IP -o StrictHostKeyChecking=no \
+				-q -o UserKnownHostsFile=/dev/null \
+				-C "~/$(basename $T) || echo 'FAIL'" >> "$LOGFILE" 2>&1
+		done
+
+		if grep -s "FAIL" "$LOGFILE"; then
+			echo $(grep -c "FAIL" "$LOGFILE") "FAIL(s)"
+		fi
 
 		scp $LOGFILE oyvihag@callisto.uio.no:
 	fi
@@ -114,7 +135,7 @@ for IMAGE in "${IMAGES[@]}"; do
 		URL=""
 		if [[ "$LOGFILE" != "" ]] && [[ -f $LOGFILE ]]; then
 			URL="https://folk.uio.no/oyvihag/logs/$LOGFILE"
-			if [ $(grep -c END_TO_END_SUCCESS "$LOGFILE") -gt 0 ]; then
+			if ! grep -s "FAIL" "$LOGFILE"; then
 				STATUS="success"
 			fi
 		fi

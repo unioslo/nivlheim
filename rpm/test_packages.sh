@@ -2,8 +2,6 @@
 set -x
 
 # This is intended to be an end-to-end test of the server and client packages.
-# It should signal success by outputting "END_TO_END_SUCCESS" if and only if
-# the test(s) succeeded.
 
 # Install the packages. Different methods on Fedora and CentOS.
 if [ -f /etc/fedora-release ]; then
@@ -17,27 +15,27 @@ elif [ -f /etc/centos-release ]; then
 fi
 if [ -f installerror ]; then
 	echo "Package installation failed."
-	exit
+	exit 1
 fi
 
 # Check that the home page is being served
 if [ $(curl -sSk https://localhost/ | tee /tmp/homepage | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
 	echo "The web server isn't properly configured and running."
-	exit
+	exit 1
 fi
 # 3rd party libraries
 for URL in $(perl -ne 'm!"(libs/.*?)"!&&print "$1\n"' < /tmp/homepage);
 do
 	if ! curl -sSkfo /dev/null "https://localhost/$URL"; then
 		echo "The web server returns an error code for $URL"
-		exit
+		exit 1
 	fi
 done
 
 # Check that the API is available through the main web server
 if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
 	echo "The API is unavailable."
-	exit
+	exit 1
 fi
 
 # Configure the client to use the server at localhost
@@ -53,7 +51,7 @@ curl -X PUT -sS "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcd
 sudo /usr/sbin/nivlheim_client
 if [ ! -f /var/nivlheim/my.crt ]; then
 	echo "Certificate generation failed."
-	exit
+	exit 1
 fi
 
 # wait for server to process incoming data
@@ -68,7 +66,5 @@ for try in {1..20}; do
 done
 if [ $OK -eq 0 ]; then
 	echo "Home page does not show the new machine."
-	exit
+	exit 1
 fi
-
-echo "END_TO_END_SUCCESS"

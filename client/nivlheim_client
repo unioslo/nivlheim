@@ -404,7 +404,7 @@ system("openssl dgst -sha256 -sign $opt{key_file} -out $signaturefile $tarfile")
 my $nonce = 0;
 my $noncefile = "/var/nivlheim/nonce";
 if (-r $noncefile) {
-	open(my $F, $file);
+	open(my $F, $noncefile);
 	$nonce = <$F>;
 	chomp $nonce;
 	close($F);
