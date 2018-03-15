@@ -83,7 +83,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	OK=0
 	if [[ $IP != "" ]]; then
 		echo -n "Waiting for the VM to finish booting"
-		for try in {1..40}; do
+		for try in {1..100}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
@@ -96,8 +96,8 @@ for IMAGE in "${IMAGES[@]}"; do
 	if [[ ! $OK -eq 1 ]]; then
 		echo "Unable to connect to the VM, giving up."
 		openstack server show $NAME
-		exit
 		LOGFILE=""
+		EXITCODE=2
 	else
 		bootend=`date +%s`
 		boottime=$((bootend-bootstart))
@@ -125,7 +125,9 @@ for IMAGE in "${IMAGES[@]}"; do
 			echo $(grep -c "FAIL" "$LOGFILE") "FAIL(s)"
 		fi
 
-		scp $LOGFILE oyvihag@callisto.uio.no:
+		if [[ $(whoami) == "jenkins" ]]; then
+			scp $LOGFILE oyvihag@callisto.uio.no:
+		fi
 	fi
 
 	openstack server delete --wait $NAME

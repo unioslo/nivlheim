@@ -110,8 +110,8 @@ func (vars *apiMethodAwaitingApproval) ServeHTTPREST(w http.ResponseWriter,
 			return
 		}
 		var count int
-		err = vars.db.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1").
-			Scan(&count)
+		err = vars.db.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1",
+			hostname).Scan(&count)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -122,7 +122,7 @@ func (vars *apiMethodAwaitingApproval) ServeHTTPREST(w http.ResponseWriter,
 			return
 		}
 		res, err = vars.db.Exec("UPDATE waiting_for_approval SET approved=true, "+
-			" hostname=$1 WHERE approvalId=$2", hostname, approvalID)
+			"hostname=$1 WHERE approvalId=$2", hostname, approvalID)
 	} else {
 		res, err = vars.db.Exec("UPDATE waiting_for_approval SET approved=false "+
 			"WHERE approvalId=$1", approvalID)

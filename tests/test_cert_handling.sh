@@ -5,6 +5,8 @@
 # - The current user must have a default database/schema that is safe to overwrite
 # - You should probably not run this as the httpd user, then
 
+echo "------------- Testing certificate handling ------------"
+
 # tempdir
 tempdir=$(mktemp -d -t tmp.XXXXXXXXXX)
 function finish {
@@ -14,8 +16,16 @@ trap finish EXIT
 
 # Clean the database
 cd $(dirname $0)
-cd ../server
-psql -q -1 -v ON_ERROR_STOP=1 -f init.sql || exit 1
+if [[ -d ../server ]]; then
+	SQLFILE="../server/init.sql"
+	CGI="../server/cgi"
+else
+	SQLFILE="/var/nivlheim/init.sql"
+	CGI="/var/www/cgi-bin"
+	U=$(whoami)
+	sudo -u postgres bash -c "createuser $U; createdb $U"
+fi
+psql -q -1 -v ON_ERROR_STOP=1 -f $SQLFILE || exit 1
 
 # Set up IP ranges
 #curl -X POST 'http://localhost:4040/api/v0/settings/ipranges' -d 'ipRange=129.240.0.0/16&useDns=true'
@@ -24,7 +34,7 @@ psql -q -c "INSERT INTO ipranges(iprange,use_dns) VALUES('129.240.0.0/16',true)"
 psql -q -c "INSERT INTO ipranges(iprange) VALUES('193.157.111.0/24')" || exit 1
 
 # Request a certificate
-REMOTE_ADDR=129.240.202.63 QUERY_STRING='hostname=abc.example.no' perl cgi/reqcert > $tempdir/cert || exit 1
+REMOTE_ADDR=129.240.202.63 QUERY_STRING='hostname=abc.example.no' perl $CGI/reqcert > $tempdir/cert || exit 1
 if ! grep -qe "--BEGIN CERTIFICATE--" $tempdir/cert; then
 	cat $tempdir/cert
 	exit 1
@@ -43,13 +53,13 @@ export SSL_CLIENT_CERT=$(sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFI
 
 # Try secure/ping with the cert
 export SSL_CLIENT_V_END='Jun 02 11:12:13 2049'
-if [[ $(REMOTE_ADDR='129.240.202.63' perl cgi/ping2 | grep "pong" | wc -l) -lt 1 ]]; then
+if [[ $(REMOTE_ADDR='129.240.202.63' perl $CGI/ping2 | grep "pong" | wc -l) -lt 1 ]]; then
 	echo "Secure/ping didn't work"
 	exit 1
 fi
 
 # Try renewcert
-REMOTE_ADDR='129.240.202.63' perl cgi/renewcert > $tempdir/cert2 || exit 1
+REMOTE_ADDR='129.240.202.63' perl $CGI/renewcert > $tempdir/cert2 || exit 1
 if ! grep -qe "--BEGIN CERTIFICATE--" $tempdir/cert2; then
 	cat $tempdir/cert2
 	exit 1
@@ -60,7 +70,7 @@ if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
 fi
 export SSL_CLIENT_CERT=$(sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' < $tempdir/cert2)
 # one more time
-REMOTE_ADDR='129.240.202.63' perl cgi/renewcert > $tempdir/cert3 || exit 1
+REMOTE_ADDR='129.240.202.63' perl $CGI/renewcert > $tempdir/cert3 || exit 1
 export SSL_CLIENT_CERT=$(sed -n '/-----BEGIN CERTIFICATE-----/,/-----END CERTIFICATE-----/p' < $tempdir/cert3)
 
 # Check that the database table contains the certificate chain
@@ -74,24 +84,24 @@ fi
 
 # Blacklist and check response
 psql -q -c "UPDATE certificates SET revoked=true"
-if [[ $(REMOTE_ADDR='129.240.202.63' perl cgi/ping2 | grep "pong" | wc -l) -gt 0 ]]; then
+if [[ $(REMOTE_ADDR='129.240.202.63' perl $CGI/ping2 | grep "pong" | wc -l) -gt 0 ]]; then
 	echo "Secure/ping worked even though cert was blacklisted."
 	exit 1
 fi
-if [[ $(REMOTE_ADDR='129.240.202.63' perl cgi/renewcert | grep "Status: 403" | wc -l) -ne 1 ]]; then
+if [[ $(REMOTE_ADDR='129.240.202.63' perl $CGI/renewcert | grep "Status: 403" | wc -l) -ne 1 ]]; then
 	echo "renewcert worked even though cert was blacklisted."
 	exit 1
 fi
-if [[ $(REMOTE_ADDR='129.240.202.63' perl cgi/post | grep "revoked" | wc -l) -ne 1 ]]; then
+if [[ $(REMOTE_ADDR='129.240.202.63' perl $CGI/post | grep "revoked" | wc -l) -ne 1 ]]; then
 	echo "post worked even though cert was blacklisted."
-	REMOTE_ADDR='129.240.202.63' perl cgi/post
+	REMOTE_ADDR='129.240.202.63' perl $CGI/post
 	exit 1
 fi
 psql -q -c "UPDATE certificates SET revoked=false"
 
 # Verify that post handles nonces correctly
 psql -q -c "UPDATE certificates SET nonce=314, revoked=false"
-REMOTE_ADDR='129.240.202.63' perl cgi/post nonce=517 > $tempdir/output
+REMOTE_ADDR='129.240.202.63' perl $CGI/post nonce=517 > $tempdir/output
 if [[ $(psql -t --no-align -c "select revoked from certificates where certid=3") != "t" ]]; then
 	echo "Post failed to revoke cert when nonce wasn't correct."
 	exit 1
@@ -102,7 +112,7 @@ if ! grep -q -e "403" $tempdir/output; then
 fi
 
 psql -q -c "UPDATE certificates SET nonce=314, revoked=false"
-REMOTE_ADDR=129.240.202.63 perl cgi/post nonce=314 > $tempdir/output
+REMOTE_ADDR=129.240.202.63 perl $CGI/post nonce=314 > $tempdir/output
 if grep -q -e "403" $tempdir/output; then
 	echo "Post failed to accept even though nonce was correct."
 	exit 1
@@ -111,3 +121,5 @@ if [[ $(psql -t --no-align -c "select revoked from certificates where certid=3")
 	echo "Post didn't accept correct nonce."
 	exit 1
 fi
+
+echo "OK"

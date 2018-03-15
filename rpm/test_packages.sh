@@ -9,7 +9,7 @@ if [ -f /etc/fedora-release ]; then
 	sudo dnf install -y nivlheim-client nivlheim-server || touch installerror
 elif [ -f /etc/centos-release ]; then
 	sudo yum install -y epel-release
-	sudo curl -o /etc/yum.repos.d/oyvindh-Nivlheim-test-epel-7.repo \
+	sudo curl -sS --retry 10 -o /etc/yum.repos.d/oyvindh-Nivlheim-test-epel-7.repo \
 		https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim-test/repo/epel-7/oyvindh-Nivlheim-test-epel-7.repo
 	sudo yum install -y nivlheim-client nivlheim-server || touch installerror
 fi
@@ -38,19 +38,22 @@ if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
 	exit 1
 fi
 
+# Turn on debug logging
+sudo sed -i.bak s/log4perl.logger.reqcert=INFO/log4perl.logger.reqcert=DEBUG/g /var/www/nivlheim/log4perl.conf
 # Configure the client to use the server at localhost
 echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
-sudo /usr/sbin/nivlheim_client
+sudo /usr/sbin/nivlheim_client --debug
 # Approve the client, using the API
 ID=`curl -sS 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
 curl -X PUT -sS "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
 
 # Run the client again, this time it will receive a certificate
 # and post data into the system
-sudo /usr/sbin/nivlheim_client
+sudo /usr/sbin/nivlheim_client --debug
 if [ ! -f /var/nivlheim/my.crt ]; then
 	echo "Certificate generation failed."
+	cat /var/log/nivlheim/system.log
 	exit 1
 fi
 
@@ -68,3 +71,5 @@ if [ $OK -eq 0 ]; then
 	echo "Home page does not show the new machine."
 	exit 1
 fi
+
+echo "Installation of packages and basic testing went well."
