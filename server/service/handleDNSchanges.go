@@ -24,7 +24,8 @@ func (j handleDNSchangesJob) HowOften() time.Duration {
 func (j handleDNSchangesJob) Run(db *sql.DB) {
 	// This function is structured so it uses only 1 database connection,
 	// to facilitate unit testing with a temp schema.
-	rows, err := db.Query("SELECT certfp,ipaddr,os_hostname FROM hostinfo " +
+	rows, err := db.Query("SELECT certfp,ipaddr,os_hostname,lastseen " +
+		"FROM hostinfo " +
 		"WHERE hostname is null OR dnsttl is null OR dnsttl < now()")
 	if err != nil {
 		log.Fatal(err)
@@ -32,33 +33,49 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 	defer rows.Close()
 	type mRow struct {
 		certfp, ipaddr, osHostname sql.NullString
+		lastseen                   pq.NullTime
 	}
 	list := make([]mRow, 0, 100)
 	for rows.Next() {
 		var c, ip, name sql.NullString
-		err = rows.Scan(&c, &ip, &name)
+		var lseen pq.NullTime
+		err = rows.Scan(&c, &ip, &name, &lseen)
 		if err != nil {
 			log.Fatal(err)
 		}
-		list = append(list, mRow{certfp: c, ipaddr: ip, osHostname: name})
+		list = append(list, mRow{certfp: c, ipaddr: ip, osHostname: name,
+			lastseen: lseen})
 	}
 	rows.Close()
 	for _, m := range list {
 		var hostname string
-		hostname, err = nameMachine(db, m.ipaddr.String, m.osHostname.String, m.certfp.String)
+		hostname, err = nameMachine(db, m.ipaddr.String, m.osHostname.String,
+			m.certfp.String, m.lseen.Time)
 		if err != nil {
 			log.Fatal(err)
 		}
 		if hostname == "" {
 			continue
 		}
-		_, err = db.Exec("UPDATE hostinfo SET hostname=$1, dnsttl=now()+interval'1h' "+
+		tx, err := db.Begin()
+		if err != nil {
+			log.Fatal(err)
+		}
+		_, err = tx.Exec("DELETE FROM hostinfo WHERE hostname=$1 AND certfp!=$2",
+			hostname, m.certfp.String)
+		if err != nil {
+			tx.Rollback()
+			log.Fatal(err)
+		}
+		_, err = tx.Exec("UPDATE hostinfo SET hostname=$1, dnsttl=now()+interval'1h' "+
 			"WHERE certfp=$2", hostname, m.certfp.String)
 		if err != nil {
 			log.Printf("Trying to set hostname=\"%s\" for cert %s",
 				hostname, m.certfp.String)
+			tx.Rollback()
 			log.Fatal(err)
 		}
+		tx.Commit()
 	}
 	if err = rows.Err(); err != nil {
 		log.Fatal(err)
@@ -70,7 +87,8 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 // answer than the machine itself.
 // This method is used from several parts of the software, to keep the logic
 // in one place only.
-func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string) (string, error) {
+func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string,
+	lastseen time.Time) (string, error) {
 	// 1. First, see if the ip address is within one of the ip ranges
 	//    where DNS should be used.
 	var count int
@@ -86,7 +104,16 @@ func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string)
 			// If DNS lookup wasn't conclusive, it's best to do nothing.
 			return "", nil
 		}
-		// So, we have a name. Is it what the OS thinks it is?
+		// Ok, we have a hostname. Is it in use by another row that has the same ip address
+		// (which means same claim to it by DNS) and is more recent?
+		err = db.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1 AND ipaddr=$2 "+
+			"AND certfp!=$3 AND lastseen>$4", hostname, ipAddress, certfp, lastseen).Scan(&count)
+		if count > 0 {
+			// Yes, the name is in use by another, newer host that has the same ip address
+			// (and therefore DNS name). Leave it alone.
+			return "", nil
+		}
+		// Is the result from DNS what the OS thinks its name is?
 		if hostname == osHostname {
 			// Then we must assume it is correct
 			return hostname, nil
@@ -147,6 +174,9 @@ func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string)
 		return "", err
 	}
 	if count > 0 {
+		// Send this machine back to approval, the hostname is already taken.
+		db.Exec("UPDATE waiting_for_approval SET approved=null WHERE ipaddr=$1",
+			ipAddress)
 		return "", nil
 	}
 	return hostname.String, nil

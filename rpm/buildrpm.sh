@@ -91,7 +91,11 @@ echo "  Mock-building packages for $config"
 echo "--------------------------------------------------------"
 if ! mock --bootstrap-chroot --rebuild $srpm; then
 	echo "Mock build failed for $config."
-	exit 1
+	echo "Re-trying with the old chroot method..."
+	if ! mock --old-chroot --rebuild $srpm; then
+		echo "Mock build with old chroot also failed for $config."
+		exit 1
+	fi
 fi
 rm -f /var/lib/mock/$config/result/*.src.rpm
 echo ""

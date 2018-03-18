@@ -56,9 +56,9 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
 		"kernel, vendor, model, serialno, certfp, clientversion " +
-		"FROM hostinfo "
+		"FROM hostinfo WHERE hostname IS NOT NULL"
 	if len(where) > 0 {
-		statement += " WHERE hostname IS NOT NULL AND " + where
+		statement += " AND " + where
 	}
 
 	var desc string
