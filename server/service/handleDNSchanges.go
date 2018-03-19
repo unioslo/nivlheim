@@ -6,6 +6,8 @@ import (
 	"log"
 	"net"
 	"time"
+
+	"github.com/lib/pq"
 )
 
 type handleDNSchangesJob struct{}
@@ -50,7 +52,7 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 	for _, m := range list {
 		var hostname string
 		hostname, err = nameMachine(db, m.ipaddr.String, m.osHostname.String,
-			m.certfp.String, m.lseen.Time)
+			m.certfp.String, m.lastseen.Time)
 		if err != nil {
 			log.Fatal(err)
 		}

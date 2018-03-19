@@ -15,7 +15,7 @@ func init() {
 }
 
 func (s scanFilesTableJob) HowOften() time.Duration {
-	return time.Second
+	return time.Second * 3
 }
 
 func (s scanFilesTableJob) Run(db *sql.DB) {
