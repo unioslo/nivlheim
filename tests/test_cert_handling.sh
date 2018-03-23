@@ -23,6 +23,7 @@ sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/*
 sudo -u apache bash -c "psql -q -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
 sudo systemctl start nivlheim
+sleep 4
 
 # Run the client. This will call reqcert and post
 if ! grep -s -e "^server" /etc/nivlheim/client.conf; then

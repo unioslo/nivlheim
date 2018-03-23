@@ -114,18 +114,18 @@ for IMAGE in "${IMAGES[@]}"; do
 		boottime=$((bootend-bootstart))
 		echo "That only took $boottime seconds, good job."
 		echo "Installing and testing packages"
-		ssh $USER\@$IP -o StrictHostKeyChecking=no \
-			-q -o UserKnownHostsFile=/dev/null \
-			-C "cat > script" < test_packages.sh
+		scp -o StrictHostKeyChecking=no \
+			-o UserKnownHostsFile=/dev/null \
+			-q -p test_packages.sh $USER\@$IP:
 
 		TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 		LOGFILE=$(echo "${IMAGE}_${TIMESTAMP}.log" | sed -e 's/ /_/g')
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "chmod a+x script; ./script || echo 'FAIL'; rm script" > "$LOGFILE" 2>&1
+			-C "./test_packages.sh || echo 'FAIL'" > "$LOGFILE" 2>&1
 
 		scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-			../tests/* $USER\@$IP:~
+			../tests/* $USER\@$IP:
 		for T in ../tests/*; do
 			ssh $USER\@$IP -o StrictHostKeyChecking=no \
 				-q -o UserKnownHostsFile=/dev/null \

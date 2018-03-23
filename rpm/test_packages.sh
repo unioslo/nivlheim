@@ -1,5 +1,4 @@
 #!/bin/bash
-set -x
 
 # This is intended to be an end-to-end test of the server and client packages.
 
