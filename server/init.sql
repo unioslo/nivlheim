@@ -17,7 +17,7 @@ CREATE TABLE waiting_for_approval(
 	ipaddr inet,
 	hostname text,
 	received timestamp with time zone,
-	approved boolean not null default false
+	approved boolean
 );
 
 CREATE TABLE certificates(

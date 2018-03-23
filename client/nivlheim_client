@@ -215,7 +215,7 @@ if ($have_cert) {
 
 if (!$have_cert || !$cert_works) {
 	# Test if we can establish any contact with the server at all
-	print "No valid client cert. Checking basic SSL connectivity...\n" if ($opt{debug});
+	printlog "No valid client cert. Checking basic SSL connectivity...\n" if ($opt{debug});
 	my $anyContact = 0;
 	eval {
 		if (test_without_client_cert()) {
@@ -432,8 +432,8 @@ eval {
 	}
 	if ($result =~ /nonce=(\d+)/) {
 		# save the new nonce, it shall be used next time
-		open(my $F, $noncefile);
-		print $F, $1;
+		open(my $F, ">$noncefile");
+		print $F $1;
 		close($F);
 		chmod 0600, $noncefile;
 	}

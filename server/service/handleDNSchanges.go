@@ -181,6 +181,7 @@ func nameMachine(db *sql.DB, ipAddress string, osHostname string, certfp string,
 			ipAddress)
 		return "", nil
 	}
+	db.Exec("DELETE FROM waiting_for_approval WHERE ipaddr=$1", ipAddress)
 	return hostname.String, nil
 }
 

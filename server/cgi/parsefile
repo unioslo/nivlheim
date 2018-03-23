@@ -63,10 +63,21 @@ eval{
 		# Insert a row where hostname is null. It will be filled in later,
 		# by a system service. While hostname is null, this row will not
 		# be visible through the API.
+		$dbh->{RaiseError} = 0;
 		$dbh->do("INSERT INTO hostinfo(lastseen,ipaddr,clientversion,"
 				."os_hostname,certfp) VALUES(?,?,?,?,?)", undef,
 				($row->{'received'}, $row->{'ipaddr'}, $row->{'clientversion'},
 				$row->{'os_hostname'}, $row->{'certfp'}));
+		if (defined($dbh->err)) {
+			if ($dbh->errstr =~ /duplicate key value/i) {
+				# Race condition with another process. Re-try this later.
+				$dbh->rollback;
+				$dbh->disconnect;
+				print CGI::header(-type => 'text/plain', -status => '503 Service Unavailable');
+				exit;
+			} else { die $dbh->errstr; }
+		}
+		$dbh->{RaiseError} = 1;
 		# Trigger the system service to speed up the process
 		# (It would have caught it eventually anyway)
 		get("http://127.0.0.1:4040/api/v0/triggerJob/handleDNSchangesJob");

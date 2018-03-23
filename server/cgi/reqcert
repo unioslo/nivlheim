@@ -206,7 +206,6 @@ eval {
 	print "-----BEGIN P12-----\n" . encode_base64($p12bytes, "\n") . "-----END P12-----\n";
 
 	$logger->info("Created new cert with id $id for $hostname");
-	$dbh->do("DELETE FROM waiting_for_approval WHERE ipaddr=?", undef, ($ipaddr));
 };
 if ($@) {
 	$logger->error("Failed to create new cert for $hostname: $@");

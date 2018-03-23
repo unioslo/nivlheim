@@ -6,6 +6,7 @@ import (
 	"database/sql"
 	"log"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/lib/pq"
@@ -29,12 +30,29 @@ type Task struct {
 	delay2  int
 }
 
-// taskRunner is intended to be run as a goroutine. It enter an infinite loop
+var mu sync.RWMutex
+var runningTasks = make(map[int64]bool)
+
+func isTaskRunning(id int64) bool {
+	mu.RLock()
+	defer mu.RUnlock()
+	return runningTasks[id]
+}
+func markTaskRunning(id int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	runningTasks[id] = true
+}
+func markTaskDone(id int64) {
+	mu.Lock()
+	defer mu.Unlock()
+	delete(runningTasks, id)
+}
+
+// taskRunner is intended to be run as a goroutine. It enters an infinite loop
 // where it periotically reads the "task" database table and executes tasks.
 func taskRunner(db *sql.DB, devmode bool) {
 	taskSlots := make(chan bool, 10) // max concurrent running tasks
-	finishedTasks := make(chan int64)
-	busyTasks := make(map[int64]bool)
 	for {
 		// Read the current active tasks from the database
 		rows, err := db.Query("SELECT taskid, url, lasttry, " +
@@ -52,7 +70,7 @@ func taskRunner(db *sql.DB, devmode bool) {
 			if err != nil {
 				log.Fatal(err)
 			}
-			if busyTasks[task.taskid] {
+			if isTaskRunning(task.taskid) {
 				continue
 			}
 			if taskurl.Valid {
@@ -74,11 +92,11 @@ func taskRunner(db *sql.DB, devmode bool) {
 			if task.lasttry.IsZero() ||
 				time.Since(task.lasttry).Seconds() > float64(task.delay) {
 				taskSlots <- true // this will block until there's a free slot
-				busyTasks[task.taskid] = true
+				markTaskRunning(task.taskid)
 				go func() {
 					defer func() {
-						finishedTasks <- task.taskid
-						<-taskSlots
+						markTaskDone(task.taskid)
+						<-taskSlots // free up a task slot
 					}()
 					executeTask(db, task)
 				}()
@@ -91,14 +109,12 @@ func taskRunner(db *sql.DB, devmode bool) {
 		}
 
 		// Sleep
-	loop:
+		freeSlots := len(taskSlots)
 		for second := 0; second < canWait; second++ {
-			select {
-			case id := <-finishedTasks:
-				delete(busyTasks, id)
-				break loop
-			default:
-				time.Sleep(time.Second)
+			time.Sleep(time.Second)
+			if freeSlots != len(taskSlots) {
+				// A task finished. Stop sleeping and see if there's more work to do now
+				break
 			}
 		}
 	}

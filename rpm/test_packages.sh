@@ -43,17 +43,18 @@ sudo sed -i.bak s/log4perl.logger.reqcert=INFO/log4perl.logger.reqcert=DEBUG/g /
 # Configure the client to use the server at localhost
 echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
-sudo /usr/sbin/nivlheim_client --debug
+sudo /usr/sbin/nivlheim_client
 # Approve the client, using the API
 ID=`curl -sS 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
 curl -X PUT -sS "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
 
 # Run the client again, this time it will receive a certificate
 # and post data into the system
-sudo /usr/sbin/nivlheim_client --debug
+sudo /usr/sbin/nivlheim_client
 if [ ! -f /var/nivlheim/my.crt ]; then
 	echo "Certificate generation failed."
 	cat /var/log/nivlheim/system.log
+	sudo journalctl -S yesterday | grep nivlheim
 	exit 1
 fi
 

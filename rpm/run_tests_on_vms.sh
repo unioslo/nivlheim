@@ -24,6 +24,8 @@ while getopts "s:k:" option; do
 	esac
 done
 
+cd $(dirname "$0")
+
 # Create an array containing the available machine images
 TMPFILE=$(mktemp)
 openstack image list | grep active | cut -d '|' -f 3 > $TMPFILE
@@ -83,10 +85,19 @@ for IMAGE in "${IMAGES[@]}"; do
 	OK=0
 	if [[ $IP != "" ]]; then
 		echo -n "Waiting for the VM to finish booting"
-		for try in {1..100}; do
+		for try in {1..119}; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
+			fi
+			# UH-IaaS is unreliable, sometimes you have to stop/start the VM
+			# before it will let you connect
+			if [[ $(expr $try % 20) -eq 0 ]]; then
+				echo -n "o"
+				openstack server stop $NAME
+				sleep 10
+				echo -n "O"
+				openstack server start $NAME
 			fi
 			sleep 5
 			echo -n "."
@@ -105,17 +116,17 @@ for IMAGE in "${IMAGES[@]}"; do
 		echo "Installing and testing packages"
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "cat > script" < $(dirname "$0")"/test_packages.sh"
+			-C "cat > script" < test_packages.sh
 
 		TIMESTAMP=$(date '+%Y%m%d-%H%M%S')
 		LOGFILE=$(echo "${IMAGE}_${TIMESTAMP}.log" | sed -e 's/ /_/g')
 		ssh $USER\@$IP -o StrictHostKeyChecking=no \
 			-q -o UserKnownHostsFile=/dev/null \
-			-C "chmod a+x script; ./script || echo 'FAIL'" > "$LOGFILE" 2>&1
+			-C "chmod a+x script; ./script || echo 'FAIL'; rm script" > "$LOGFILE" 2>&1
 
 		scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
-			tests/* $USER\@$IP:~
-		for T in tests/*; do
+			../tests/* $USER\@$IP:~
+		for T in ../tests/*; do
 			ssh $USER\@$IP -o StrictHostKeyChecking=no \
 				-q -o UserKnownHostsFile=/dev/null \
 				-C "~/$(basename $T) || echo 'FAIL'" >> "$LOGFILE" 2>&1
