@@ -1,10 +1,53 @@
-<p>
-<span class="has-text-info">{{filesLastHour}}</span>
-files were collected during the last hour.<br>
-<span class="has-text-info">{{numberOfMachines}}</span>
-machines are in the system.<br>
-{{#if numberOfMachines}}
-<span class="has-text-info">{{reportingPercentageLastHour}}%</span>
-of machines sent in files during the last hour.<br>
-{{/if}}
-</p>
+<table class="table is-transparent is-striped">
+	<tbody>
+		<tr>
+			<th>Machines in the system</th>
+			<td>{{numberOfMachines}}</td>
+		</tr>
+		<tr>
+			<th>Files collected last hour</th>
+			<td>{{filesLastHour}}</td>
+		</tr>
+		{{#if numberOfMachines}}
+		<tr>
+			<th>Machines that reported last hour</th>
+			<td>{{reportingPercentageLastHour}}%</td>
+		</tr>
+		{{/if}}
+		<tr>
+			<th>Incoming queue size</th>
+			<td>{{incomingQueueSize}}</td>
+		</tr>
+		<tr>
+			<th>Parse queue size</th>
+			<td>{{parseQueueSize}}</td>
+		</tr>
+		<tr>
+			<th>Task queue size</th>
+			<td>{{taskQueueSize}}</td>
+		</tr>
+		<tr>
+			<th>Failing tasks</th>
+			<td>{{failingTasks}}</td>
+		</tr>
+		<tr>
+			<th>Age of the newest file</th>
+			<td>{{formatInterval ageOfNewestFile}}</td>
+		</tr>
+		<tr>
+			<th>Throughput per second</th>
+			<td>{{throughputPerSecond}} files</td>
+		</tr>
+		{{#each lastExecutionTime}}
+		<tr>
+			<th>{{@key}}</th>
+			<td>{{this}} seconds</td>
+		</tr>
+		{{/each}}
+	</tbody>
+	<tfoot>
+		<tr><td colspan="2">
+			<i><span class="is-size-7" id="statusLoadedIn"></span></i>
+		</td></tr>
+	</tfoot>
+</table>

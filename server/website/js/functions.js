@@ -233,6 +233,19 @@ function deny(id) {
 	});
 }
 
+function autoReloadStatus() {
+	let start = new Date().getTime();
+	APIcall(
+		//"mockapi/systemstatus_data.json",
+		"/api/v0/status",
+		"systemstatus",	$('#placeholder_systemstatus'))
+		.done(function(){
+			let end = new Date().getTime();
+			$("#statusLoadedIn").html("Loaded in "+(end-start)+" ms.");
+			window.setTimeout(autoReloadStatus, 8000);
+		});
+}
+
 //----====----====----====-- Browse hosts and files --====----====----====
 function showDiff(data) {
 	// We got the first file, let's get the second one and compare

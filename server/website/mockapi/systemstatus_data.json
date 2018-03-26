@@ -1,5 +1,20 @@
 {
 	"filesLastHour": 325,
 	"numberOfMachines": 11,
-	"reportingPercentage": 94
+	"reportingPercentageLastHour": 64,
+	"incomingQueueSize": 52,
+	"parseQueueSize": 13,
+	"taskQueueSize": 10,
+	"failingTasks": 3,
+	"ageOfNewestFile": 34,
+	"throughputPerSecond": 0.32,
+	"lastExecutionTime": {
+		"scanFilesTableJob": 3.45,
+		"scanQueueDirJob": 6.14
+	},
+	"warnings": {
+		"reportingPercentage": "Too low"
+	},
+	"errors": {
+	}
 }

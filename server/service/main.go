@@ -19,9 +19,10 @@ type Job interface {
 }
 
 type JobListElement struct {
-	job     Job
-	lastrun time.Time
-	running bool
+	job               Job
+	lastrun           time.Time
+	lastExecutionTime time.Duration
+	running           bool
 }
 
 func RegisterJob(newjob Job) {
@@ -54,7 +55,8 @@ func main() {
 	// Connect to database
 	var dbConnectionString string
 	if devmode {
-		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+		//dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+		dbConnectionString = "sslmode=disable dbname=apache user=apache host=nivlheim-beta.uio.no"
 	} else {
 		dbConnectionString = "dbname=apache host=/var/run/postgresql"
 	}
@@ -97,15 +99,13 @@ func main() {
 		for i, j := range jobs {
 			if time.Since(j.lastrun) > j.job.HowOften() && !j.running {
 				jobSlots <- true
-				/*if devmode {
-					t := reflect.TypeOf(j.job)
-					log.Printf("Running job: %s\n", t.Name())
-				}*/
 				elem := &jobs[i]
 				elem.running = true
+				elem.lastrun = time.Now()
 				go func() {
 					defer func() { <-jobSlots }()
 					elem.job.Run(db)
+					elem.lastExecutionTime = time.Since(elem.lastrun)
 					elem.lastrun = time.Now()
 					elem.running = false
 				}()

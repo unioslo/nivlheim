@@ -1,8 +1,8 @@
 $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
-		var t = moment(s);
-		var str = t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
+		let t = moment(s);
+		let str = t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
 		str = Handlebars.Utils.escapeExpression(str);
 		if (t.isAfter(moment().subtract(1,'days'))) {
 			return str;
@@ -10,6 +10,13 @@ $(document).ready(function(){
 			return new Handlebars.SafeString(
 				'<span class="underline-warning">'+str+'</span>');
 		}
+	});
+	Handlebars.registerHelper('formatInterval', function(seconds){
+		if (!seconds) return "0";
+		let epoch = Math.floor((new Date).getTime()/1000);
+		let m = moment.unix(epoch-seconds);
+		let str = m.fromNow(true);
+		return Handlebars.Utils.escapeExpression(str);
 	});
 	Handlebars.registerHelper('urlescape', function(s){
 		if (!s) return "";
@@ -59,10 +66,7 @@ function showFrontPage() {
 		$("input#search").keyup(function(e){
 			if(e.keyCode===13){newSearch();}
 		});
-		APIcall(
-			//"mockapi/systemstatus_data.json",
-			"/api/v0/status",
-			"systemstatus",	$('#placeholder_systemstatus'));
+		autoReloadStatus();
 		APIcall(
 			//"mockapi/awaiting_approval.json",
 			"/api/v0/awaitingApproval"+
