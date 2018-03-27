@@ -26,45 +26,45 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 	machineList := make([]string, 0, 100)
 	rows, err := db.Query("SELECT DISTINCT certfp FROM files")
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var certfp sql.NullString
-		rows.Scan(&certfp)
+		err = rows.Scan(&certfp)
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 		if certfp.Valid {
 			machineList = append(machineList, certfp.String)
 		}
 	}
 	if err = rows.Err(); err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
+	rows.Close()
 
 	// For every machine
 	for _, certfp := range machineList {
 		// Finn all unique filenames on the machine
-		rows, err := db.Query("SELECT DISTINCT filename FROM files "+
+		rows, err = db.Query("SELECT DISTINCT filename FROM files "+
 			"WHERE certfp=$1", certfp)
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
-		defer rows.Close()
 		filenames := make([]string, 0)
 		for rows.Next() {
 			var filename sql.NullString
 			err = rows.Scan(&filename)
 			if err != nil {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			if filename.Valid {
 				filenames = append(filenames, filename.String)
 			}
 		}
 		if err = rows.Err(); err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 		// Can't wait with rows.Close() until the function ends;
 		// If many machines, it would cause too many open connections.
@@ -77,22 +77,21 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 			rows, err = db.Query("SELECT fileid,mtime FROM files "+
 				"WHERE certfp=$1 AND filename=$2", certfp, filename)
 			if err != nil {
-				log.Fatal(err)
+				log.Panic(err)
 			}
-			defer rows.Close()
 			for rows.Next() {
 				var fileID sql.NullInt64
 				var mtime pq.NullTime
 				err = rows.Scan(&fileID, &mtime)
 				if err != nil {
-					log.Fatal(err)
+					log.Panic(err)
 				}
 				if fileID.Valid && mtime.Valid {
 					timeMap[int(fileID.Int64)] = mtime.Time
 				}
 			}
 			if err = rows.Err(); err != nil {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			rows.Close()
 
@@ -101,7 +100,7 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 			for _, deleteID := range whatToDelete(&timeMap) {
 				_, err = db.Exec("DELETE FROM files WHERE fileid=$1", deleteID)
 				if err != nil {
-					log.Fatal(err)
+					log.Panic(err)
 				}
 				count++
 			}

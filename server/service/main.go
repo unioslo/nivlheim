@@ -23,6 +23,7 @@ type JobListElement struct {
 	lastrun           time.Time
 	lastExecutionTime time.Duration
 	running           bool
+	panicObject       interface{}
 }
 
 func RegisterJob(newjob Job) {
@@ -62,31 +63,26 @@ func main() {
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
-		log.Fatal(err)
+		log.Println(err)
+		return
 	}
 	defer db.Close()
 
 	// Determine capabilities of the database
-	var rePGVersion = regexp.MustCompile("PostgreSQL (\\d+.\\d+.\\d+)")
 	postgresSupportsOnConflict = false
-	rows, err := db.Query("select version()")
+	var version sql.NullString
+	err = db.QueryRow("select version()").Scan(&version)
 	if err != nil {
-		log.Fatal(err)
-	} else {
-		defer rows.Close()
-		if rows.Next() {
-			var version sql.NullString
-			err = rows.Scan(&version)
-			if err == nil {
-				if version.Valid {
-					mat := rePGVersion.FindStringSubmatch(version.String)
-					if len(mat) >= 2 && len(mat[1]) > 0 {
-						vstr := mat[1]
-						log.Printf("PostgreSQL version: %s", vstr)
-						postgresSupportsOnConflict = vstr >= "9.5"
-					}
-				}
-			}
+		log.Println(err)
+		return
+	}
+	if version.Valid {
+		rePGVersion := regexp.MustCompile("PostgreSQL (\\d+.\\d+.\\d+)")
+		mat := rePGVersion.FindStringSubmatch(version.String)
+		if len(mat) >= 2 && len(mat[1]) > 0 {
+			vstr := mat[1]
+			log.Printf("PostgreSQL version: %s", vstr)
+			postgresSupportsOnConflict = vstr >= "9.5"
 		}
 	}
 
@@ -103,11 +99,16 @@ func main() {
 				elem.running = true
 				elem.lastrun = time.Now()
 				go func() {
-					defer func() { <-jobSlots }()
+					defer func() {
+						if r := recover(); r != nil {
+							elem.panicObject = r
+						}
+						elem.lastExecutionTime = time.Since(elem.lastrun)
+						elem.lastrun = time.Now()
+						elem.running = false
+						<-jobSlots
+					}()
 					elem.job.Run(db)
-					elem.lastExecutionTime = time.Since(elem.lastrun)
-					elem.lastrun = time.Now()
-					elem.running = false
 				}()
 			}
 		}

@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"os"
 	"reflect"
@@ -28,6 +29,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		AgeOfNewestFile             int64              `json:"ageOfNewestFile"`
 		ThroughputPerSecond         float32            `json:"throughputPerSecond"`
 		LastExecutionTime           map[string]float32 `json:"lastExecutionTime"`
+		Errors                      map[string]string  `json:"errors"`
 	}
 	status := Status{}
 
@@ -58,9 +60,13 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 	// LastExecutionTime
 	status.LastExecutionTime = make(map[string]float32, len(jobs))
+	status.Errors = make(map[string]string)
 	for _, job := range jobs {
 		t := reflect.TypeOf(job.job)
 		status.LastExecutionTime[t.Name()] = float32(job.lastExecutionTime.Seconds())
+		if job.panicObject != nil {
+			status.Errors[t.Name()] = fmt.Sprintf("%v", job.panicObject)
+		}
 	}
 
 	// IncomingQueueSize

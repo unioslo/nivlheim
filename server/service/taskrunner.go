@@ -58,7 +58,7 @@ func taskRunner(db *sql.DB, devmode bool) {
 		rows, err := db.Query("SELECT taskid, url, lasttry, " +
 			"status, delay, delay2 FROM tasks")
 		if err != nil {
-			log.Fatal(err)
+			log.Panic(err)
 		}
 		tasks := make([]Task, 0, 0)
 		for rows.Next() {
@@ -68,7 +68,7 @@ func taskRunner(db *sql.DB, devmode bool) {
 			err = rows.Scan(&task.taskid, &taskurl, &timestamp,
 				&task.status, &task.delay, &task.delay2)
 			if err != nil {
-				log.Fatal(err)
+				log.Panic(err)
 			}
 			if isTaskRunning(task.taskid) {
 				continue
@@ -82,7 +82,7 @@ func taskRunner(db *sql.DB, devmode bool) {
 			tasks = append(tasks, task)
 		}
 		if rows.Err() != nil {
-			log.Fatal(rows.Err())
+			log.Panic(rows.Err())
 		}
 		rows.Close()
 

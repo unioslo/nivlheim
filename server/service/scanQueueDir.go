@@ -26,8 +26,9 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 	// Scan the directory for new files and create tasks for them
 	files, err := ioutil.ReadDir(queuedir)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
+
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".meta") {
 			// nope.
@@ -43,7 +44,7 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 				log.Println(err.Error())
 			}
 		} else {
-			db.Exec("INSERT INTO tasks(url) VALUES($1)", taskurl)
+			db.Exec("INSERT INTO tasks(url) SELECT $1 WHERE $1 NOT IN(SELECT url FROM tasks)", taskurl)
 		}
 	}
 }

@@ -9,7 +9,7 @@
 	"ageOfNewestFile": 34,
 	"throughputPerSecond": 0.32,
 	"lastExecutionTime": {
-		"scanFilesTableJob": 3.45,
+		"parseFilesJob": 3.45,
 		"scanQueueDirJob": 6.14
 	},
 	"warnings": {
