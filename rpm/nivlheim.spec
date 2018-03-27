@@ -145,7 +145,6 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
-install -p -m 0755 server/cgi/parsefile %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
@@ -163,7 +162,6 @@ perl -c %{buildroot}/var/www/cgi-bin/secure/post
 perl -c %{buildroot}/var/www/cgi-bin/ping
 perl -c %{buildroot}/var/www/cgi-bin/reqcert
 perl -c %{buildroot}/var/www/cgi-bin/processarchive
-perl -c %{buildroot}/var/www/cgi-bin/parsefile
 
 %clean
 rm -rf %{buildroot}
@@ -209,6 +207,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Mar 27 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.4.0-20180327
+- Removed the cgi script "parsefile"
+
 * Tue Feb 27 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.2.0-20180227
 - Compile Go code during build, distribute binaries instead of source.
 
