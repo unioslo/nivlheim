@@ -5,6 +5,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"reflect"
 	"regexp"
 	"syscall"
 	"time"
@@ -14,15 +15,15 @@ import (
 type Job interface {
 	Run(db *sql.DB)
 	HowOften() time.Duration
-	//TODO gjør om HowOften denne til en parameter til RegisterJob,
-	//     og kall den minimumTimeBetweenRuns eller noe.
+	//TODO change the HowOften func to a parameter for RegisterJob,
+	//     and call it minimumTimeBetweenRuns or something similar.
 }
 
 type JobListElement struct {
 	job               Job
 	lastrun           time.Time
 	lastExecutionTime time.Duration
-	running           bool
+	running, trigger  bool
 	panicObject       interface{}
 }
 
@@ -93,11 +94,12 @@ func main() {
 	for !quit {
 		// Run jobs
 		for i, j := range jobs {
-			if time.Since(j.lastrun) > j.job.HowOften() && !j.running {
+			if (time.Since(j.lastrun) > j.job.HowOften() || j.trigger) && !j.running {
 				jobSlots <- true
 				elem := &jobs[i]
 				elem.running = true
 				elem.lastrun = time.Now()
+				elem.trigger = false
 				go func() {
 					defer func() {
 						if r := recover(); r != nil {
@@ -118,7 +120,23 @@ func main() {
 	}
 	// wait for jobs to finish
 	log.Println("Waiting for running jobs to finish...")
-	for i := 0; i < cap(jobSlots); i++ {
-		jobSlots <- true
+	left := cap(jobSlots)
+	start := time.Now()
+	for left > 0 && time.Since(start) <= time.Second*10 {
+		select {
+		case jobSlots <- true:
+			left--
+		default:
+			time.Sleep(time.Second)
+		}
+	}
+}
+
+func triggerJob(job Job) {
+	for i, jobitem := range jobs {
+		if reflect.TypeOf(jobitem.job) == reflect.TypeOf(job) {
+			jobs[i].trigger = true
+			return
+		}
 	}
 }

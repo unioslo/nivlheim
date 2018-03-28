@@ -171,8 +171,8 @@ func runJob(w http.ResponseWriter, req *http.Request) {
 	for i, jobitem := range jobs {
 		t := reflect.TypeOf(jobitem.job)
 		if t.Name() == match[1] {
-			// this will make the taskrunner run the job
-			jobs[i].lastrun = time.Unix(0, 0)
+			// this will make main run the job
+			jobs[i].trigger = true
 			http.Error(w, "OK", http.StatusNoContent)
 			return
 		}

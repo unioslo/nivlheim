@@ -12,7 +12,7 @@ $(document).ready(function(){
 		}
 	});
 	Handlebars.registerHelper('formatInterval', function(seconds){
-		if (!seconds) return "0";
+		if (!seconds || seconds <= 0) return "0";
 		let epoch = Math.floor((new Date).getTime()/1000);
 		let m = moment.unix(epoch-seconds);
 		let str = m.fromNow(true);

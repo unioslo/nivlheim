@@ -37,14 +37,16 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 		taskurl := "http://localhost/cgi-bin/processarchive?file=" +
 			f.Name()
 		// New task
+		var err error
 		if postgresSupportsOnConflict {
-			_, err := db.Exec("INSERT INTO tasks(url) VALUES($1)"+
+			_, err = db.Exec("INSERT INTO tasks(url) VALUES($1)"+
 				" ON CONFLICT DO NOTHING", taskurl)
-			if err != nil {
-				log.Println(err.Error())
-			}
 		} else {
-			db.Exec("INSERT INTO tasks(url) SELECT $1 WHERE $1 NOT IN(SELECT url FROM tasks)", taskurl)
+			_, err = db.Exec("INSERT INTO tasks(url) SELECT $1 WHERE "+
+				"(SELECT count(*) FROM tasks WHERE url=$1) = 0", taskurl)
+		}
+		if err != nil {
+			log.Println(err.Error())
 		}
 	}
 }

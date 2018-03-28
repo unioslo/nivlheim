@@ -14,8 +14,11 @@ import (
 
 type parseFilesJob struct{}
 
+var pfib *IntervalBuffer
+
 func init() {
 	RegisterJob(parseFilesJob{})
+	pfib = NewIntervalBuffer(time.Minute)
 }
 
 func (s parseFilesJob) HowOften() time.Duration {
@@ -33,23 +36,17 @@ func (s parseFilesJob) Run(db *sql.DB) {
 		var fileid sql.NullInt64
 		rows.Scan(&fileid)
 		if fileid.Valid {
-			/*taskurl := "http://localhost/cgi-bin/parsefile?fileid=" +
-				strconv.FormatInt(fileid.Int64, 10)
-			if postgresSupportsOnConflict {
-				_, err := db.Exec("INSERT INTO tasks(url) VALUES($1)"+
-					" ON CONFLICT DO NOTHING", taskurl)
-				if err != nil {
-					log.Println(err.Error())
-				}
-			} else {
-				db.Exec("INSERT INTO tasks(url) VALUES($1)", taskurl)
-			}*/
 			concurrent <- true
 			go func() {
 				defer func() { <-concurrent }()
 				parseFile(db, int(fileid.Int64))
+				pfib.Add(1)
 			}()
 		}
+	}
+	// wait for running goroutines to finish
+	for i := 0; i < cap(concurrent); i++ {
+		concurrent <- true
 	}
 }
 
@@ -105,6 +102,7 @@ func parseFile(database *sql.DB, fileId int) {
 			// race condition (duplicate key value) or other error.
 			return
 		}
+		triggerJob(handleDNSchangesJob{})
 	} else {
 		// The row exists already. This statement will set dnsttl to null
 		// only if ipaddr or os_hostname changed.
@@ -115,7 +113,6 @@ func parseFile(database *sql.DB, fileId int) {
 			return
 		}
 	}
-	tx.Commit()
 
 	if filename.String == "/etc/redhat-release" {
 		var os, osEdition string

@@ -93,13 +93,13 @@ func taskRunner(db *sql.DB, devmode bool) {
 				time.Since(task.lasttry).Seconds() > float64(task.delay) {
 				taskSlots <- true // this will block until there's a free slot
 				markTaskRunning(task.taskid)
-				go func() {
+				go func(task Task) {
 					defer func() {
 						markTaskDone(task.taskid)
 						<-taskSlots // free up a task slot
 					}()
 					executeTask(db, task)
-				}()
+				}(task)
 			} else {
 				timeleft := task.delay - int(time.Since(task.lasttry).Seconds())
 				if timeleft < canWait {

@@ -51,6 +51,7 @@ CREATE TABLE files(
 );
 
 CREATE INDEX files_parsed ON files(parsed);
+CREATE INDEX files_certfp ON files(certfp);
 
 CREATE TABLE tasks(
 	taskid serial PRIMARY KEY NOT NULL,

@@ -26,7 +26,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		ParseQueueSize              int                `json:"parseQueueSize"`
 		TaskQueueSize               int                `json:"taskQueueSize"`
 		FailingTasks                int                `json:"failingTasks"`
-		AgeOfNewestFile             int64              `json:"ageOfNewestFile"`
+		AgeOfNewestFile             float32            `json:"ageOfNewestFile"`
 		ThroughputPerSecond         float32            `json:"throughputPerSecond"`
 		LastExecutionTime           map[string]float32 `json:"lastExecutionTime"`
 		Errors                      map[string]string  `json:"errors"`
@@ -94,20 +94,16 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		Scan(&status.FailingTasks)
 
 	// AgeOfNewestFile
-	var t sql.NullInt64
+	var t sql.NullFloat64
 	status.AgeOfNewestFile = -1
 	vars.db.QueryRow("SELECT extract(epoch from now()-received) FROM files " +
 		"WHERE parsed ORDER BY fileid DESC LIMIT 1").Scan(&t)
 	if t.Valid {
-		status.AgeOfNewestFile = t.Int64
+		status.AgeOfNewestFile = float32(t.Float64)
 	}
 
 	// ThroughputPerSecond
-	// TODO this method doesn't work when the server is behind with parsing
-	var minute int
-	vars.db.QueryRow("SELECT count(*) FROM files " +
-		"WHERE parsed AND received >= now() - interval '1 minute'").Scan(&minute)
-	status.ThroughputPerSecond = float32(minute) / 60.0
+	status.ThroughputPerSecond = float32(pfib.Sum() / 60.0)
 
 	returnJSON(w, req, status)
 }
