@@ -139,4 +139,5 @@ func triggerJob(job Job) {
 			return
 		}
 	}
+	panic("Trying to trigger an unregistered job?")
 }

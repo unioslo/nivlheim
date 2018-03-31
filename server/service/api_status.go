@@ -19,7 +19,6 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 
 	type Status struct {
-		FilesLastHour               int                `json:"filesLastHour"`
 		NumOfMachines               int                `json:"numberOfMachines"`
 		ReportingPercentageLastHour int                `json:"reportingPercentageLastHour"`
 		IncomingQueueSize           int                `json:"incomingQueueSize"`
@@ -32,16 +31,6 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		Errors                      map[string]string  `json:"errors"`
 	}
 	status := Status{}
-
-	//TODO optimize this query
-	// FilesLastHour
-	err := vars.db.QueryRow("SELECT count(*) " +
-		"FROM files WHERE received > now() - interval '1 hour'").
-		Scan(&status.FilesLastHour)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 
 	// Machines last hour
 	var machinesLastHour int

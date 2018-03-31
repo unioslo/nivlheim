@@ -5,6 +5,7 @@ use warnings;
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use CGI;
 use DBI;
+use Digest::CRC qw(crc32);
 use Encode qw(from_to encode_utf8 decode_utf8);
 use File::Basename;
 use File::Find;
@@ -121,10 +122,18 @@ eval{
 	my $iso_received = uts_to_rfc3339($meta{'received'});
 
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,os_hostname,"
-		."certcn,certfp,filename,received,mtime,content,is_command,clientversion,"
-		."originalcertid) "
-		."VALUES(?,?,?,?, ?,?,?,?, ?,?, "
+		."certcn,certfp,filename,received,mtime,content,crc32,is_command,"
+		."clientversion,originalcertid) "
+		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
+
+	my $sth_crc = $dbh->prepare("SELECT crc32 FROM files WHERE certfp=? AND filename=? "
+		."ORDER BY received DESC LIMIT 1");
+
+	my $sth_hostinfo1 = $dbh->prepare("UPDATE hostinfo SET lastseen=?, clientversion=? ".
+		"WHERE certfp=? AND lastseen<?");
+	my $sth_hostinfo2 = $dbh->prepare("UPDATE hostinfo SET ipaddr=?, os_hostname=?, ".
+            "dnsttl=null WHERE (ipaddr!=? OR os_hostname!=?) AND certfp=?");
 
 	# For each file
 	sub callback1 {
@@ -178,16 +187,33 @@ eval{
 		$content =~ tr/\000-\010/ /;
 		$content =~ tr/\013-\014/ /;
 		$content =~ tr/\016-\037/ /;
+		my $crc32 = crc32($content);
+		if ($crc32 > 0x7FFFFFFF) { $crc32 = -((~$crc32 & 0xFFFFFFFF)+1); }
+
+		# See if this file differs from the previous copy.
+		# If they are equal, there's no point in storing this copy.
+		$sth_crc->execute(($meta{certfp}, $originalfilename));
+		if ($dbh->err) { die $dbh->errstr; }
+		my $aref = $sth_crc->fetchrow_arrayref;
+		if (defined($aref)) {
+			my $oldcrc = $$aref[0];
+			if (defined($oldcrc) && $crc32 eq $oldcrc) {
+				# Since this file isn't going to be inserted and parsed, update hostinfo directly
+				$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
+				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
+				next;
+			}
+		}
 
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{os_hostname},
 			$meta{certcn}, $meta{certfp}, $originalfilename,
-			$iso_received, $iso_mtime, $content, $is_command,
+			$iso_received, $iso_mtime, $content, $crc32, $is_command,
 			$meta{clientversion}, $meta{certfp});
 		$sth->execute(@values) or $logger->error($sth->errstr);
+		if ($dbh->err) { die $dbh->errstr; }
 	}
 	find(\&callback1, $dir);
-	$sth->finish;
 	$dbh->commit;
 	unlink($archivefile, "$archivefile.meta");
 };

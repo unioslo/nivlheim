@@ -72,7 +72,7 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 
 		// For every file
 		for _, filename := range filenames {
-			timeMap := make(map[int]time.Time)
+			timeMap := make(map[int64]time.Time)
 			// Find all versions of that file
 			rows, err = db.Query("SELECT fileid,mtime FROM files "+
 				"WHERE certfp=$1 AND filename=$2", certfp, filename)
@@ -87,7 +87,7 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 					log.Panic(err)
 				}
 				if fileID.Valid && mtime.Valid {
-					timeMap[int(fileID.Int64)] = mtime.Time
+					timeMap[fileID.Int64] = mtime.Time
 				}
 			}
 			if err = rows.Err(); err != nil {
@@ -111,9 +111,9 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 	}
 }
 
-func whatToDelete(m *map[int]time.Time) []int {
+func whatToDelete(m *map[int64]time.Time) []int64 {
 	type record struct {
-		fileID int
+		fileID int64
 		mtime  time.Time
 	}
 
@@ -136,7 +136,7 @@ func whatToDelete(m *map[int]time.Time) []int {
 	}
 
 	// what to keep
-	keep := make(map[int]bool)
+	keep := make(map[int64]bool)
 	for _, r := range slots {
 		if r != nil {
 			keep[r.fileID] = true
@@ -165,7 +165,7 @@ func whatToDelete(m *map[int]time.Time) []int {
 
 	// Ok, now we have a list of what to keep.
 	// Let's find what to delete.
-	del := make([]int, 0, len(*m)-len(keep))
+	del := make([]int64, 0, len(*m)-len(keep))
 	for i := range *m {
 		if !keep[i] {
 			del = append(del, i)

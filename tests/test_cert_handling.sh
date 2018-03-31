@@ -21,12 +21,13 @@ trap finish EXIT
 sudo systemctl stop nivlheim
 sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/*
+echo -n | sudo tee /var/log/httpd/error_log
 sudo -u apache bash -c "psql -q -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
 sudo systemctl start nivlheim
 sleep 4
 
 # Run the client. This will call reqcert and post
-if ! grep -s -e "^server" /etc/nivlheim/client.conf; then
+if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
     echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 fi
 curl -sS -X POST 'http://localhost:4040/api/v0/settings/ipranges' -d 'ipRange=127.0.0.0/24'
@@ -115,6 +116,9 @@ if grep -A1 "ERROR" /var/log/nivlheim/system.log; then
     exit 1
 fi
 if journalctl -u nivlheim | grep -i error; then
+    exit 1
+fi
+if sudo grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
     exit 1
 fi
 

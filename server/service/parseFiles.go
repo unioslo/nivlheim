@@ -39,7 +39,7 @@ func (s parseFilesJob) Run(db *sql.DB) {
 			concurrent <- true
 			go func() {
 				defer func() { <-concurrent }()
-				parseFile(db, int(fileid.Int64))
+				parseFile(db, fileid.Int64)
 				pfib.Add(1)
 			}()
 		}
@@ -50,7 +50,7 @@ func (s parseFilesJob) Run(db *sql.DB) {
 	}
 }
 
-func parseFile(database *sql.DB, fileId int) {
+func parseFile(database *sql.DB, fileId int64) {
 	tx, err := database.Begin()
 	if err != nil {
 		log.Println(err)
@@ -76,7 +76,7 @@ func parseFile(database *sql.DB, fileId int) {
 		"ipaddr, certfp, clientversion, os_hostname FROM files WHERE fileid=$1",
 		fileId).
 		Scan(&filename, &content, &received, &isCommand, &certcn, &ipaddr,
-			&certfp, &cVersion, &osHostname)
+		&certfp, &cVersion, &osHostname)
 	if err != nil {
 		return
 	}

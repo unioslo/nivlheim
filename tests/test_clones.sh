@@ -20,6 +20,7 @@ trap finish EXIT
 # Clean/init everything
 sudo systemctl stop nivlheim
 sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} /var/run/nivlheim_client_last_run
+echo -n | sudo tee /var/log/httpd/error_log
 sudo -u apache bash -c "psql -q -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
 sudo systemctl start nivlheim
 sleep 4
@@ -50,7 +51,12 @@ fi
 
 # Pretend that I'm a clone and use the old nonce
 sudo cp $tempdir/noncecopy /var/nivlheim/nonce
+sudo rm -f /var/run/nivlheim_client_last_run
 sudo /usr/sbin/nivlheim_client
+if [[ -f /var/run/nivlheim_client_last_run ]]; then
+	echo "It seems the client managed to post data with a copied nonce..."
+	exit 1
+fi
 
 # The certificate should be revoked now
 if sudo curl -sf --cacert /var/www/nivlheim/CA/nivlheimca.crt \
@@ -65,6 +71,9 @@ if grep -A1 "ERROR" /var/log/nivlheim/system.log; then
 	exit 1
 fi
 if journalctl -u nivlheim | grep -i error; then
+	exit 1
+fi
+if sudo grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
 	exit 1
 fi
 

@@ -233,7 +233,14 @@ function deny(id) {
 	});
 }
 
+
+let reloadingTimeout = 0;
+
 function autoReloadStatus() {
+	if ($("#placeholder_systemstatus").length == 0) {
+		// We're longer on the status page, stop asking the API for status
+		return;
+	}
 	let start = new Date().getTime();
 	APIcall(
 		//"mockapi/systemstatus_data.json",
@@ -242,7 +249,8 @@ function autoReloadStatus() {
 		.done(function(){
 			let end = new Date().getTime();
 			$("#statusLoadedIn").html("Loaded in "+(end-start)+" ms.");
-			window.setTimeout(autoReloadStatus, 8000);
+			if (reloadingTimeout) window.clearTimeout(reloadingTimeout);
+			reloadingTimeout = window.setTimeout(autoReloadStatus, 8000);
 		});
 }
 

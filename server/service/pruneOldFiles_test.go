@@ -37,10 +37,10 @@ func TestGenerateTimeTable(t *testing.T) {
 }
 
 func TestWhatToDelete(t *testing.T) {
-	data := make(map[int]time.Time)
+	data := make(map[int64]time.Time)
 	// add a bunch of stuff <24h
 	const dayItems = 100
-	var fileID = 1
+	var fileID int64 = 1
 	var maxSeconds = 24 * 60 * 60
 	for i := 0; i < dayItems; i++ {
 		data[fileID] = time.Now().Add(-time.Duration(rand.Intn(maxSeconds)) * time.Second)
@@ -52,7 +52,7 @@ func TestWhatToDelete(t *testing.T) {
 	}
 
 	// now try things between 24 hours and 30 days
-	data = make(map[int]time.Time)
+	data = make(map[int64]time.Time)
 	minSeconds := 60 * 60 * 24
 	maxSeconds = minSeconds + 60*60*24*29 - 1
 	for i := 0; i < 1000; i++ {
@@ -64,7 +64,7 @@ func TestWhatToDelete(t *testing.T) {
 	// the newest(latest) and the oldest(earliest) version
 	// should be kept regardless
 	type record struct {
-		fileID int
+		fileID int64
 		mtime  time.Time
 	}
 	var oldest, newest record

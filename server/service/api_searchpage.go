@@ -15,7 +15,7 @@ type apiMethodSearchPage struct {
 }
 
 type apiSearchPageHit struct {
-	FileID        int        `json:"fileId"`
+	FileID        int64      `json:"fileId"`
 	Filename      jsonString `json:"filename"`
 	IsCommand     bool       `json:"isCommand"`
 	Excerpt       string     `json:"excerpt"`

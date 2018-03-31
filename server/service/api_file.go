@@ -33,8 +33,8 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	var err error
 
 	if req.FormValue("fileId") != "" {
-		var fileID int
-		fileID, err = strconv.Atoi(req.FormValue("fileId"))
+		var fileID int64
+		fileID, err = strconv.ParseInt(req.FormValue("fileId"), 10, 64)
 		if err != nil {
 			http.Error(w, "Unable to parse fileId", http.StatusBadRequest)
 			return
@@ -66,7 +66,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	defer rows.Close()
 
 	if rows.Next() {
-		var fileID int
+		var fileID int64
 		var filename, content, certfp, hostname sql.NullString
 		var isCommand sql.NullBool
 		var mtime, rtime pq.NullTime
@@ -112,7 +112,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 			defer rows2.Close()
 			type Version struct {
-				FileID int      `json:"fileId"`
+				FileID int64    `json:"fileId"`
 				Mtime  jsonTime `json:"lastModified"`
 			}
 			versions := make([]Version, 0)

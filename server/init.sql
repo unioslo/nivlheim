@@ -35,7 +35,7 @@ CREATE TABLE certificates(
 CREATE INDEX cert_fingerprint ON certificates(fingerprint);
 
 CREATE TABLE files(
-	fileid serial PRIMARY KEY NOT NULL,
+	fileid bigserial PRIMARY KEY NOT NULL,
 	ipaddr inet,
 	os_hostname text,
 	certcn text,
@@ -44,6 +44,7 @@ CREATE TABLE files(
 	received timestamp with time zone,
 	mtime timestamp with time zone,
 	content text,
+	crc32 int4,
 	is_command boolean not null default false,
 	clientversion text,
 	parsed boolean not null default false,
@@ -51,7 +52,7 @@ CREATE TABLE files(
 );
 
 CREATE INDEX files_parsed ON files(parsed);
-CREATE INDEX files_certfp ON files(certfp);
+CREATE INDEX files_certfp_fname ON files(certfp,filename);
 
 CREATE TABLE tasks(
 	taskid serial PRIMARY KEY NOT NULL,
