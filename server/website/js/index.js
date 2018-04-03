@@ -72,11 +72,6 @@ function showFrontPage() {
 			"/api/v0/awaitingApproval"+
 			"?fields=hostname,reversedns,ipaddress,approvalId",
 			"awaiting_approval", $('#placeholder_approval'));
-		APIcall(
-			//"mockapi/latestnewmachines.json",
-			"/api/v0/hostlist?fields=hostname,certfp,lastseen"+
-				"&rsort=lastseen&limit=10",
-			"latestnewmachines", $('#placeholder_latestnewmachines'));
 	});
 }
 

@@ -252,6 +252,11 @@ function autoReloadStatus() {
 			if (reloadingTimeout) window.clearTimeout(reloadingTimeout);
 			reloadingTimeout = window.setTimeout(autoReloadStatus, 8000);
 		});
+	APIcall(
+		//"mockapi/latestnewmachines.json",
+		"/api/v0/hostlist?fields=hostname,certfp,lastseen"+
+			"&rsort=lastseen&limit=20",
+		"latestnewmachines", $('div#latestmachines'));
 }
 
 //----====----====----====-- Browse hosts and files --====----====----====
