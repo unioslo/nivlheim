@@ -22,9 +22,14 @@ $(document).ready(function(){
 		if (!s) return "";
 		return encodeURIComponent(s);
 	});
+	Handlebars.registerHelper('ifeq', function(a,b,options){
+		if (a == b) return options.fn(this);
+		return options.inverse(this);
+	});
 
 	var routes = {
 		'/allhosts': allHosts,
+		'/hostgroup/:groupName': browseHostGroup,
 		'/browsehost/:certfp': browseHostByCert,
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:hostname/:filename': browseFileByName,
@@ -49,6 +54,7 @@ $(document).ready(function(){
 	router.param('fileId', /(\\d+)/);
 	router.param('certfp', /([0-9A-F]{40})/);
 	router.param('hostname', /([\\w\\.]+\\w+)/);
+	router.param('hostGroup', /([\\w\\s\\.]+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 
@@ -146,8 +152,13 @@ function searchPage(q) {
 
 function allHosts() {
 	//APIcall("mockapi/allhosts.json", "allhosts", "div#pageContent");
-	APIcall("/api/v0/hostlist?fields=hostname,certfp&sort=hostname&limit=30",
-		"allhosts", "div#pageContent");
+	APIcall("/api/v0/hostlist?group=os", "allhosts", "div#pageContent");
+}
+
+function browseHostGroup(g) {
+	APIcall("/api/v0/hostlist?os="+g+
+		"&fields=hostname,certfp,os&sort=hostname",
+		"hostlist", "div#pageContent");
 }
 
 function settingsPage() {

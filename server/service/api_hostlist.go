@@ -35,6 +35,12 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	// Grouping changes the whole SQL statement and returned fields
+	if req.FormValue("group") != "" {
+		performGroupQuery(w, req, vars.db, vars.devmode)
+		return
+	}
+
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		apiHostListSourceFields)
 	if hErr != nil {
@@ -166,6 +172,76 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	returnJSON(w, req, result)
 }
 
+func performGroupQuery(w http.ResponseWriter, req *http.Request,
+	db *sql.DB, devmode bool) {
+	if req.FormValue("fields") != "" {
+		http.Error(w, "Can't combine group and fields parameters",
+			http.StatusUnprocessableEntity)
+		return
+	}
+
+	err := req.ParseForm()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+
+	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery)
+	if hErr != nil {
+		http.Error(w, hErr.message, hErr.code)
+		return
+	}
+
+	group := req.FormValue("group")
+
+	if !contains(group, apiHostListSourceFields) {
+		http.Error(w, "Unsupported group field", http.StatusUnprocessableEntity)
+		return
+	}
+	g, ok := hostInfoDbFieldNames[group]
+	if ok {
+		group = g
+	}
+	statement := "SELECT " + group + ", count(*) FROM hostinfo " +
+		"WHERE hostname IS NOT NULL"
+	if len(where) > 0 {
+		statement += " AND " + where
+	}
+	statement += " GROUP BY " + group
+
+	if devmode {
+		log.Println(statement)
+		log.Print(qparams)
+	}
+
+	rows, err := db.Query(statement, qparams...)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	result := make(map[string]int, 0)
+	for rows.Next() {
+		var groupName sql.NullString
+		var count int
+		err = rows.Scan(&groupName, &count)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if groupName.Valid {
+			result[groupName.String] = count
+		} else {
+			result["null"] = count
+		}
+	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	returnJSON(w, req, result)
+}
+
 // Build the WHERE part of the SQL statement based on parameters.
 // - Supports "*" as a wildcard
 // - If a value starts with "!" it means not equal to or not like
@@ -176,7 +252,7 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 	// This slice will hold parameter values for the query
 	qparams := make([]interface{}, 0)
 
-	re := regexp.MustCompile("^(\\w+)([=!<>]{1,2})([\\w,\\*%]+)$")
+	re := regexp.MustCompile("^(\\w+)([=!<>]{1,2})(.+)$")
 	for _, pair := range strings.Split(queryString, "&") {
 		un, err := url.QueryUnescape(pair)
 		if err == nil {
@@ -191,7 +267,7 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 		}
 		name := m[1]
 		if name == "fields" || name == "sort" || name == "rsort" ||
-			name == "limit" || name == "offset" {
+			name == "limit" || name == "offset" || name == "group" {
 			continue
 		}
 		operator := m[2]
@@ -275,6 +351,17 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 				where = append(where,
 					fmt.Sprintf("now()-interval '%d%s' %s lastseen",
 						count, unit, operator))
+			} else if value == "null" {
+				if operator == "=" {
+					where = append(where, dbname+" IS NULL")
+				} else if operator == "!=" {
+					where = append(where, dbname+" IS NOT NULL")
+				} else {
+					return "", nil, &httpError{
+						message: "Unsupported operator for null value",
+						code:    http.StatusBadRequest,
+					}
+				}
 			} else {
 				qparams = append(qparams, value)
 				where = append(where, fmt.Sprintf("%s %s $%d", dbname,

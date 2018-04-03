@@ -1,0 +1,10 @@
+<section class="section">
+	<div class="container">
+		{{#each .}}
+		{{#if @first}}
+		<h1 class="title is-4"><a href="/#/allhosts">Browse</a> / {{os}}</h1>
+		{{/if}}
+		<a href="#/browsehost/{{certfp}}">{{hostname}}</a><br>
+		{{/each}}
+	</div>
+</section>
