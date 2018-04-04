@@ -108,7 +108,7 @@ $logger->debug("Hostname is: $hostname");
 
 eval {
 	# Generate client key
-	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+	my $cmd = "openssl genrsa -out $keyfile 4096 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	$logger->debug("Key OK.");

@@ -27,7 +27,7 @@ touch /var/www/nivlheim/rand
 # generate a Certificate Authority certificate to sign other certs with
 cd /var/www/nivlheim/CA
 if [ ! -f nivlheimca.key ]; then
-	openssl genrsa -out nivlheimca.key 4096 -config /etc/nivlheim/openssl_ca.conf
+	openssl genrsa -out nivlheimca.key 4096
 	openssl req -new -key nivlheimca.key -out nivlheimca.csr -config /etc/nivlheim/openssl_ca.conf
 	openssl x509 -req -days 365 -in nivlheimca.csr -out nivlheimca.crt -signkey nivlheimca.key
 fi

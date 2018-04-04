@@ -76,7 +76,7 @@ func parseFile(database *sql.DB, fileId int64) {
 		"ipaddr, certfp, clientversion, os_hostname FROM files WHERE fileid=$1",
 		fileId).
 		Scan(&filename, &content, &received, &isCommand, &certcn, &ipaddr,
-			&certfp, &cVersion, &osHostname)
+		&certfp, &cVersion, &osHostname)
 	if err != nil {
 		return
 	}
@@ -178,10 +178,10 @@ func parseFile(database *sql.DB, fileId int64) {
 	}
 
 	if filename.String == "/etc/lsb-release" {
-		re := regexp.MustCompile(`DISTRIB_ID=Ubuntu(?s:.*)DISTRIB_RELEASE=(\d+)\.(\d+)`)
+		re := regexp.MustCompile(`DISTRIB_ID=Ubuntu\nDISTRIB_RELEASE=(\d+)\.(\d+)`)
 		if m := re.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1 WHERE certfp=$2",
-				fmt.Sprintf("Ubuntu %s.%s", m[2], m[3]), certfp.String)
+				fmt.Sprintf("Ubuntu %s.%s", m[1], m[2]), certfp.String)
 		}
 		return
 	}
@@ -254,6 +254,15 @@ func parseFile(database *sql.DB, fileId int64) {
 		}
 		_, err = tx.Exec("UPDATE hostinfo SET vendor=$1,model=$2,serialno=$3"+
 			"WHERE certfp=$4", vendor, model, serial, certfp.String)
+		return
+	}
+
+	if filename.String == "/bin/freebsd-version -ku" {
+		if m := regexp.MustCompile(`(\d+)\.(\d+)-RELEASE`).
+			FindStringSubmatch(content.String); m != nil {
+			_, err = tx.Exec("UPDATE hostinfo SET os=$1",
+				fmt.Sprintf("FreeBSD %s", m[1]))
+		}
 		return
 	}
 

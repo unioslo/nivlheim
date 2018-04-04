@@ -130,7 +130,7 @@ my $p12file = "/tmp/user$id.p12";
 
 eval {
 	# Generate client key
-	my $cmd = "openssl genrsa -out $keyfile 4096 -config $opensslconf 2>/dev/null";
+	my $cmd = "openssl genrsa -out $keyfile 4096 2>/dev/null";
 
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	print "Key OK.\n";

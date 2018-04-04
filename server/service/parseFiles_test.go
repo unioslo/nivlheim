@@ -107,6 +107,56 @@ func testOSdetection(db *sql.DB, t *testing.T) {
 			filename: "/etc/redhat-release",
 			content:  "Fedora release 27 (Twenty Seven)",
 		},
+		{
+			osLabel:  "Debian 9",
+			filename: "/etc/debian_version",
+			content:  "9.3",
+		},
+		{
+			osLabel:  "Ubuntu 16.04",
+			filename: "/etc/lsb-release",
+			content: `DISTRIB_ID=Ubuntu
+DISTRIB_RELEASE=16.04
+DISTRIB_CODENAME=xenial
+DISTRIB_DESCRIPTION="Ubuntu 16.04.4 LTS"`,
+		},
+		{
+			osLabel:  "macOS 10.13",
+			filename: "/usr/bin/sw_vers",
+			content: `ProductName:    Mac OS X
+ProductVersion: 10.13.3
+BuildVersion:   17D102`,
+		},
+		{
+			osLabel:  "FreeBSD 11",
+			filename: "/bin/freebsd-version -ku",
+			content:  "11.1-RELEASE-p6",
+		},
+		{
+			osLabel:  "Windows 7",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows 7 Enterprise",
+		},
+		{
+			osLabel:  "Windows 2008 R2",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows Server 2008 R2 Standard",
+		},
+		{
+			osLabel:  "Windows 2012",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows Server 2012 Standard",
+		},
+		{
+			osLabel:  "Windows 2012 R2",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows Server 2012 R2 Standard",
+		},
+		{
+			osLabel:  "Windows 2016",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows Server 2016 Standard",
+		},
 	}
 	const fileID = 10000
 	const certfp = "AA11"
