@@ -181,7 +181,7 @@ func parseFile(database *sql.DB, fileId int64) {
 		re := regexp.MustCompile(`DISTRIB_ID=Ubuntu(?s:.*)DISTRIB_RELEASE=(\d+)\.(\d+)`)
 		if m := re.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1 WHERE certfp=$2",
-				fmt.Sprintf("Ubuntu %d.%d", m[2], m[3]), certfp.String)
+				fmt.Sprintf("Ubuntu %s.%s", m[2], m[3]), certfp.String)
 		}
 		return
 	}
@@ -203,7 +203,7 @@ func parseFile(database *sql.DB, fileId int64) {
 				"WHERE certfp=$2", "Windows "+m[1], certfp.String)
 		} else if m := reWinServer.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1, os_edition='Server' "+
-				"WHERE certfp=$2", fmt.Sprintf("Windows %d%s", m[1], m[2]),
+				"WHERE certfp=$2", fmt.Sprintf("Windows %s%s", m[1], m[2]),
 				certfp.String)
 		}
 		return
@@ -237,27 +237,23 @@ func parseFile(database *sql.DB, fileId int64) {
 	}
 
 	if filename.String == "/usr/sbin/dmidecode -t system" {
-		re := regexp.MustCompile(`^System Information\n(?ms:.*?)^$`)
-		if m := re.FindStringSubmatch(content.String); m != nil {
-			info := m[1]
-			var vendor, model, serial string
-			if m = regexp.MustCompile(`Manufacturer: (.*?)\s*$`).
-				FindStringSubmatch(info); m != nil {
-				vendor = m[1]
-				vendor = strings.Replace(vendor, "HP", "Hewlett-Packard", 1)
-				vendor = strings.Replace(vendor, "HITACHI", "Hitachi", 1)
-			}
-			if m = regexp.MustCompile(`Product Name: (.*?)\s*$`).
-				FindStringSubmatch(info); m != nil {
-				model = m[1]
-			}
-			if m = regexp.MustCompile(`Serial Number: ([^\s]+)\s*$`).
-				FindStringSubmatch(info); m != nil {
-				serial = m[1]
-			}
-			_, err = tx.Exec("UPDATE hostinfo SET vendor=$1,model=$2,serialno=$3"+
-				"WHERE certfp=$4", vendor, model, serial, certfp.String)
+		var vendor, model, serial string
+		if m := regexp.MustCompile(`Manufacturer: (.*)`).
+			FindStringSubmatch(content.String); m != nil {
+			vendor = m[1]
+			vendor = strings.Replace(vendor, "HP", "Hewlett-Packard", 1)
+			vendor = strings.Replace(vendor, "HITACHI", "Hitachi", 1)
 		}
+		if m := regexp.MustCompile(`Product Name: (.*)`).
+			FindStringSubmatch(content.String); m != nil {
+			model = m[1]
+		}
+		if m := regexp.MustCompile(`Serial Number: (\w+)`).
+			FindStringSubmatch(content.String); m != nil {
+			serial = m[1]
+		}
+		_, err = tx.Exec("UPDATE hostinfo SET vendor=$1,model=$2,serialno=$3"+
+			"WHERE certfp=$4", vendor, model, serial, certfp.String)
 		return
 	}
 

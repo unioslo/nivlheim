@@ -13,7 +13,7 @@ func TestIntervalBuffer(t *testing.T) {
 	}
 	f := b.Sum()
 	if math.Abs(f-60) > 0.00001 {
-		t.Errorf("Sum() = %f, expected %f", f, 60)
+		t.Errorf("Sum() = %f, expected %f", f, 60.0)
 	}
 	if len(b.buffer) != 60 {
 		t.Errorf("Buffer length = %d, expected 60", len(b.buffer))
