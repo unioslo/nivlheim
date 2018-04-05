@@ -57,8 +57,7 @@ func main() {
 	// Connect to database
 	var dbConnectionString string
 	if devmode {
-		//dbConnectionString = "sslmode=disable host=/var/run/postgresql"
-		dbConnectionString = "sslmode=disable dbname=apache user=apache host=nivlheim-beta.uio.no"
+		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
 	} else {
 		dbConnectionString = "dbname=apache host=/var/run/postgresql"
 	}

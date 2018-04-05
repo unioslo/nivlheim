@@ -76,7 +76,7 @@ func parseFile(database *sql.DB, fileId int64) {
 		"ipaddr, certfp, clientversion, os_hostname FROM files WHERE fileid=$1",
 		fileId).
 		Scan(&filename, &content, &received, &isCommand, &certcn, &ipaddr,
-		&certfp, &cVersion, &osHostname)
+			&certfp, &cVersion, &osHostname)
 	if err != nil {
 		return
 	}
@@ -260,8 +260,8 @@ func parseFile(database *sql.DB, fileId int64) {
 	if filename.String == "/bin/freebsd-version -ku" {
 		if m := regexp.MustCompile(`(\d+)\.(\d+)-RELEASE`).
 			FindStringSubmatch(content.String); m != nil {
-			_, err = tx.Exec("UPDATE hostinfo SET os=$1",
-				fmt.Sprintf("FreeBSD %s", m[1]))
+			_, err = tx.Exec("UPDATE hostinfo SET os=$1 WHERE certfp=$2",
+				fmt.Sprintf("FreeBSD %s", m[1]), certfp.String)
 		}
 		return
 	}

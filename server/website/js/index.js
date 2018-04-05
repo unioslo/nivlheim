@@ -22,8 +22,8 @@ $(document).ready(function(){
 		if (!s) return "";
 		return encodeURIComponent(s);
 	});
-	Handlebars.registerHelper('ifeq', function(a,b,options){
-		if (a == b) return options.fn(this);
+	Handlebars.registerHelper('ifmatch', function(a,b,options){
+		if (a.match(b)) return options.fn(this);
 		return options.inverse(this);
 	});
 
@@ -62,6 +62,16 @@ $(document).ready(function(){
 
 	$.get('/version.txt', function(data){
 		$("span#navbarVersion").text('Version ' + data);
+	});
+
+	// handle the "burger" menu icon that appears on narrow screens
+	$("div.navbar-burger").click(function(){
+		$(this).toggleClass('is-active');
+		$("div.navbar-menu").toggleClass('is-active');
+	});
+	$("a.navbar-item").click(function(){
+		$("div.navbar-burger").removeClass('is-active');
+		$("div.navbar-menu").removeClass('is-active');
 	});
 });
 
@@ -156,9 +166,22 @@ function allHosts() {
 }
 
 function browseHostGroup(g) {
-	APIcall("/api/v0/hostlist?os="+g+
-		"&fields=hostname,certfp,os&sort=hostname",
-		"hostlist", "div#pageContent");
+	let url = getAPIURLprefix() + "/api/v0/hostlist?os="+g+
+		"&fields=hostname,certfp,os&sort=hostname";
+	$.getJSON(url, function(data){
+		// Group the machines by the first letter of the hostname
+		let groups = {};
+		for (let i=0; i<data.length; i++) {
+			let firstLetter = data[i].hostname.substring(0,1).toUpperCase();
+			if (!groups[firstLetter]) groups[firstLetter] = [];
+			groups[firstLetter].push(data[i]);
+		}
+		data = {
+			"headline": decodeURIComponent(g),
+			"groups": groups
+		};
+		renderTemplate("hostlist", data, "div#pageContent");
+	});
 }
 
 function settingsPage() {

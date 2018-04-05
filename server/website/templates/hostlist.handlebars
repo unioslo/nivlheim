@@ -1,10 +1,13 @@
 <section class="section">
 	<div class="container">
-		{{#each .}}
-		{{#if @first}}
-		<h1 class="title is-4"><a href="/#/allhosts">Browse</a> / {{os}}</h1>
-		{{/if}}
-		<a href="#/browsehost/{{certfp}}">{{hostname}}</a><br>
+		<h1 class="title is-4"><a href="/#/allhosts">Browse</a> / {{headline}}</h1>
+		{{#each groups}}
+		<p>
+			<b>{{@key}}</b><br>
+			{{#each .}}
+			<a href="#/browsehost/{{certfp}}">{{hostname}}</a>
+			{{/each}}
+		</p>
 		{{/each}}
 	</div>
 </section>
