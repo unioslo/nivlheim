@@ -58,7 +58,7 @@ function getAPIURLprefix() {
 	return "";
 }
 
-function APIcall(url, templateName, domElement) {
+function APIcall(url, templateName, domElement, transform) {
 	let origurl = url;
 	if (url.startsWith("/api/"))
 		url = getAPIURLprefix() + url;
@@ -69,6 +69,9 @@ function APIcall(url, templateName, domElement) {
 				"data-api-url": origurl,
 				"data-handlebars-template": templateName
 			});
+			if (typeof transform == 'function') {
+				data = transform(data);
+			}
 			renderTemplate(templateName, data, domElement, deferredObj);
 		}
 		catch(error) {

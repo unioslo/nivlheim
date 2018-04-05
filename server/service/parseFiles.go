@@ -237,20 +237,23 @@ func parseFile(database *sql.DB, fileId int64) {
 	}
 
 	if filename.String == "/usr/sbin/dmidecode -t system" {
-		var vendor, model, serial string
-		if m := regexp.MustCompile(`Manufacturer: (.*)`).
+		var vendor, model, serial sql.NullString
+		if m := regexp.MustCompile(`Manufacturer: (\S+)`).
 			FindStringSubmatch(content.String); m != nil {
-			vendor = m[1]
-			vendor = strings.Replace(vendor, "HP", "Hewlett-Packard", 1)
-			vendor = strings.Replace(vendor, "HITACHI", "Hitachi", 1)
+			vendor.String = strings.TrimSpace(m[1])
+			vendor.String = strings.Replace(vendor.String, "HP", "Hewlett-Packard", 1)
+			vendor.String = strings.Replace(vendor.String, "HITACHI", "Hitachi", 1)
+			vendor.Valid = len(vendor.String) > 0
 		}
-		if m := regexp.MustCompile(`Product Name: (.*)`).
+		if m := regexp.MustCompile(`Product Name: (\S+*)`).
 			FindStringSubmatch(content.String); m != nil {
-			model = m[1]
+			model.String = strings.TrimSpace(m[1])
+			model.Valid = len(model.String) > 0
 		}
 		if m := regexp.MustCompile(`Serial Number: (\w+)`).
 			FindStringSubmatch(content.String); m != nil {
-			serial = m[1]
+			serial.String = m[1]
+			serial.Valid = len(serial.String) > 0
 		}
 		_, err = tx.Exec("UPDATE hostinfo SET vendor=$1,model=$2,serialno=$3"+
 			"WHERE certfp=$4", vendor, model, serial, certfp.String)
