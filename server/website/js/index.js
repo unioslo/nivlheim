@@ -29,7 +29,6 @@ $(document).ready(function(){
 
 	var routes = {
 		'/allhosts': allHosts,
-		'/hostgroup/:groupName': browseHostGroup,
 		'/browsehost/:certfp': browseHostByCert,
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:hostname/:filename': browseFileByName,
@@ -54,7 +53,6 @@ $(document).ready(function(){
 	router.param('fileId', /(\\d+)/);
 	router.param('certfp', /([0-9A-F]{40})/);
 	router.param('hostname', /([\\w\\.]+\\w+)/);
-	router.param('hostGroup', /([\\w\\s\\.]+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 
@@ -161,27 +159,77 @@ function searchPage(q) {
 }
 
 function allHosts() {
-	//APIcall("mockapi/allhosts.json", "allhosts", "div#pageContent");
-	APIcall("/api/v0/hostlist?group=os", "allhosts", "div#pageContent");
+	// are we already on the browse page? then don't reload it
+	if ($("aside.menu").length>0) return;
+	// retrieve lists of OSes, Manufacturers, etc.
+	let pfx = getAPIURLprefix();
+	let promises = [];
+	promises.push($.get(pfx+"/api/v0/hostlist?group=os"));
+	promises.push($.get(pfx+"/api/v0/hostlist?group=vendor"));
+	// wait for all the promises to complete
+	$.when.apply($, promises).then(function(){
+		// remove entries that are the string "null"
+		for (let i=0; i<arguments.length; i++)
+			delete arguments[i][0]["null"];
+		// compose an object to send to the handlebars template
+		var data = {
+			"os": arguments[0][0],
+			"manufacturer": arguments[1][0],
+		};
+		renderTemplate("allhosts", data, "div#pageContent")
+		.done(function(){
+			// Look at url parameters (if any) and select appropriate items
+			let p = getUrlParams();
+			if (p["q"]) {
+				let a = p["q"].split(',');
+				for (let i=0; i<a.length; i++) {
+					$("aside.menu li a:contains('"+a[i]+"')").addClass('is-active');
+				}
+			}
+			// Load matching hosts
+			reloadMatchingHosts();
+			// Add event handlers
+			$("aside.menu li a").click(function(){
+				// toggle this item on/off
+				$(this).toggleClass('is-active');
+				reloadMatchingHosts();
+			});
+		});
+	});
 }
 
-function browseHostGroup(g) {
-	let url = getAPIURLprefix() + "/api/v0/hostlist?os="+g+
-		"&fields=hostname,certfp,os&sort=hostname";
-	$.getJSON(url, function(data){
-		// Group the machines by the first letter of the hostname
-		let groups = {};
-		for (let i=0; i<data.length; i++) {
-			let firstLetter = data[i].hostname.substring(0,1).toUpperCase();
-			if (!groups[firstLetter]) groups[firstLetter] = [];
-			groups[firstLetter].push(data[i]);
-		}
-		data = {
-			"headline": decodeURIComponent(g),
-			"groups": groups
-		};
-		renderTemplate("hostlist", data, "div#pageContent");
+function reloadMatchingHosts() {
+	// build query string
+	let oses = [];
+	$("aside.menu li a.os.is-active span:first-of-type").each(function(i,e){
+		oses.push(e.innerText);
 	});
+	let manufacturers = [];
+	$("aside.menu li a.manufacturer.is-active span:first-of-type").each(function(i,e){
+		manufacturers.push(e.innerText);
+	});
+	// set the query string in the url
+	let q = oses.concat(manufacturers).join(',');
+	if (q) q = "?q="+q;
+	location.assign("/#/allhosts"+q);
+	// reload the list of hosts that match
+	q = "/api/v0/hostlist?fields=hostname,certfp";
+	if (oses.length>0) q += "&os="+oses.join(',');
+	if (manufacturers.length>0) q += "&vendor="+manufacturers.join(',');
+	let limit = 20, offset = 0;
+	APIcall(q + "&limit="+limit+"&offset="+offset, "hostlist", "div#hostlist")
+	.done(function(){
+		$(window).scroll(loadMoreHosts);
+	});
+}
+
+function loadMoreHosts() {
+	/*
+	if (!isScrolledIntoView($("#listbottom"))) return;
+	$("#listbottom").remove();
+	APIcall(  ,"div#moreitems")
+	.done(loadMoreHosts);
+	*/
 }
 
 function settingsPage() {

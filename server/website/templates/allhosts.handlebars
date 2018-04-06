@@ -1,34 +1,29 @@
 <section class="section">
 	<div class="container">
-		<h1 class="title is-4">Browse</h1>
-		<div class="field is-grouped is-grouped-multiline">
-			{{#each .}}
-			<div class="control">
-				<div class="buttons has-addons">
-					<a class="button" href="/#/hostgroup/{{urlescape @key}}">
-					{{#ifmatch @key "Windows"}}
-					<span class="icon"><i class="fab fa-windows fa-lg"></i></span>
-					{{/ifmatch}}
-					{{#ifmatch @key "RHEL"}}
-					<span class="icon"><img src="/images/redhat.png"></span>
-					{{/ifmatch}}
-					{{#ifmatch @key "Fedora"}}
-					<span class="icon"><img src="/images/fedora.png"></span>
-					{{/ifmatch}}
-					{{#ifmatch @key "Ubuntu"}}
-					<span class="icon"><img src="/images/ubuntu.png"></span>
-					{{/ifmatch}}
-					{{#ifmatch @key "Debian"}}
-					<span class="icon"><img src="/images/debian.png"></span>
-					{{/ifmatch}}
-					{{#ifmatch @key "macOS"}}
-					<span class="icon"><i class="fab fa-apple fa-lg"></i></span>
-					{{/ifmatch}}
-					<span>{{@key}}</span></a>
-					<a class="button is-info" href="/#/hostgroup/{{urlescape @key}}">{{this}}</a>
-				</div>
+		<div class="columns">
+			<div class="column is-narrow">
+				<aside class="menu">
+					<p class="menu-label">
+						Operating systems
+					</p>
+					<ul class="menu-list">
+						{{#each os}}
+						<li><a class="os"><span>{{@key}}</span><span> ({{.}})</span></a></li>
+						{{/each}}
+					</ul>
+					<p class="menu-label">
+						Manufacturers
+					</p>
+					<ul class="menu-list">
+						{{#each manufacturer}}
+						<li><a class="manufacturer"><span>{{@key}}</span><span> ({{.}})</span></a></li>
+						{{/each}}
+					</ul>
+				</aside>
 			</div>
-			{{/each}}
+			<div class="column">
+				<div id="hostlist"></div>
+			</div>
 		</div>
 	</div>
 </section>

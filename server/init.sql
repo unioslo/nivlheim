@@ -1,14 +1,10 @@
 SET client_min_messages TO WARNING;
 
-DROP INDEX IF EXISTS support_serial;
 DROP TABLE IF EXISTS waiting_for_approval;
 DROP TABLE IF EXISTS support;
 DROP TABLE IF EXISTS ipranges;
-DROP INDEX IF EXISTS hostinfo_hostname, hostinfo_dnsttl;
 DROP TABLE IF EXISTS hostinfo;
-DROP INDEX IF EXISTS files_parsed;
 DROP TABLE IF EXISTS files;
-DROP INDEX IF EXISTS cert_fingerprint;
 DROP TABLE IF EXISTS certificates;
 DROP TABLE IF EXISTS tasks;
 

@@ -1,13 +1,5 @@
-<section class="section">
-	<div class="container">
-		<h1 class="title is-4"><a href="/#/allhosts">Browse</a> / {{headline}}</h1>
-		{{#each groups}}
-		<p>
-			<b>{{@key}}</b><br>
-			{{#each .}}
-			<a href="#/browsehost/{{certfp}}">{{hostname}}</a>
-			{{/each}}
-		</p>
-		{{/each}}
-	</div>
-</section>
+{{#each .}}
+<a href="#/browsehost/{{certfp}}">{{hostname}}</a><br>
+{{/each}}
+<div id="#listbottom"></div>
+<div class="moreitems"></div>

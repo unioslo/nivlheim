@@ -101,13 +101,24 @@ function getUrlParams() {
 	var start = window.location.href.indexOf('?') + 1;
 	if (start == 0) { return vars; }
 	var end = window.location.href.indexOf('#');
+	if (end < start) end = -1; // if the ? is behind the #
 	if (end < 0) end = window.location.href.length;
 	var pairs = window.location.href.slice(start,end).split('&');
 	for (var i = 0; i < pairs.length; i++) {
 		pair = pairs[i].split('=');
-		vars[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g,' '));
+		if (pair[0] && pair[1]) {
+			vars[decodeURIComponent(pair[0])] = decodeURIComponent(pair[1].replace(/\+/g,' '));
+		}
 	}
 	return vars;
+}
+
+function isScrolledIntoView(elem) {
+    var docViewTop = $(window).scrollTop();
+    var docViewBottom = docViewTop + $(window).height();
+    var elemTop = $(elem).offset().top;
+    var elemBottom = elemTop + $(elem).height();
+    return ((elemBottom <= docViewBottom) && (elemTop >= docViewTop));
 }
 
 function validateIPv4cidr(addr) {
