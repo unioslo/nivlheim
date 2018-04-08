@@ -188,8 +188,8 @@ SMBIOS 2.7 present.
 
 Handle 0x0001, DMI type 1, 27 bytes
 System Information
-	Manufacturer: Dell Inc.
-	Product Name: Latitude E7240
+	Manufacturer: DELL INC.
+	Product Name: LATITUDE E7240
 	Version: 01
 	Serial Number: AFK5678
 	UUID: 4C4C4544-0054-4B10-804E-CAC04F565931

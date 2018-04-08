@@ -1,5 +1,10 @@
 {{#each .}}
+{{#if @first}}
+<div class="column is-narrow">
+{{/if}}
 <a href="#/browsehost/{{certfp}}">{{hostname}}</a><br>
+{{#if @last}}
+</div>
+<div class="column is-narrow loadmore"></div>
+{{/if}}
 {{/each}}
-<div id="#listbottom"></div>
-<div class="moreitems"></div>

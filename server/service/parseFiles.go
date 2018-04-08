@@ -238,16 +238,16 @@ func parseFile(database *sql.DB, fileId int64) {
 
 	if filename.String == "/usr/sbin/dmidecode -t system" {
 		var vendor, model, serial sql.NullString
-		if m := regexp.MustCompile(`Manufacturer: (\S+)`).
+		if m := regexp.MustCompile(`Manufacturer: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			vendor.String = strings.TrimSpace(m[1])
-			vendor.String = strings.Replace(vendor.String, "HP", "Hewlett-Packard", 1)
-			vendor.String = strings.Replace(vendor.String, "HITACHI", "Hitachi", 1)
+			vendor.String = strings.Title(strings.ToLower(vendor.String))
 			vendor.Valid = len(vendor.String) > 0
 		}
-		if m := regexp.MustCompile(`Product Name: (\S+*)`).
+		if m := regexp.MustCompile(`Product Name: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			model.String = strings.TrimSpace(m[1])
+			model.String = strings.Title(strings.ToLower(model.String))
 			model.Valid = len(model.String) > 0
 		}
 		if m := regexp.MustCompile(`Serial Number: (\w+)`).

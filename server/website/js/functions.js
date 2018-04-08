@@ -113,12 +113,16 @@ function getUrlParams() {
 	return vars;
 }
 
-function isScrolledIntoView(elem) {
-    var docViewTop = $(window).scrollTop();
-    var docViewBottom = docViewTop + $(window).height();
-    var elemTop = $(elem).offset().top;
-    var elemBottom = elemTop + $(elem).height();
-    return ((elemBottom <= docViewBottom) && (elemTop >= docViewTop));
+function scrollHandler() {
+	var docViewTop = $(window).scrollTop();
+	var docViewBottom = docViewTop + $(window).height();
+	$(".loadmore").each(function(i,elem){
+		var elemTop = $(elem).offset().top;
+		var elemBottom = elemTop + $(elem).height();
+		if (elemTop < docViewBottom && elemBottom > docViewTop) {
+			$(elem).detach().scroll().remove();
+		}
+	});
 }
 
 function validateIPv4cidr(addr) {

@@ -89,3 +89,8 @@ label.checkbox {
 	-ms-user-select: none;
 	user-select: none;
 }
+
+aside.menu > ul.menu-list > li > a {
+	padding-top: 1px;
+	padding-bottom: 1px;
+}

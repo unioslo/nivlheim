@@ -4,7 +4,7 @@
 			<div class="column is-narrow">
 				<aside class="menu">
 					<p class="menu-label">
-						Operating systems
+						Operating system
 					</p>
 					<ul class="menu-list">
 						{{#each os}}
@@ -12,17 +12,34 @@
 						{{/each}}
 					</ul>
 					<p class="menu-label">
-						Manufacturers
+						Edition
+					</p>
+					<ul class="menu-list">
+						{{#each osEdition}}
+						<li><a class="osEdition"><span>{{@key}}</span><span> ({{.}})</span></a></li>
+						{{/each}}
+					</ul>
+					<p class="menu-label">
+						Manufacturer
 					</p>
 					<ul class="menu-list">
 						{{#each manufacturer}}
 						<li><a class="manufacturer"><span>{{@key}}</span><span> ({{.}})</span></a></li>
 						{{/each}}
 					</ul>
+					<p class="menu-label">
+						Product
+					</p>
+					<ul class="menu-list">
+						{{#each product}}
+						<li><a class="product"><span>{{@key}}</span><span> ({{.}})</span></a></li>
+						{{/each}}
+					</ul>
 				</aside>
 			</div>
 			<div class="column">
-				<div id="hostlist"></div>
+				<div id="hostlist" class="columns is-multiline"></div>
+				<div id="morehosts"></div>
 			</div>
 		</div>
 	</div>

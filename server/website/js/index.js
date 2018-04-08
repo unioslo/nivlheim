@@ -71,6 +71,10 @@ $(document).ready(function(){
 		$("div.navbar-burger").removeClass('is-active');
 		$("div.navbar-menu").removeClass('is-active');
 	});
+
+	// load more elements when scrolling
+	$(window).scroll(scrollHandler);
+	window.setInterval(scrollHandler,500);
 });
 
 function showFrontPage() {
@@ -165,7 +169,9 @@ function allHosts() {
 	let pfx = getAPIURLprefix();
 	let promises = [];
 	promises.push($.get(pfx+"/api/v0/hostlist?group=os"));
+	promises.push($.get(pfx+"/api/v0/hostlist?group=osEdition"));
 	promises.push($.get(pfx+"/api/v0/hostlist?group=vendor"));
+	promises.push($.get(pfx+"/api/v0/hostlist?group=model"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
 		// remove entries that are the string "null"
@@ -174,7 +180,9 @@ function allHosts() {
 		// compose an object to send to the handlebars template
 		var data = {
 			"os": arguments[0][0],
-			"manufacturer": arguments[1][0],
+			"osEdition": arguments[1][0],
+			"manufacturer": arguments[2][0],
+			"product": arguments[3][0],
 		};
 		renderTemplate("allhosts", data, "div#pageContent")
 		.done(function(){
@@ -199,37 +207,49 @@ function allHosts() {
 }
 
 function reloadMatchingHosts() {
-	// build query string
+	// find the selected elements from the menu
 	let oses = [];
 	$("aside.menu li a.os.is-active span:first-of-type").each(function(i,e){
 		oses.push(e.innerText);
+	});
+	let editions = [];
+	$("aside.menu li a.osEdition.is-active span:first-of-type").each(function(i,e){
+		editions.push(e.innerText);
 	});
 	let manufacturers = [];
 	$("aside.menu li a.manufacturer.is-active span:first-of-type").each(function(i,e){
 		manufacturers.push(e.innerText);
 	});
+	let products = [];
+	$("aside.menu li a.product.is-active span:first-of-type").each(function(i,e){
+		products.push(e.innerText);
+	});
 	// set the query string in the url
-	let q = oses.concat(manufacturers).join(',');
+	let q = oses.concat(editions).concat(manufacturers).concat(products).join(',');
 	if (q) q = "?q="+q;
 	location.assign("/#/allhosts"+q);
-	// reload the list of hosts that match
+	// prepare the API call that loads the list of hosts that match
 	q = "/api/v0/hostlist?fields=hostname,certfp";
 	if (oses.length>0) q += "&os="+oses.join(',');
+	if (editions.length>0) q += "&osEdition="+editions.join(',');
 	if (manufacturers.length>0) q += "&vendor="+manufacturers.join(',');
-	let limit = 20, offset = 0;
-	APIcall(q + "&limit="+limit+"&offset="+offset, "hostlist", "div#hostlist")
-	.done(function(){
-		$(window).scroll(loadMoreHosts);
-	});
+	if (products.length>0) q += "&model="+products.join(',');
+	$("div#hostlist").data("query",q).data("offset",0).html("");
+	loadMoreHosts();
 }
 
 function loadMoreHosts() {
-	/*
-	if (!isScrolledIntoView($("#listbottom"))) return;
-	$("#listbottom").remove();
-	APIcall(  ,"div#moreitems")
-	.done(loadMoreHosts);
-	*/
+	let q = $("div#hostlist").data("query");
+	let offset = $("div#hostlist").data("offset") || 0;
+	//console.log("Loading from "+offset);
+	let limit = 30;
+	APIcall(q + "&limit="+limit+"&offset="+offset, "hostlist",
+		"div#morehosts")
+	.done(function(){
+		$("div#hostlist").data("offset", offset + limit);
+		$("div#morehosts").children().appendTo("div#hostlist");
+		$("div.loadmore").scroll(loadMoreHosts);
+	});
 }
 
 function settingsPage() {
