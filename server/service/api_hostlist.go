@@ -67,26 +67,29 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		statement += " AND " + where
 	}
 
-	var desc string
-	sort := req.FormValue("sort")
-	if sort == "" {
-		sort = req.FormValue("rsort")
-		if sort != "" {
+	if sort := req.FormValue("sort"); sort != "" {
+		var desc string
+		if sort[0] == '-' {
+			sort = sort[1:]
 			desc = "DESC"
 		}
-	}
-	if sort == "" {
-		sort = "hostname"
-	} else if contains(sort, apiHostListSourceFields) {
-		h, ok := hostInfoDbFieldNames[sort]
-		if ok {
-			sort = h
+		if sort[0] == '+' {
+			sort = sort[1:]
+			// order is ASC by default
 		}
-	} else {
-		http.Error(w, "Unsupported sort field", http.StatusUnprocessableEntity)
-		return
+		if sort == "" {
+			sort = "hostname"
+		} else if contains(sort, apiHostListSourceFields) {
+			h, ok := hostInfoDbFieldNames[sort]
+			if ok {
+				sort = h
+			}
+		} else {
+			http.Error(w, "Unsupported sort field", http.StatusUnprocessableEntity)
+			return
+		}
+		statement += fmt.Sprintf(" ORDER BY %s %s", sort, desc)
 	}
-	statement += fmt.Sprintf(" ORDER BY %s %s", sort, desc)
 
 	if req.FormValue("limit") != "" {
 		var limit int
@@ -266,7 +269,7 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 			}
 		}
 		name := m[1]
-		if name == "fields" || name == "sort" || name == "rsort" ||
+		if name == "fields" || name == "sort" ||
 			name == "limit" || name == "offset" || name == "group" {
 			continue
 		}
@@ -284,7 +287,6 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 				message: "Unsupported operator: " + operator,
 			}
 		}
-		value := m[3]
 		validFieldName := false
 		for _, key := range apiHostListSourceFields {
 			if strings.EqualFold(key, name) {
@@ -299,11 +301,12 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 			}
 		}
 		// the name of the field in the database
-		dbname, ok := hostInfoDbFieldNames[name]
+		colname, ok := hostInfoDbFieldNames[name]
 		if !ok {
-			dbname = name
+			colname = name
 		}
 		// Wildcards?
+		value := m[3]
 		if strings.Index(value, "*") > -1 {
 			// The value contains wildcards
 			parts := make([]string, 0)
@@ -322,10 +325,10 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 			}
 			if operator == "!=" {
 				where = append(where, fmt.Sprintf("%s NOT LIKE %s",
-					dbname, joined))
+					colname, joined))
 			} else if operator == "=" {
 				where = append(where, fmt.Sprintf("%s LIKE %s",
-					dbname, joined))
+					colname, joined))
 			} else {
 				return "", nil, &httpError{
 					message: "Can't use operator '" + operator + "' with wildcards ('*')",
@@ -353,9 +356,9 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 						count, unit, operator))
 			} else if value == "null" {
 				if operator == "=" {
-					where = append(where, dbname+" IS NULL")
+					where = append(where, colname+" IS NULL")
 				} else if operator == "!=" {
-					where = append(where, dbname+" IS NOT NULL")
+					where = append(where, colname+" IS NOT NULL")
 				} else {
 					return "", nil, &httpError{
 						message: "Unsupported operator for null value",
@@ -363,9 +366,19 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 					}
 				}
 			} else {
-				qparams = append(qparams, value)
-				where = append(where, fmt.Sprintf("%s %s $%d", dbname,
-					operator, len(qparams)))
+				if strings.Index(value, ",") > -1 && operator == "=" {
+					q := make([]string, 0)
+					for _, s := range strings.Split(value, ",") {
+						qparams = append(qparams, s)
+						q = append(q, fmt.Sprintf("$%d", len(qparams)))
+					}
+					where = append(where, fmt.Sprintf("%s IN (%s)", colname,
+						strings.Join(q, ",")))
+				} else {
+					qparams = append(qparams, value)
+					where = append(where, fmt.Sprintf("%s %s $%d", colname,
+						operator, len(qparams)))
+				}
 			}
 		}
 	}

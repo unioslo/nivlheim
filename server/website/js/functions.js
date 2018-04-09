@@ -273,7 +273,7 @@ function autoReloadStatus() {
 	APIcall(
 		//"mockapi/latestnewmachines.json",
 		"/api/v0/hostlist?fields=hostname,certfp,lastseen"+
-			"&rsort=lastseen&limit=20",
+			"&sort=-lastseen&limit=20",
 		"latestnewmachines", $('div#latestmachines'));
 }
 

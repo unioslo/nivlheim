@@ -59,6 +59,21 @@ func TestBuildSQLWhere(t *testing.T) {
 			params: nil,
 			errmsg: "Unsupported operator: =>",
 		},
+		whereTest{
+			query:  "os=Debian+8,Debian+9",
+			sql:    "os IN ($1,$2)",
+			params: []interface{}{"Debian 8", "Debian 9"},
+		},
+		whereTest{
+			query:  "osEdition=null",
+			sql:    "os_edition IS NULL",
+			params: []interface{}{},
+		},
+		whereTest{
+			query:  "osEdition!=null",
+			sql:    "os_edition IS NOT NULL",
+			params: []interface{}{},
+		},
 	}
 
 	for _, w := range tests {

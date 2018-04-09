@@ -64,10 +64,11 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 
 	row, err := vars.db.Query(
-		"SELECT count(*) FROM (SELECT content,row_number() OVER "+
+		"SELECT count(*) FROM (SELECT vec,row_number() OVER "+
 			"(PARTITION BY certfp,filename ORDER BY mtime DESC) "+
 			"FROM files) AS foo "+
-			"WHERE row_number=1 AND content ILIKE '%'||$1||'%'",
+			"WHERE row_number=1 AND vec @@ to_tsquery('english',$1)",
+		//	"WHERE row_number=1 AND content ILIKE '%'||$1||'%'",
 		result.Query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -94,10 +95,11 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 
 	st := "SELECT fileid,filename,is_command,hostname,certfp,content " +
-		"FROM (SELECT fileid,filename,is_command,certfp,content," +
+		"FROM (SELECT fileid,filename,is_command,certfp,content,vec," +
 		"row_number() OVER (PARTITION BY certfp,filename ORDER BY mtime DESC) " +
 		"FROM files) AS foo LEFT JOIN hostinfo USING (certfp) " +
-		"WHERE row_number=1 AND content ILIKE '%'||$1||'%' " +
+		//		"WHERE row_number=1 AND content ILIKE '%'||$1||'%' " +
+		"WHERE row_number=1 AND vec @@ to_tsquery('english',$1) " +
 		"ORDER BY hostname LIMIT $2 OFFSET $3"
 
 	rows, err := vars.db.Query(st, result.Query, pageSize,

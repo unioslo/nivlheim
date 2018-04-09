@@ -40,6 +40,7 @@ CREATE TABLE files(
 	received timestamp with time zone,
 	mtime timestamp with time zone,
 	content text,
+	vec ts_vector,
 	crc32 int4,
 	is_command boolean not null default false,
 	clientversion text,
@@ -49,6 +50,7 @@ CREATE TABLE files(
 
 CREATE INDEX files_parsed ON files(parsed);
 CREATE INDEX files_certfp_fname ON files(certfp,filename);
+CREATE INDEX files_content ON files USING gist('english',vec);
 
 CREATE TABLE tasks(
 	taskid serial PRIMARY KEY NOT NULL,
