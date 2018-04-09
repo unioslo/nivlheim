@@ -16,7 +16,7 @@ th {
 	padding-right: 1em;
 }
 
-span.excerpt em {
+div#searchResult span.excerpt b {
 	font-weight: normal;
 	font-style: normal;
 	background-color: rgba(255,255,200,0.6);
@@ -44,6 +44,14 @@ div.filecontent ins {
 
 .color-deny {
 	color:#600;
+}
+
+a.pagination-next, a.pagination-previous, a.pagination-link {
+	background-color: rgba(255,255,255,0.4);
+}
+
+span.pagination-ellipsis {
+	color: #555;
 }
 
 .is-not-displayed {

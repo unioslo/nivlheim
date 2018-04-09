@@ -3,11 +3,10 @@ package main
 import (
 	"database/sql"
 	"encoding/json"
-	"html"
 	"log"
+	"math"
 	"net/http"
 	"strconv"
-	"strings"
 )
 
 type apiMethodSearchPage struct {
@@ -18,7 +17,7 @@ type apiSearchPageHit struct {
 	FileID        int64      `json:"fileId"`
 	Filename      jsonString `json:"filename"`
 	IsCommand     bool       `json:"isCommand"`
-	Excerpt       string     `json:"excerpt"`
+	Excerpt       jsonString `json:"excerpt"`
 	Hostname      jsonString `json:"hostname"`
 	CertFP        jsonString `json:"certfp"`
 	DisplayNumber int        `json:"displayNumber"`
@@ -28,6 +27,7 @@ type apiSearchPageResult struct {
 	Query   string             `json:"query"`
 	NumHits int                `json:"numberOfHits"`
 	Page    int                `json:"page"`
+	MaxPage int                `json:"maxPage"`
 	Hits    []apiSearchPageHit `json:"hits"`
 }
 
@@ -64,11 +64,8 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 
 	row, err := vars.db.Query(
-		"SELECT count(*) FROM (SELECT vec,row_number() OVER "+
-			"(PARTITION BY certfp,filename ORDER BY mtime DESC) "+
-			"FROM files) AS foo "+
-			"WHERE row_number=1 AND vec @@ to_tsquery('english',$1)",
-		//	"WHERE row_number=1 AND content ILIKE '%'||$1||'%'",
+		"SELECT count(distinct(certfp,filename)) FROM files "+
+			"WHERE tsvec @@ plainto_tsquery('english',$1)",
 		result.Query)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -94,13 +91,20 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		}
 	}
 
-	st := "SELECT fileid,filename,is_command,hostname,certfp,content " +
-		"FROM (SELECT fileid,filename,is_command,certfp,content,vec," +
-		"row_number() OVER (PARTITION BY certfp,filename ORDER BY mtime DESC) " +
-		"FROM files) AS foo LEFT JOIN hostinfo USING (certfp) " +
-		//		"WHERE row_number=1 AND content ILIKE '%'||$1||'%' " +
-		"WHERE row_number=1 AND vec @@ to_tsquery('english',$1) " +
-		"ORDER BY hostname LIMIT $2 OFFSET $3"
+	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
+
+	st := "SELECT fileid,filename,is_command,hostname,certfp,content," +
+		"ts_headline(content,plainto_tsquery('english',$1)) AS excerpt FROM " +
+		" (SELECT fileid,filename,is_command,certfp,content FROM " +
+		"   (SELECT fileid,filename,is_command,certfp,content,tsvec,row_number()" +
+		"    OVER (PARTITION BY certfp,filename ORDER BY mtime DESC)" +
+		"    FROM files WHERE tsvec @@ plainto_tsquery('english',$1)" +
+		"   ) AS foo1 " +
+		"   WHERE row_number=1 " +
+		"   ORDER BY ts_rank(tsvec, plainto_tsquery('english',$1)) DESC " +
+		"   LIMIT $2 OFFSET $3" +
+		" ) AS foo2 " +
+		" LEFT JOIN hostinfo USING (certfp)"
 
 	rows, err := vars.db.Query(st, result.Query, pageSize,
 		(result.Page-1)*pageSize)
@@ -110,19 +114,13 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 	defer rows.Close()
 
-	lq := strings.ToLower(html.EscapeString(result.Query))
-	exSize, err := strconv.Atoi(req.FormValue("excerpt"))
-	if err != nil {
-		exSize = 50
-	}
-
 	result.Hits = make([]apiSearchPageHit, 0)
-	for displayNumber := 1; rows.Next(); displayNumber++ {
-		var filename, hostname, certfp, content sql.NullString
+	for rowNumber := 1; rows.Next(); rowNumber++ {
+		var filename, hostname, certfp, content, excerpt sql.NullString
 		var isCommand sql.NullBool
 		hit := apiSearchPageHit{}
 		err = rows.Scan(&hit.FileID, &filename, &isCommand, &hostname, &certfp,
-			&content)
+			&content, &excerpt)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -131,27 +129,8 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		hit.Hostname = jsonString(hostname)
 		hit.CertFP = jsonString(certfp)
 		hit.IsCommand = isCommand.Bool
-		hit.DisplayNumber = displayNumber
-		// must html-escape the content excerpt
-		ec := html.EscapeString(content.String)
-		i := strings.Index(strings.ToLower(ec), lq)
-		start := i - exSize/2
-		if start < 0 {
-			start = 0
-		}
-		end := i + exSize/2
-		if end > len(ec) {
-			end = len(ec)
-		}
-		ex := ec[start:end]
-		i = strings.Index(strings.ToLower(ex), lq)
-		i2 := i + len(lq)
-		ex = ex[0:i2] + "</em>" + ex[i2:]
-		ex = ex[0:i] + "<em>" + ex[i:]
-		if len(ex) > 0 && ex[len(ex)-1] != ' ' {
-			ex += "&hellip;"
-		}
-		hit.Excerpt = ex
+		hit.DisplayNumber = rowNumber
+		hit.Excerpt = jsonString(excerpt)
 		result.Hits = append(result.Hits, hit)
 	}
 	if err = rows.Err(); err != nil {

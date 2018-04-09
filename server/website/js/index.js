@@ -26,13 +26,45 @@ $(document).ready(function(){
 		if (a.match(b)) return options.fn(this);
 		return options.inverse(this);
 	});
+	Handlebars.registerHelper('ifeq', function(a,b,options){
+		if (a == b) return options.fn(this);
+		return options.inverse(this);
+	});
+	Handlebars.registerHelper('pagination', function(page, maxPage, block){
+		let accum = '';
+		if (page-5>1) {
+			accum += block.fn(1);
+		}
+		if (page-5>2) {
+			accum += block.fn('...');
+		}
+		let from = Math.max(page-5, 1);
+		let to = Math.min(Math.max(page+5, 10), maxPage);
+		for(let i = from; i <= to; ++i)
+			accum += block.fn(i);
+		if (to < maxPage-1) {
+			accum += block.fn('...');
+		}
+		if (to < maxPage) {
+			accum += block.fn(maxPage);
+		}
+		return accum;
+	});
+	Handlebars.registerHelper('previous', function(n,block){
+		if (n > 1) { return block.fn(n-1); }
+		return "";
+	});
+	Handlebars.registerHelper('next', function(n,m,block){
+		if (n<m) { return block.fn(n+1); }
+		return "";
+	});
 
 	var routes = {
 		'/allhosts': allHosts,
 		'/browsehost/:certfp': browseHostByCert,
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:hostname/:filename': browseFileByName,
-		'/search/:query': searchPage,
+		'/search/:page/:query': searchPage,
 		'/search': searchPage,
 		'/settings': settingsPage,
 		'/': showFrontPage
@@ -55,6 +87,7 @@ $(document).ready(function(){
 	router.param('hostname', /([\\w\\.]+\\w+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
+	router.param('page', /(\d+)/);
 
 	router.init('/');
 
@@ -138,20 +171,28 @@ function browseFileByName(hostname, filename) {
 function newSearch() {
 	let q = $("input#search").val();
 	if (q == "") return;
-	location.href = "#/search/" +
+	location.href = "#/search/1/" +
 		encodeURIComponent(q);
 }
 
-function searchPage(q) {
-	// show the spinner
-	$("div#searchSpinner").fadeIn();
-	$("div#searchResult").fadeOut();
+function searchPage(page, q) {
 	if (!q) q = "";
 	else q = decodeURIComponent(q);
+	if ($("div#searchSpinner").length == 0) {
+		// if we're not already on the search page, show a blank page
+		$("div#pageContent").children().fadeOut().remove();
+		$("div#pageContent").append('<section class="section">'+
+			'<div class="container"><span class="icon">'+
+			'<i class="fas fa-cog fa-3x fa-spin"></i></span></div></section>');
+	} else {
+		// show the spinner
+		$("div#searchSpinner").fadeIn();
+		$("div#searchResult").fadeOut();
+	}
 	APIcall(
 		//"mockapi/searchpage.json",
 		"/api/v0/searchpage?q="+encodeURIComponent(q)+
-		"&page=1&hitsPerPage=10&excerpt=80",
+		"&page="+page+"&hitsPerPage=8",
 		"searchpage", "div#pageContent")
 	.done(function(){
 		// add handlers to the input field and button

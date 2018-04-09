@@ -38,6 +38,28 @@
 				</h1>
 			</p>
 			{{/each}}
+			<nav class="pagination" role="navigation" aria-label="pagination">
+				{{#previous page}}
+				<a class="pagination-previous" href="/#/search/{{this}}/{{urlescape ../query}}">Previous</a>
+				{{/previous}}
+				{{#next page maxPage}}
+				<a class="pagination-next" href="/#/search/{{this}}/{{urlescape ../query}}">Next page</a>
+				{{/next}}
+				<ul class="pagination-list">
+					{{#pagination page maxPage}}
+					<li>
+						{{#ifeq this "..."}}
+						<span class="pagination-ellipsis">&hellip;</span>
+						{{else}}
+						<a class="pagination-link {{#ifeq this ../page}}is-current{{/ifeq}}"
+							aria-label="Page {{this}}"
+							href="/#/search/{{this}}/{{urlescape ../query}}"
+							aria-current="page">{{this}}</a>
+						{{/ifeq}}
+					</li>
+					{{/pagination}}
+				</ul>
+			</nav>
 		</div>
 	</div>
 </section>
