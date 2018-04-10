@@ -40,7 +40,7 @@ CREATE TABLE files(
 	received timestamp with time zone,
 	mtime timestamp with time zone,
 	content text,
-	tsvec ts_vector,
+	tsvec tsvector,
 	crc32 int4,
 	is_command boolean not null default false,
 	clientversion text,
@@ -50,9 +50,10 @@ CREATE TABLE files(
 
 CREATE INDEX files_parsed ON files(parsed);
 CREATE INDEX files_certfp_fname ON files(certfp,filename);
-CREATE INDEX files_content ON files USING gist('english',tsvec);
+CREATE INDEX files_tsvec ON files USING gist(tsvec);
 
-CREATE OR REPLACE FUNCTION upd_tsvec() RETURNS TRIGGER AS $files_update_tsvec$
+--start_of_procedures
+CREATE OR REPLACE FUNCTION upd_tsvec() RETURNS TRIGGER AS $upd_tsvec$
 	BEGIN
 		IF (TG_OP = 'INSERT') THEN
 			UPDATE files SET tsvec = to_tsvector('english', left(NEW.content,1024*1024))
@@ -60,10 +61,12 @@ CREATE OR REPLACE FUNCTION upd_tsvec() RETURNS TRIGGER AS $files_update_tsvec$
 			RETURN NEW;
 		END IF;
 	END;
-$files_update_tsvec$ LANGUAGE plpgsql;
+$upd_tsvec$ LANGUAGE plpgsql;
 
-CREATE TRIGGER files_update_tsvec AFTER INSERT ON files
+CREATE TRIGGER files_update_tsvec
+AFTER INSERT ON files
 	FOR EACH ROW EXECUTE PROCEDURE upd_tsvec();
+--end_of_procedures
 
 CREATE TABLE tasks(
 	taskid serial PRIMARY KEY NOT NULL,

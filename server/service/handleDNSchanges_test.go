@@ -67,9 +67,9 @@ func TestHandleDNSchanges(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't read init.sql")
 	}
-	_, err = db.Exec(string(bytes))
+	_, err = db.Exec(stripProceduresAndTriggers(string(bytes)))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("init.sql: %v", err)
 	}
 	// Set up some test data
 	_, err = db.Exec("INSERT INTO ipranges(iprange,use_dns) " +

@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"io/ioutil"
 	"os"
+	"regexp"
 	"testing"
 )
 
@@ -31,9 +32,9 @@ func TestParseFile(t *testing.T) {
 	if err != nil {
 		t.Fatal("Couldn't read init.sql")
 	}
-	_, err = db.Exec(string(bytes))
+	_, err = db.Exec(stripProceduresAndTriggers(string(bytes)))
 	if err != nil {
-		t.Fatal(err)
+		t.Fatalf("init.sql: %v", err)
 	}
 	// Set up some test data
 	expectedKernel := "4.15.13-300.fc27.x86_64"
@@ -180,6 +181,18 @@ BuildVersion:   17D102`,
 			t.Errorf("OS is %s, expected %s", os.String, test.osLabel)
 		}
 	}
+}
+
+func stripProceduresAndTriggers(script string) string {
+	re := regexp.MustCompile("--start_of_procedures\n(?s:.+?)--end_of_procedures\n")
+	for n := 1; n < 100; n++ {
+		m := re.FindStringIndex(script)
+		if m == nil {
+			break
+		}
+		script = script[0:m[0]] + script[m[1]:]
+	}
+	return script
 }
 
 const dmiDecodeOutput = `# dmidecode 3.1
