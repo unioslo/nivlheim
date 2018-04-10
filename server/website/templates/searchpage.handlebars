@@ -13,53 +13,19 @@
 				<button id="searchButton" class="button is-info">Search</button>
 			</div>
 		</div>
-		<br>
-		<div id="searchSpinner" class="is-not-displayed position-absolute">
-			&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
-			<span class="icon">
-				<i class="fas fa-cog fa-3x fa-spin"></i>
-			</span>
-		</div>
-		<div id="searchResult">
-			<p>
-			{{#if query}}<span>{{numberOfHits}}</span> hits{{#if hits}}:{{/if}}{{/if}}
-			</p>
-			{{#each hits}}
-			<p>
-				<h1 class="title is-5">
-					<span class="has-text-link"><a href="/#/browsefile/{{fileId}}">
-						{{filename}}</a></span>
-				</h1>
-				<h1 class="subtitle is-6"
-					<span class="has-text-link"><a href="/#/browsehost/{{certfp}}">
-						{{hostname}}</a></span>
+		<div class="columns">
+			<div id="searchResultHostnames" class="column is-narrow"></div>
+			<div class="column">
+				<div id="searchSpinner" class="is-not-displayed position-absolute">
 					<br>
-					<span class="excerpt">{{{excerpt}}}</span>
-				</h1>
-			</p>
-			{{/each}}
-			<nav class="pagination" role="navigation" aria-label="pagination">
-				{{#previous page}}
-				<a class="pagination-previous" href="/#/search/{{this}}/{{urlescape ../query}}">Previous</a>
-				{{/previous}}
-				{{#next page maxPage}}
-				<a class="pagination-next" href="/#/search/{{this}}/{{urlescape ../query}}">Next page</a>
-				{{/next}}
-				<ul class="pagination-list">
-					{{#pagination page maxPage}}
-					<li>
-						{{#ifeq this "..."}}
-						<span class="pagination-ellipsis">&hellip;</span>
-						{{else}}
-						<a class="pagination-link {{#ifeq this ../page}}is-current{{/ifeq}}"
-							aria-label="Page {{this}}"
-							href="/#/search/{{this}}/{{urlescape ../query}}"
-							aria-current="page">{{this}}</a>
-						{{/ifeq}}
-					</li>
-					{{/pagination}}
-				</ul>
-			</nav>
+					&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+					<span class="icon">
+						<i class="fas fa-cog fa-3x fa-spin"></i>
+					</span>
+				</div>
+				<div id="searchResult">
+				</div>
+			</div>
 		</div>
 	</div>
 </section>

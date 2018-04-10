@@ -26,8 +26,13 @@ $(document).ready(function(){
 		if (a.match(b)) return options.fn(this);
 		return options.inverse(this);
 	});
-	Handlebars.registerHelper('ifeq', function(a,b,options){
-		if (a == b) return options.fn(this);
+	Handlebars.registerHelper('ifcmp', function(a,operator,b,options){
+		switch (operator) {
+			case '=': if (a == b) return options.fn(this); break;
+			case '!=': if (a != b) return options.fn(this); break;
+			case '<': if (a < b) return options.fn(this); break;
+			case '>': if (a > b) return options.fn(this); break;
+		}
 		return options.inverse(this);
 	});
 	Handlebars.registerHelper('pagination', function(page, maxPage, block){
@@ -178,6 +183,35 @@ function newSearch() {
 function searchPage(page, q) {
 	if (!q) q = "";
 	else q = decodeURIComponent(q);
+	//if ($("div#searchSpinner").length == 0) {
+	// if we're not already on the search page, render the template
+	renderTemplate("searchpage", {"query": q}, "div#pageContent")
+	.done(function(){
+		// add handlers to the input field and button
+		$("button#searchButton").click(newSearch);
+		$("input#search").keyup(function(e){
+			if(e.keyCode===13){newSearch();}
+		}).focus(); // focus the input field
+		// no query? then exit
+		if (q == "") return;
+		// show the spinner
+		$("div#searchSpinner").fadeIn();
+		// search host names
+		APIcall("/api/v0/hostlist?fields=hostname,certfp&hostname="+
+			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
+			"div#searchResultHostnames");
+		// search files
+		APIcall(
+			//"mockapi/searchpage.json",
+			"/api/v0/searchpage?q="+encodeURIComponent(q)+
+			"&page="+page+"&hitsPerPage=8",
+			"searchresultfiles", "div#searchResult")
+		.done(function(){
+			// hide the spinner
+			$("div#searchSpinner").hide();
+		});
+	});
+/*
 	if ($("div#searchSpinner").length == 0) {
 		// if we're not already on the search page, show a blank page
 		$("div#pageContent").children().fadeOut().remove();
@@ -188,19 +222,7 @@ function searchPage(page, q) {
 		// show the spinner
 		$("div#searchSpinner").fadeIn();
 		$("div#searchResult").fadeOut();
-	}
-	APIcall(
-		//"mockapi/searchpage.json",
-		"/api/v0/searchpage?q="+encodeURIComponent(q)+
-		"&page="+page+"&hitsPerPage=8",
-		"searchpage", "div#pageContent")
-	.done(function(){
-		// add handlers to the input field and button
-		$("button#searchButton").click(newSearch);
-		$("input#search").keyup(function(e){
-			if(e.keyCode===13){newSearch();}
-		}).focus(); // focus the input field
-	});
+	}*/
 }
 
 function allHosts() {

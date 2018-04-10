@@ -264,9 +264,14 @@ function autoReloadStatus() {
 		//"mockapi/systemstatus_data.json",
 		"/api/v0/status",
 		"systemstatus",	$('#placeholder_systemstatus'))
-		.done(function(){
+		.done(function(data){
 			let end = new Date().getTime();
 			$("#statusLoadedIn").html("Loaded in "+(end-start)+" ms.");
+			// Error messages next to data
+			for (let prop in data.errors) {
+				$("[data-error-for='"+prop+"']").text(data.errors[prop]);
+			}
+			// set timeout for next call
 			if (reloadingTimeout) window.clearTimeout(reloadingTimeout);
 			reloadingTimeout = window.setTimeout(autoReloadStatus, 8000);
 		});

@@ -102,7 +102,12 @@ func main() {
 				go func() {
 					defer func() {
 						if r := recover(); r != nil {
+							// if panicking, we want to recover, and keep the
+							// object in elem.panicObject.
 							elem.panicObject = r
+						} else {
+							// if NOT panicking, we want elem.panicObject to be nil.
+							elem.panicObject = nil
 						}
 						elem.lastExecutionTime = time.Since(elem.lastrun)
 						elem.lastrun = time.Now()

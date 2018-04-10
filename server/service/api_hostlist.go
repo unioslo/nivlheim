@@ -77,9 +77,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			sort = sort[1:]
 			// order is ASC by default
 		}
-		if sort == "" {
-			sort = "hostname"
-		} else if contains(sort, apiHostListSourceFields) {
+		if contains(sort, apiHostListSourceFields) {
 			h, ok := hostInfoDbFieldNames[sort]
 			if ok {
 				sort = h
@@ -89,6 +87,9 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			return
 		}
 		statement += fmt.Sprintf(" ORDER BY %s %s", sort, desc)
+	} else {
+		// Default to sorting by hostname, ascending
+		statement += fmt.Sprintf(" ORDER BY hostname")
 	}
 
 	if req.FormValue("limit") != "" {

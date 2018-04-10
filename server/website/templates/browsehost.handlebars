@@ -18,22 +18,23 @@
 </table>
 </p>
 
-<p>
-<h1 class="title is-4 is-marginless">Files</h1>
-{{#each files}}
-{{#unless isCommand}}
-<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
-{{/unless}}
-{{/each}}
-</p>
-
-<p>
-<h1 class="title is-4 is-marginless">Commands</h1>
-{{#each files}}
-{{#if isCommand}}
-<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
-{{/if}}
-{{/each}}
-</p>
+<div class="columns">
+	<div class="column is-narrow">
+		<h1 class="title is-4 is-marginless">Files</h1>
+		{{#each files}}
+		{{#unless isCommand}}
+		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		{{/unless}}
+		{{/each}}
+	</div>
+	<div class="column">
+		<h1 class="title is-4 is-marginless">Commands</h1>
+		{{#each files}}
+		{{#if isCommand}}
+		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		{{/if}}
+		{{/each}}
+	</div>
+</div>
 
 </div></section>

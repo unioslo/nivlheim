@@ -1,0 +1,39 @@
+<p>
+{{#if query}}<span>{{numberOfHits}}</span> hits{{#if hits}}:{{/if}}{{/if}}
+</p>
+{{#each hits}}
+<p>
+	<h1 class="title is-5">
+		<span class="has-text-link"><a href="/#/browsefile/{{fileId}}">
+			{{filename}}</a></span>
+	</h1>
+	<h1 class="subtitle is-6"
+		<span class="has-text-link"><a href="/#/browsehost/{{certfp}}">
+			{{hostname}}</a></span>
+		<br>
+		<span class="excerpt">{{{excerpt}}}</span>
+	</h1>
+</p>
+{{/each}}
+<nav class="pagination" role="navigation" aria-label="pagination">
+	{{#previous page}}
+	<a class="pagination-previous" href="/#/search/{{this}}/{{urlescape ../query}}">Previous</a>
+	{{/previous}}
+	{{#next page maxPage}}
+	<a class="pagination-next" href="/#/search/{{this}}/{{urlescape ../query}}">Next page</a>
+	{{/next}}
+	<ul class="pagination-list">
+		{{#pagination page maxPage}}
+		<li>
+			{{#ifcmp this "=" "..."}}
+			<span class="pagination-ellipsis">&hellip;</span>
+			{{else}}
+			<a class="pagination-link {{#ifcmp this "=" ../page}}is-current{{/ifcmp}}"
+				aria-label="Page {{this}}"
+				href="/#/search/{{this}}/{{urlescape ../query}}"
+				aria-current="page">{{this}}</a>
+			{{/ifcmp}}
+		</li>
+		{{/pagination}}
+	</ul>
+</nav>

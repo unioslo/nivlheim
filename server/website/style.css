@@ -46,6 +46,10 @@ div.filecontent ins {
 	color:#600;
 }
 
+.color-warning {
+	color: #DA0;
+}
+
 a.pagination-next, a.pagination-previous, a.pagination-link {
 	background-color: rgba(255,255,255,0.4);
 }

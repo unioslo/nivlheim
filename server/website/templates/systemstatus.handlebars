@@ -7,12 +7,25 @@
 		{{#if numberOfMachines}}
 		<tr>
 			<th>Machines that reported last hour</th>
-			<td>{{reportingPercentageLastHour}}%</td>
+			<td>
+				{{reportingPercentageLastHour}}%
+				{{#ifcmp reportingPercentageLastHour "<" 90}}
+				<span class="icon">
+					<i class="fas fa-exclamation-triangle color-warning"></i>
+				</span>
+				{{/ifcmp}}
+			</td>
 		</tr>
 		{{/if}}
 		<tr>
 			<th>Incoming queue size</th>
-			<td>{{incomingQueueSize}}</td>
+			<td>{{incomingQueueSize}}
+				{{#ifcmp incomingQueueSize "<" 0}}
+				<span class="icon">
+					<i class="fas fa-exclamation-triangle color-warning"></i>
+				</span>
+				{{/ifcmp}}
+			</td>
 		</tr>
 		<tr>
 			<th>Parse queue size</th>
@@ -24,11 +37,23 @@
 		</tr>
 		<tr>
 			<th>Failing tasks</th>
-			<td>{{failingTasks}}</td>
+			<td>{{failingTasks}}
+				{{#ifcmp failingTasks ">" 10}}
+				<span class="icon">
+					<i class="fas fa-exclamation-triangle color-warning"></i>
+				</span>
+				{{/ifcmp}}
+			</td>
 		</tr>
 		<tr>
 			<th>Age of the newest file</th>
-			<td>{{formatInterval ageOfNewestFile}}</td>
+			<td>{{formatInterval ageOfNewestFile}}
+				{{#ifcmp ageOfNewestFile ">" 3600}}
+				<span class="icon">
+					<i class="fas fa-exclamation-triangle color-warning"></i>
+				</span>
+				{{/ifcmp}}
+			</td>
 		</tr>
 		<tr>
 			<th>Throughput per second</th>
@@ -36,7 +61,10 @@
 		</tr>
 		{{#each lastExecutionTime}}
 		<tr>
-			<th>{{@key}}</th>
+			<th>{{@key}}
+				<div data-error-for="{{@key}}"
+				class="has-text-danger is-size-7"></div>
+			</th>
 			<td>{{this}} seconds</td>
 		</tr>
 		{{/each}}
