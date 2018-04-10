@@ -28,7 +28,7 @@ cd $(dirname "$0")
 
 # Create an array containing the available machine images
 TMPFILE=$(mktemp)
-openstack image list | grep active | cut -d '|' -f 3 > $TMPFILE
+openstack image list | grep active | cut -d '|' -f 3 | sort -u > $TMPFILE
 IFS=$'\r\n' GLOBIGNORE='*' command eval  'LIST=($(cat ${TMPFILE}))'
 rm $TMPFILE
 
@@ -66,10 +66,19 @@ for IMAGE in "${IMAGES[@]}"; do
 	echo "Creating a VM with \"$IMAGE\""
 	NAME="voyager"
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
-	openstack server create --image "$IMAGE" --flavor m1.small \
-		--key-name $KEYPAIRNAME --nic net-id=dualStack --wait $NAME \
-		$SECGROUP \
-		> /dev/null
+
+	# UH-IaaS suddenly decided to keep more than 1 active image with the same name.
+	# That means we can't use the image name for the "create server"-command.
+	# This is a workaround.
+	ID=$(openstack image list | grep "$IMAGE" | grep active | head -1 | cut -d '|' -f 2 | xargs)
+	if [[ "$ID" == "" ]]; then
+		echo "Could find image ID for $IMAGE :-("
+		exit 1
+	fi
+	openstack server create --image "$ID" --flavor m1.small \
+		--key-name $KEYPAIRNAME --nic net-id=dualStack \
+		$SECGROUP --wait $NAME > /dev/null
+
 	IP=$(openstack server list | grep $NAME | \
 		grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 	echo "IP address: \"$IP\""

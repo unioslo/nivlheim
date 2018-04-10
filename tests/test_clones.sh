@@ -35,7 +35,6 @@ if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
 	echo "The client failed to post data successfully."
 	exit 1
 fi
-curl -sS 'http://localhost:4040/api/v0/triggerJob/handleDNSchangesJob'
 
 # Copy the nonce
 echo "Nonce = " $(sudo cat /var/nivlheim/nonce)
