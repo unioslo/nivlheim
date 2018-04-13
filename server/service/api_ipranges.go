@@ -28,7 +28,7 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	rows, err := vars.db.Query("SELECT iprangeid, iprange, use_dns, comment " +
-		"FROM ipranges ORDER BY iprangeid")
+		"FROM ipranges ORDER BY iprange")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -39,8 +39,8 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	for rows.Next() {
 		var ipRangeID int
 		var ipRange, comment sql.NullString
-		var useDns sql.NullBool
-		err = rows.Scan(&ipRangeID, &ipRange, &useDns, &comment)
+		var useDNS sql.NullBool
+		err = rows.Scan(&ipRangeID, &ipRange, &useDNS, &comment)
 		if err != nil && err != sql.ErrNoRows {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -57,7 +57,7 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			item["comment"] = jsonString(comment)
 		}
 		if fields["useDns"] {
-			item["useDns"] = useDns.Bool
+			item["useDns"] = useDNS.Bool
 		}
 		result = append(result, item)
 	}
@@ -70,41 +70,33 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
-	case "POST":
-		iprange := req.FormValue("ipRange")
-		if iprange == "" {
-			http.Error(w, "Missing parameter: ipRange", http.StatusUnprocessableEntity)
+	case "PUT":
+		match := regexp.MustCompile("/(\\d+)$").FindStringSubmatch(req.URL.Path)
+		if match == nil {
+			http.Error(w, "Missing ipRangeId in URL path", http.StatusUnprocessableEntity)
 			return
 		}
-		ip, ipnet, err := net.ParseCIDR(iprange)
-		if err != nil {
-			http.Error(w, "{\"ipRange\":\"Wrong format, should be CIDR\"}",
-				http.StatusUnprocessableEntity)
+		ipRangeID, _ := strconv.Atoi(match[1])
+		iprange, ok := verifyIpRangeParameter(w, req, vars.db, ipRangeID)
+		if !ok {
 			return
 		}
-		if !bytes.Equal(ip.To16(), ipnet.IP.To16()) {
-			http.Error(w, fmt.Sprintf("{\"ipRange\":\"The ip address can't have bits set "+
-				"to the right side of the netmask. Try %v\"}", ipnet.IP),
-				http.StatusUnprocessableEntity)
-			return
-		}
-		// Verify that the new range is not contained within, or contains,
-		// any of the existing ranges.
-		var count int
-		err = vars.db.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+
-			"OR $1 >> iprange", iprange).Scan(&count)
+		// Update
+		_, err := vars.db.Exec("UPDATE ipranges SET iprange=$1, comment=$2, "+
+			"use_dns=$3 WHERE iprangeid=$4", iprange, req.FormValue("comment"),
+			isTrueish(req.FormValue("useDns")), ipRangeID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if count > 0 {
-			http.Error(w, "{\"ipRange\":\"This range is contained within, "+
-				"or contains, one of the existing ranges.\"}",
-				http.StatusUnprocessableEntity)
+		http.Error(w, "", http.StatusNoContent) // 204 No Content
+	case "POST":
+		iprange, ok := verifyIpRangeParameter(w, req, vars.db, -1)
+		if !ok {
 			return
 		}
 		// Insert
-		_, err = vars.db.Exec("INSERT INTO ipranges(iprange,comment,use_dns) "+
+		_, err := vars.db.Exec("INSERT INTO ipranges(iprange,comment,use_dns) "+
 			"VALUES($1,$2,$3)", iprange, req.FormValue("comment"),
 			req.FormValue("useDns") != "")
 		if err != nil {
@@ -128,4 +120,42 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
+
+func verifyIpRangeParameter(w http.ResponseWriter, req *http.Request,
+	db *sql.DB, updatingId int) (string, bool) {
+	iprange := req.FormValue("ipRange")
+	if iprange == "" {
+		http.Error(w, "Missing parameter: ipRange", http.StatusUnprocessableEntity)
+		return "", false
+	}
+	ip, ipnet, err := net.ParseCIDR(iprange)
+	if err != nil {
+		http.Error(w, "{\"ipRange\":\"Wrong format, should be CIDR\"}",
+			http.StatusUnprocessableEntity)
+		return "", false
+	}
+	if !bytes.Equal(ip.To16(), ipnet.IP.To16()) {
+		http.Error(w, fmt.Sprintf("{\"ipRange\":\"The ip address can't have bits set "+
+			"to the right side of the netmask. Try %v\"}", ipnet.IP),
+			http.StatusUnprocessableEntity)
+		return "", false
+	}
+	// Verify that the new range is not contained within, or contains,
+	// any of the existing ranges (except for the one being updated)
+	var count int
+	err = db.QueryRow("SELECT count(*) FROM ipranges WHERE "+
+		"($1 <<= iprange OR $1 >> iprange) AND iprangeid != $2",
+		iprange, updatingId).Scan(&count)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return "", false
+	}
+	if count > 0 {
+		http.Error(w, "{\"ipRange\":\"This range is contained within, "+
+			"or contains, one of the other ranges.\"}",
+			http.StatusUnprocessableEntity)
+		return "", false
+	}
+	return iprange, true
 }

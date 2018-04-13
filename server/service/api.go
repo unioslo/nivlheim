@@ -179,3 +179,8 @@ func runJob(w http.ResponseWriter, req *http.Request) {
 	}
 	http.Error(w, "Job not found.", http.StatusNotFound)
 }
+
+func isTrueish(s string) bool {
+	s = strings.ToLower(s)
+	return s == "1" || s == "t" || s == "true" || s == "yes" || s == "y"
+}

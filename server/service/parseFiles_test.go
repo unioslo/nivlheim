@@ -2,9 +2,7 @@ package main
 
 import (
 	"database/sql"
-	"io/ioutil"
 	"os"
-	"regexp"
 	"testing"
 )
 
@@ -14,28 +12,8 @@ func TestParseFile(t *testing.T) {
 		return
 	}
 	// Create a database connection
-	db, err := sql.Open("postgres", "sslmode=disable host=/var/run/postgresql")
-	if err != nil {
-		t.Fatal(err)
-	}
+	db := getDBconnForTesting(t)
 	defer db.Close()
-	// Use a temporary tablespace that cleans up after the connection is closed
-	_, err = db.Exec("SET search_path TO pg_temp")
-	if err != nil {
-		t.Fatal(err)
-	}
-	// It is important that the connection pool only uses this one connection,
-	// because if it opens more, they won't have search_path set to pg_temp.
-	db.SetMaxOpenConns(1)
-	// Run the sql script that creates all the tables
-	bytes, err := ioutil.ReadFile("../init.sql")
-	if err != nil {
-		t.Fatal("Couldn't read init.sql")
-	}
-	_, err = db.Exec(stripProceduresAndTriggers(string(bytes)))
-	if err != nil {
-		t.Fatalf("init.sql: %v", err)
-	}
 	// Set up some test data
 	expectedKernel := "4.15.13-300.fc27.x86_64"
 	type file struct {
@@ -52,7 +30,7 @@ func TestParseFile(t *testing.T) {
 		},
 	}
 	for _, f := range testfiles {
-		_, err = db.Exec("INSERT INTO files(certfp,filename,content,received) "+
+		_, err := db.Exec("INSERT INTO files(certfp,filename,content,received) "+
 			"VALUES('1234',$1,$2,now())", f.filename, f.content)
 		if err != nil {
 			t.Fatal(err)
@@ -64,7 +42,7 @@ func TestParseFile(t *testing.T) {
 
 	// verify the results
 	var kernel, manufacturer, product, serial sql.NullString
-	err = db.QueryRow("SELECT kernel,vendor,model,serialno "+
+	err := db.QueryRow("SELECT kernel,vendor,model,serialno "+
 		"FROM hostinfo WHERE certfp='1234'").
 		Scan(&kernel, &manufacturer, &product, &serial)
 	if err != nil {
@@ -181,18 +159,6 @@ BuildVersion:   17D102`,
 			t.Errorf("OS is %s, expected %s", os.String, test.osLabel)
 		}
 	}
-}
-
-func stripProceduresAndTriggers(script string) string {
-	re := regexp.MustCompile("--start_of_procedures\n(?s:.+?)--end_of_procedures\n")
-	for n := 1; n < 100; n++ {
-		m := re.FindStringIndex(script)
-		if m == nil {
-			break
-		}
-		script = script[0:m[0]] + script[m[1]:]
-	}
-	return script
 }
 
 const dmiDecodeOutput = `# dmidecode 3.1

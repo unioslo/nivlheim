@@ -66,13 +66,7 @@ if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); t
 fi
 
 # restart apache httpd and postgres
-if which systemctl > /dev/null 2>&1; then
-	systemctl restart httpd
-	systemctl restart postgresql
-elif which service > /dev/null 2>&1; then
-	service httpd restart
-	service postgresql restart
-fi
+systemctl restart httpd postgresql
 
 # create a database user that
 # local httpd processes will automatically authenticate as,
@@ -87,8 +81,8 @@ sudo -u postgres bash -c "psql -c \"grant apache to root\""
 # create tables
 sudo -u apache bash -c "psql -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
 
-# enable the systemd service
-if which systemctl > /dev/null 2>&1; then
-	systemctl enable nivlheim
-	systemctl restart nivlheim
-fi
+# start the Nivlheim service
+systemctl restart nivlheim
+
+# enable the services
+systemctl enable httpd postgresql nivlheim

@@ -71,7 +71,7 @@ Requires: perl(Sys::Syslog)
 %package server
 Summary:  Server components of Nivlheim
 Group:    Applications/System
-Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server
+Requires: perl, openssl, httpd, mod_ssl, postgresql, postgresql-server, systemd
 Requires: unzip, file
 Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
