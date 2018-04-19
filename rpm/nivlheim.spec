@@ -44,6 +44,7 @@ BuildRequires: perl(Net::DNS)
 BuildRequires: perl(Net::IP)
 BuildRequires: perl(Proc::PID::File)
 BuildRequires: perl(Socket)
+BuildRequires: perl(Sys::Hostname)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
 BuildRequires: systemd, golang, git
@@ -66,6 +67,7 @@ Requires: perl(IO::Socket::INET6)
 Requires: perl(IO::Socket::SSL)
 Requires: perl(Net::DNS)
 Requires: perl(Socket)
+Requires: perl(Sys::Hostname)
 Requires: perl(Sys::Syslog)
 
 %package server
@@ -149,7 +151,7 @@ install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
-install -p -m 0755 -D client/cron_hourly %{buildroot}%{_sysconfdir}/cron.hourly/nivlheim_client
+install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
 rm -rf server/website/mockapi server/website/templates
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
 install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
@@ -177,7 +179,7 @@ rm -rf %{buildroot}
 %{_sbindir}/nivlheim_client
 %config %{_sysconfdir}/nivlheim/version
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
-%{_sysconfdir}/cron.hourly/nivlheim_client
+%{_sysconfdir}/cron.d/nivlheim_client
 
 %files server
 %defattr(-, root, root, -)
@@ -209,6 +211,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Wed Apr 18 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.6.0-20180418
+- The client requires perl(Sys::Hostname), and has a new cron job
+
 * Tue Mar 27 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.4.0-20180327
 - Removed the cgi script "parsefile"
 

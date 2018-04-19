@@ -225,7 +225,6 @@ function restDelete(element, apiPath) {
 	});
 }
 
-//----====----====----====-- Frontpage --====----====----====
 function approve(id) {
 	$.ajax({
 		url : getAPIURLprefix()+'/api/v0/awaitingApproval/'
@@ -251,7 +250,7 @@ function deny(id) {
 	});
 }
 
-
+//----====----====----====-- Frontpage --====----====----====
 let reloadingTimeout = 0;
 
 function autoReloadStatus() {

@@ -123,11 +123,6 @@ function showFrontPage() {
 			if(e.keyCode===13){newSearch();}
 		});
 		autoReloadStatus();
-		APIcall(
-			//"mockapi/awaiting_approval.json",
-			"/api/v0/awaitingApproval"+
-			"?fields=hostname,reversedns,ipaddress,approvalId",
-			"awaiting_approval", $('#placeholder_approval'));
 	});
 }
 
@@ -325,5 +320,10 @@ function settingsPage() {
 		.done(function(){
 			attachHandlersToForms();
 		});
+		APIcall(
+			//"mockapi/awaiting_approval.json",
+			"/api/v0/awaitingApproval"+
+			"?fields=hostname,reversedns,ipaddress,approvalId",
+			"awaiting_approval", $('#placeholder_approval'));
 	});
 }

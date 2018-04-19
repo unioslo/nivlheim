@@ -23,15 +23,15 @@
 				<td>{{hostname}}</td></tr>
 			<tr><th>Name in Nivlheim</th><td>
 				<input class="input" id="hostname{{approvalId}}" type="text"
-					size="30" value="{{hostname}}"></td></tr>
+					size="30" value="{{hostname}}" required></td></tr>
 			<tr><td></td><td>
-				<button class="button" onclick="approve({{approvalId}})">
+				<button class="button is-primary" onclick="approve({{approvalId}})">
 					<span class="icon is-small">
 						<i class="fas fa-thumbs-up color-approve"></i>
 					</span>
 					<span>Approve</span>
 				</button>
-				<button class="button" onclick="deny({{approvalId}})">
+				<button class="button is-light" onclick="deny({{approvalId}})">
 					<span class="icon is-small">
 						<i class="fas fa-thumbs-down color-deny"></i>
 					</span>

@@ -81,6 +81,10 @@ table.table.is-transparent.is-striped tbody tr:not(.is-selected):nth-child(even)
     background-color: rgba(255,255,255,0.25);
 }
 
+table.table.is-transparent.is-hoverable tbody tr:hover {
+	background-color: rgba(255,255,255,0.30);
+}
+
 .underline-warning {
 	text-decoration: underline;
 	text-decoration-style: dotted;

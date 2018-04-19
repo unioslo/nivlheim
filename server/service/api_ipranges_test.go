@@ -4,11 +4,16 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"strings"
 	"testing"
 )
 
 func TestApiMethodIpRanges(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
 	type apiCall struct {
 		methodAndPath, body string
 		expectStatus        int

@@ -44,6 +44,16 @@ if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
 	exit 1
 fi
 
+# Verify that the PKCS8 file was created
+if [[ ! -f /var/nivlheim/pkcs8.key ]]; then
+    echo "pkcs8.key is missing."
+    exit 1
+fi
+if ! $(sudo openssl pkcs8 -in /var/nivlheim/pkcs8.key -nocrypt -out /dev/null); then
+    echo "pkcs8.key is invalid."
+    exit 1
+fi
+
 # wait until the machine shows up in hostinfo
 echo "Waiting for the machine to show up in hostinfo"
 OK=0
@@ -84,6 +94,19 @@ if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
 	ls -1 /var/www/nivlheim/certs
 	exit 1
 fi
+
+# Set a password on the key file and verify that the client is able to handle it
+pushd /var/nivlheim
+sudo openssl rsa -in my.key -out my.encrypted.key -outform PEM -passout pass:passord123 -des3
+sudo mv my.key my.old.key && sudo mv my.encrypted.key my.key
+sudo rm -f /var/run/nivlheim_client_last_run
+sudo /usr/sbin/nivlheim_client
+if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
+    echo "The client failed to use a password-protected certificate key."
+    exit 1
+fi
+sudo mv -f my.old.key my.key # restore the old key file
+popd
 
 # Blacklist and check response
 sudo psql apache -q -c "UPDATE certificates SET revoked=true"

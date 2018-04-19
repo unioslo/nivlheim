@@ -14,13 +14,16 @@
 source ~/keystone_rc.sh # provides environment variables with authentication information
 source ~/github_rc.sh # provides GitHub API token
 
+echo "Region: $OS_REGION_NAME"
+
 KEYPAIRNAME="jenkins_key"
 SECGROUP=""
-while getopts "s:k:" option; do
+while getopts "s:k:f" option; do
 	case "${option}"
 	in
 		k) KEYPAIRNAME=${OPTARG};;
 		s) SECGROUP="--security-group ${OPTARG}";;
+		f) FAILFAST=1
 	esac
 done
 
@@ -67,7 +70,7 @@ for IMAGE in "${IMAGES[@]}"; do
 	NAME="voyager"
 	openstack server delete --wait $NAME 2>/dev/null # just to be sure
 
-	# UH-IaaS suddenly decided to keep more than 1 active image with the same name.
+	# UH-IaaS may keep more than 1 active image with the same name.
 	# That means we can't use the image name for the "create server"-command.
 	# This is a workaround.
 	ID=$(openstack image list | grep "$IMAGE" | grep active | head -1 | cut -d '|' -f 2 | xargs)
@@ -98,15 +101,6 @@ for IMAGE in "${IMAGES[@]}"; do
 			if echo bleh | nc -w 2 $IP 22 1>/dev/null 2>&1; then
 				OK=1
 				break
-			fi
-			# UH-IaaS is unreliable, sometimes you have to stop/start the VM
-			# before it will let you connect
-			if [[ $(expr $try % 20) -eq 0 ]]; then
-				echo -n "o"
-				openstack server stop $NAME
-				sleep 10
-				echo -n "O"
-				openstack server start $NAME
 			fi
 			sleep 5
 			echo -n "."
@@ -143,6 +137,10 @@ for IMAGE in "${IMAGES[@]}"; do
 
 		if grep -s "FAIL" "$LOGFILE"; then
 			echo $(grep -c "FAIL" "$LOGFILE") "FAIL(s)"
+			if [[ $FAILFAST -eq 1 ]]; then
+				openstack server delete $NAME
+				exit 1
+			fi
 		fi
 
 		if [[ $(whoami) == "jenkins" ]]; then

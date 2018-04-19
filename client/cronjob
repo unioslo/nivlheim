@@ -1,0 +1,1 @@
+*/5 * * * *   root  /usr/sbin/nivlheim_client -minperiod 3500 -sleeprandom 300 > /dev/null
