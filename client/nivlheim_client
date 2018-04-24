@@ -101,15 +101,15 @@ END_LICENSE
 
 # Get options
 my %opt;
-GetOptions('c|config=s'  => \$opt{config},
-	   'ssl-ca=s'    => \$opt{ca_file},
-	   'ssl-cert=s'  => \$opt{cert_file},
-	   'ssl-key=s'   => \$opt{key_file},
-	   'sleeprandom' => \$opt{sleeprandom},
-	   'minperiod'   => \$opt{minperiod},
-	   'd|debug'     => \$opt{debug},
-	   'h|help'      => \$opt{help},
-	   'V|version'   => \$opt{version},
+GetOptions('c|config=s' => \$opt{config},
+	   'ssl-ca=s'       => \$opt{ca_file},
+	   'ssl-cert=s'     => \$opt{cert_file},
+	   'ssl-key=s'      => \$opt{key_file},
+	   'sleeprandom=i'  => \$opt{sleeprandom},
+	   'minperiod=i'    => \$opt{minperiod},
+	   'd|debug'        => \$opt{debug},
+	   'h|help'         => \$opt{help},
+	   'V|version'      => \$opt{version},
 	  ) or do { print $USAGE; exit 1 };
 
 # If user requested help
@@ -130,13 +130,19 @@ if ($opt{sleeprandom}) {
 	# divide by the parameter value and take the remainder.
 	# Sleep that many seconds.
 	# (i.e. a "random" delay but the same every time)
+	print "sleeping...\n" if ($opt{debug});
 	sleep unpack("%32W*",hostname) % $opt{sleeprandom};
 }
 
 # minimum period between successful runs
 if ($opt{minperiod}) {
 	my @stat = stat "/var/run/nivlheim_client_last_run";
-	exit 0 if ((time()-$stat[9]) < $opt{minperiod});
+	my $seconds_since_last_time = time()-$stat[9];
+	if ($seconds_since_last_time < $opt{minperiod}) {
+		print "Only $seconds_since_last_time seconds since last successful ".
+			"report. Skipping this time.\n" if ($opt{debug});
+		exit 64
+	}
 }
 
 # Log to stdout or syslog depending on whether we have a TTY
@@ -148,11 +154,14 @@ if (!-t STDOUT) {
 # tempdir
 my $tempdir = "/tmp/nivlheim$$";
 mkdir($tempdir);
+
 END {
-	print "Cleanup\n" if ($opt{debug});
-	remove_tree($tempdir);
 	if (!-t STDOUT) {
 		closelog();
+	}
+	if (defined($tempdir)) {
+		print "Cleanup\n" if ($opt{debug});
+		remove_tree($tempdir);
 	}
 }
 
@@ -331,6 +340,8 @@ elsif ($have_cert && !$cert_works) {
 		exit 1;
 	}
 }
+
+createPKCS8() unless (-f "/var/nivlheim/pkcs8.key");
 
 # Determine which files to send
 my @filelist = keys %{$config{'files'}};
