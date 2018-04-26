@@ -40,6 +40,12 @@ if [[ $? -ne 64 ]]; then
 	echo "The minperiod parameter for nivlheim_client had no effect."
 	exit 1
 fi
+sudo rm -f /var/run/nivlheim_client_last_run
+sudo /usr/sbin/nivlheim_client --minperiod 60
+if [[ $? -eq 64 ]]; then
+	echo "The minperiod option skips out even if the run file is missing."
+	exit 1
+fi
 set -e
 
 # test the "sleep" parameter

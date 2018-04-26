@@ -53,6 +53,10 @@ if ! $(sudo openssl pkcs8 -in /var/nivlheim/pkcs8.key -nocrypt -out /dev/null); 
     echo "pkcs8.key is invalid."
     exit 1
 fi
+if [[ $(stat -c "%a" /var/nivlheim/pkcs8.key) != "600" ]]; then
+	echo "pkcs8.key should have permissions 600"
+	exit 1
+fi
 
 # wait until the machine shows up in hostinfo
 echo "Waiting for the machine to show up in hostinfo"

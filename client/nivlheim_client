@@ -137,11 +137,13 @@ if ($opt{sleeprandom}) {
 # minimum period between successful runs
 if ($opt{minperiod}) {
 	my @stat = stat "/var/run/nivlheim_client_last_run";
-	my $seconds_since_last_time = time()-$stat[9];
-	if ($seconds_since_last_time < $opt{minperiod}) {
-		print "Only $seconds_since_last_time seconds since last successful ".
-			"report. Skipping this time.\n" if ($opt{debug});
-		exit 64
+	if ($#stat>=0) {
+		my $seconds_since_last_time = time()-$stat[9];
+		if ($seconds_since_last_time < $opt{minperiod}) {
+			print "Only $seconds_since_last_time seconds since last ".
+				"successful report. Skipping this time.\n" if ($opt{debug});
+			exit 64
+		}
 	}
 }
 
@@ -838,4 +840,5 @@ sub createPKCS8() {
 	open(my $F, "| openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -passin stdin -in /var/nivlheim/my.key -out /var/nivlheim/pkcs8.key");
 	print $F getpassword();
 	close($F);
+	chmod(0600, "/var/nivlheim/pkcs8.key");
 }
