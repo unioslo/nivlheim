@@ -23,7 +23,9 @@
 		<h1 class="title is-4 is-marginless">Files</h1>
 		{{#each files}}
 		{{#unless isCommand}}
+		{{#if isDeleted}}<span class="strikethrough">{{/if}}
 		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		{{#if isDeleted}}</span>{{/if}}
 		{{/unless}}
 		{{/each}}
 	</div>
@@ -31,7 +33,9 @@
 		<h1 class="title is-4 is-marginless">Commands</h1>
 		{{#each files}}
 		{{#if isCommand}}
+		{{#if isDeleted}}<span class="strikethrough">{{/if}}
 		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		{{#if isDeleted}}</span>{{/if}}
 		{{/if}}
 		{{/each}}
 	</div>

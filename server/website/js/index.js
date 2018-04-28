@@ -132,21 +132,26 @@ function browseHostByCert(certfp) {
 		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
 		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
 		"kernel,vendor,model,serialNo,clientVersion,certfp,files",
-		"browsehost", "div#pageContent");
+		"browsehost", "div#pageContent")
+	.done(function(){
+		window.scrollTo(0,0);
+	});
 }
 
 function browseFileById(fileId) {
 	APIcall(
 		//"mockapi/browsefile.json",
 		"/api/v0/file?fields=fileId,lastModified,hostname,filename,"+
-		"content,certfp,versions&fileId="+encodeURIComponent(fileId),
+		"content,certfp,versions,isNewestVersion,isDeleted"+
+		"&fileId="+encodeURIComponent(fileId),
 		"browsefile", "div#pageContent")
 	.done(showDiff)
 	.done(function(){
 		$("select#selectVersion").val(fileId);
 		$("select#selectVersion").change(function(){
 			location.href = "#/browsefile/"+$(this).val();
-		})
+		});
+		window.scrollTo(0,0);
 	});
 }
 
@@ -155,7 +160,8 @@ function browseFileByName(hostname, filename) {
 	APIcall(
 		//"mockapi/browsefile.json",
 		"/api/v0/file?fields=fileId,lastModified,"+
-		"hostname,filename,content,certfp,versions"+
+		"hostname,filename,content,certfp,versions,"+
+		"isNewestVersion,isDeleted"+
 		"&filename="+encodeURIComponent(filename)+
 		"&hostname="+encodeURIComponent(hostname),
 		"browsefile", "div#pageContent")
@@ -164,7 +170,8 @@ function browseFileByName(hostname, filename) {
 		$("select#selectVersion:first-child").prop("selected","selected");
 		$("select#selectVersion").change(function(){
 			location.href = "#/browsefile/"+$(this).val();
-		})
+		});
+		window.scrollTo(0,0);
 	});
 }
 

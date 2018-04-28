@@ -14,17 +14,20 @@
 		{
 			"filename": "/etc/redhat-release",
 			"lastModified": "2018-02-08T13:00:22+01",
-			"isCommand": false
+			"isCommand": false,
+			"isDeleted": false
 		},
 		{
 			"filename": "/bin/uname -a",
 			"lastModified": "2018-02-08T13:00:22+01",
-			"isCommand": true
+			"isCommand": true,
+			"isDeleted": false
 		},
 		{
 			"filename": "/usr/sbin/dmidecode -t system",
 			"lastModified": "2018-02-08T13:00:22+01",
-			"isCommand": true
+			"isCommand": true,
+			"isDeleted": false
 		}
 	],
 	"support": [

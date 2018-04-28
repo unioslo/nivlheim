@@ -20,14 +20,15 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		[]string{"fileId", "filename", "isCommand", "lastModified", "received",
-			"content", "certfp", "hostname", "versions"})
+			"content", "certfp", "hostname", "versions",
+			"isNewestVersion", "isDeleted"})
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
 	}
 
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
-		"certfp,hostname FROM files f " +
+		"certfp,hostname,current FROM files f " +
 		"LEFT JOIN hostinfo h USING (certfp) "
 	var rows *sql.Rows
 	var err error
@@ -68,10 +69,10 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if rows.Next() {
 		var fileID int64
 		var filename, content, certfp, hostname sql.NullString
-		var isCommand sql.NullBool
+		var isCommand, isCurrent sql.NullBool
 		var mtime, rtime pq.NullTime
 		err = rows.Scan(&fileID, &filename, &isCommand, &mtime, &rtime, &content,
-			&certfp, &hostname)
+			&certfp, &hostname, &isCurrent)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -85,6 +86,15 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		}
 		if fields["isCommand"] {
 			res["isCommand"] = isCommand.Bool
+		}
+		if fields["isNewestVersion"] {
+			res["isNewestVersion"] = isCurrent.Bool
+		}
+		if fields["isDeleted"] {
+			var count int
+			vars.db.QueryRow("SELECT count(*) FROM files WHERE current "+
+				"AND certfp=$1 AND filename=$2", certfp, filename).Scan(&count)
+			res["isDeleted"] = count == 0
 		}
 		if fields["lastModified"] {
 			res["lastModified"] = jsonTime(mtime)

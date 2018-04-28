@@ -123,12 +123,16 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 type apiFile struct {
 	Filename     jsonString `json:"filename"`
 	IsCommand    bool       `json:"isCommand"`
+	IsDeleted    bool       `json:"isDeleted"`
 	LastModified jsonTime   `json:"lastModified"`
 }
 
 func makeFileList(db *sql.DB, certfp string) ([]apiFile, *httpError) {
-	rows, err := db.Query("SELECT filename,is_command,max(mtime) FROM files "+
-		"WHERE certfp=$1 GROUP BY filename, is_command ORDER BY filename",
+	rows, err := db.Query("SELECT filename,is_command,current,mtime "+
+		"FROM (SELECT filename,is_command,current,mtime,row_number() "+
+		"OVER (PARTITION BY filename ORDER BY current DESC, mtime DESC) "+
+		"FROM files WHERE certfp=$1) AS foo WHERE row_number=1 "+
+		"ORDER BY filename",
 		certfp)
 	if err != nil {
 		return nil, &httpError{code: http.StatusInternalServerError, message: err.Error()}
@@ -137,15 +141,16 @@ func makeFileList(db *sql.DB, certfp string) ([]apiFile, *httpError) {
 	files := make([]apiFile, 0)
 	for rows.Next() {
 		var filename sql.NullString
-		var isCommand sql.NullBool
+		var isCommand, current sql.NullBool
 		var mtime pq.NullTime
-		err = rows.Scan(&filename, &isCommand, &mtime)
+		err = rows.Scan(&filename, &isCommand, &current, &mtime)
 		if err != nil {
 			return nil, &httpError{code: http.StatusInternalServerError, message: err.Error()}
 		}
 		files = append(files, apiFile{
 			Filename:     jsonString(filename),
 			IsCommand:    isCommand.Bool,
+			IsDeleted:    !current.Bool,
 			LastModified: jsonTime(mtime),
 		})
 	}

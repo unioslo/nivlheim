@@ -80,6 +80,7 @@ sudo -u postgres bash -c "psql -c \"grant apache to root\""
 
 # create tables
 sudo -u apache bash -c "psql -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
+sudo -u apache bash -c "psql -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/changes.sql"
 
 # start the Nivlheim service
 systemctl restart nivlheim

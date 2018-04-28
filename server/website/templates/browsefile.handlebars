@@ -22,6 +22,20 @@
 			<i class="far fa-clock fa-lg"></i>
 		</span>
 	</div>
+	{{#if isNewestVersion}}
+	<div class="control">
+		<a class="button is-static">
+			Newest version
+		</a>
+	</div>
+	{{/if}}
+	{{#if isDeleted}}
+	<div class="control">
+		<a class="button is-danger">
+			Deleted
+		</a>
+	</div>
+	{{/if}}
 </div>
 
 <div class="filecontent">{{content}}</div>

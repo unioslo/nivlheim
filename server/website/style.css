@@ -66,6 +66,10 @@ span.pagination-ellipsis {
 	position: absolute;
 }
 
+.strikethrough {
+	text-decoration: line-through;
+}
+
 /* By default, the Bulma navbar doesn't have a background when it is transparent.
    Add a semi-transparent background here. */
 nav.navbar.is-transparent {

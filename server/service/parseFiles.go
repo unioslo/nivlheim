@@ -26,7 +26,8 @@ func (s parseFilesJob) HowOften() time.Duration {
 }
 
 func (s parseFilesJob) Run(db *sql.DB) {
-	rows, err := db.Query("SELECT fileid FROM files WHERE parsed = false")
+	rows, err := db.Query("SELECT fileid FROM files WHERE parsed = false" +
+		" ORDER BY fileid")
 	if err != nil {
 		log.Panic(err)
 	}
