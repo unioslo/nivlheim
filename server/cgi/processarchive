@@ -121,7 +121,7 @@ eval{
 
 	my $iso_received = uts_to_rfc3339($meta{'received'});
 
-	$dbh->do"UPDATE files SET current=false WHERE certfp=? AND current", undef,
+	$dbh->do("UPDATE files SET current=false WHERE certfp=? AND current", undef,
 		($meta{certfp}));
 
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,os_hostname,"
