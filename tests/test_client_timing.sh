@@ -9,7 +9,7 @@ if [[ "$1" != "--skipsetup" ]]; then
 	sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 		/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/*
 	echo -n | sudo tee /var/log/httpd/error_log
-	sudo -u apache bash -c "psql -q -X -1 -v ON_ERROR_STOP=1 -f /var/nivlheim/init.sql"
+	sudo -u apache /var/nivlheim/installdb.sh --wipe
 	sudo systemctl start nivlheim
 	sleep 4
 

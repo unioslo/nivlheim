@@ -13,6 +13,11 @@ if P=$(psql -X -w -t --no-align -c "SELECT patchlevel FROM db" 2>/dev/null); the
 fi
 echo "Database patch level is $PATCHLEVEL"
 
+if [[ "$1" == "--wipe" ]]; then
+	PATCHLEVEL=0
+	echo "Wiping existing database"
+fi
+
 # Applying patches as necessary
 for P in $(seq -w 1 999); do
 	if [[ $P -le $PATCHLEVEL ]]; then
