@@ -179,11 +179,11 @@ rm -rf %{buildroot}
 %{_sbindir}/nivlheim_client
 %config %{_sysconfdir}/nivlheim/version
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
-%{_sysconfdir}/cron.d/nivlheim_client
+%config %{_sysconfdir}/cron.d/nivlheim_client
 
 %files server
 %defattr(-, root, root, -)
-%dir %{_localstatedir}/nivlheim
+%{_localstatedir}/nivlheim
 %dir %{_sysconfdir}/nivlheim
 %license LICENSE.txt
 %doc README.md

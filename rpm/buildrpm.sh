@@ -36,7 +36,7 @@ echo "buildrpm: The git branch is $GIT_BRANCH"
 sed -i -e "s|%{getenv:GIT_BRANCH}|$GIT_BRANCH|g" $SPEC
 
 # Check the spec file for errors
-rpmlint -i $SPEC || exit 1
+rpmlint -i -f $SOURCEDIR/rpmlint.conf $SPEC || exit 1
 
 echo "buildrpm: Downloading source archive files"
 cd $BUILDDIR/SOURCES
@@ -74,7 +74,7 @@ if [ $? -ne 0 ]; then
 fi
 
 A=$BUILDDIR/SRPMS/*
-rpmlint -i $A || exit 1
+rpmlint -i -f $SOURCEDIR/rpmlint.conf $A || exit 1
 
 srpm=`eval echo "~/rpmbuild/SRPMS/*.src.rpm"`
 if [ ! -f $srpm ]
@@ -90,9 +90,11 @@ echo "--------------------------------------------------------"
 echo "  Mock-building packages for $config"
 echo "--------------------------------------------------------"
 if ! mock --bootstrap-chroot --rebuild $srpm; then
+	grep -s BUILDSTDERR "/var/lib/mock/${config}-bootstrap/result/build.log"
 	echo "Mock build failed for $config."
 	echo "Re-trying with the old chroot method..."
 	if ! mock --old-chroot --rebuild $srpm; then
+		grep -s BUILDSTDERR "/var/lib/mock/$config/result/build.log"
 		echo "Mock build with old chroot also failed for $config."
 		exit 1
 	fi
@@ -102,4 +104,4 @@ echo ""
 echo "--------------------------------------------------------"
 echo "  rpmlint report"
 echo "--------------------------------------------------------"
-rpmlint -i /var/lib/mock/$config/result/*.rpm || exit 1
+rpmlint -i -f $SOURCEDIR/rpmlint.conf /var/lib/mock/$config/result/*.rpm || exit 1
