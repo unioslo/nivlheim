@@ -147,7 +147,6 @@ install -p -m 0755 server/cgi/renewcert %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0755 server/cgi/post %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
-install -p -m 0644 server/init.sql %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
@@ -155,6 +154,7 @@ install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_
 rm -rf server/website/mockapi server/website/templates
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
 install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
+cp -a server/database/* %{buildroot}%{_localstatedir}/nivlheim/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 echo %{version} > %{buildroot}%{_localstatedir}/www/html/version.txt
 
@@ -193,7 +193,6 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
-%{_localstatedir}/nivlheim/init.sql
 %dir /var/log/nivlheim
 /var/www/cgi-bin/*
 /var/www/html/*
@@ -211,6 +210,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue May  1 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.6.1-20180501
+- Replaced init.sql with a set of sql patch files and an install script
+
 * Wed Apr 18 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.6.0-20180418
 - The client requires perl(Sys::Hostname), and has a new cron job
 

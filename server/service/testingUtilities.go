@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"os"
 	"reflect"
 	"regexp"
 	"testing"
@@ -16,26 +17,37 @@ func getDBconnForTesting(t *testing.T) *sql.DB {
 	if err != nil {
 		t.Fatal(err)
 	}
+
 	// Use a temporary tablespace that cleans up after the connection is closed
 	_, err = db.Exec("SET search_path TO pg_temp")
 	if err != nil {
 		db.Close()
 		t.Fatal(err)
 	}
+
 	// It is important that the connection pool only uses this one connection,
 	// because if it opens more, they won't have search_path set to pg_temp.
 	db.SetMaxOpenConns(1)
-	// Run the sql script that creates all the tables
-	bytes, err := ioutil.ReadFile("../init.sql")
-	if err != nil {
-		db.Close()
-		t.Fatal("Couldn't read init.sql")
+
+	// Run the sql scripts that create all the tables
+	for i := 1; i <= 999; i++ {
+		sqlfile := fmt.Sprintf("patch%03d.sql", i)
+		bytes, err := ioutil.ReadFile("../database/" + sqlfile)
+		if err != nil {
+			_, ok := err.(*os.PathError)
+			if ok {
+				break
+			}
+			db.Close()
+			t.Fatalf("Couldn't read %s", sqlfile)
+		}
+		_, err = db.Exec(StripProceduresAndTriggers(string(bytes)))
+		if err != nil {
+			db.Close()
+			t.Fatalf("%s: %v", sqlfile, err)
+		}
 	}
-	_, err = db.Exec(StripProceduresAndTriggers(string(bytes)))
-	if err != nil {
-		db.Close()
-		t.Fatalf("init.sql: %v", err)
-	}
+
 	return db
 }
 

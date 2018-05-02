@@ -7,6 +7,7 @@ DROP TABLE IF EXISTS hostinfo;
 DROP TABLE IF EXISTS files;
 DROP TABLE IF EXISTS certificates;
 DROP TABLE IF EXISTS tasks;
+DROP TABLE IF EXISTS db;
 
 CREATE TABLE waiting_for_approval(
 	approvalid serial PRIMARY KEY NOT NULL,
@@ -113,3 +114,8 @@ CREATE TABLE ipranges(
 	comment text,
 	use_dns boolean not null default false
 );
+
+CREATE TABLE db(
+	patchlevel int NOT NULL
+);
+INSERT INTO db(patchlevel) VALUES(1);

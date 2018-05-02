@@ -68,7 +68,7 @@ func main() {
 	}
 	defer db.Close()
 
-	// Determine capabilities of the database
+	// Determine capabilities of the database server
 	postgresSupportsOnConflict = false
 	var version sql.NullString
 	err = db.QueryRow("select version()").Scan(&version)
@@ -84,6 +84,15 @@ func main() {
 			log.Printf("PostgreSQL version: %s", vstr)
 			postgresSupportsOnConflict = vstr >= "9.5"
 		}
+	}
+
+	// Verify the schema patch level
+	var patchlevel int
+	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
+	if patchlevel != 1 {
+		log.Printf("Error: Wrong database patch level. "+
+			"Required: %d, Actual: %d\n", 1, patchlevel)
+		return
 	}
 
 	go runAPI(db, 4040, devmode)
