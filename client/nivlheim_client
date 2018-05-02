@@ -31,7 +31,7 @@ use File::Path qw(remove_tree);
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
 
-sub http_get($);
+sub http_get($$);
 sub http_post($$);
 sub test_without_client_cert();
 sub readconfig($);
@@ -256,8 +256,8 @@ my $cert_works = 0;
 if ($have_cert) {
 	eval {
 		# this function will call die() if the certificate fails
-		http_get($server_url . 'secure/ping');
-		$cert_works = 1;
+		$_ = http_get($server_url . 'secure/ping', 1);
+		$cert_works = defined($_);
 	};
 }
 
@@ -280,7 +280,7 @@ if (!$have_cert || !$cert_works) {
 if (!$have_cert) {
 	eval {
 		printlog "Requesting a certificate..\n";
-		my $response = http_get($server_url . "reqcert?hostname=".hostname);
+		my $response = http_get($server_url . "reqcert?hostname=".hostname, 0);
 		my ($cert, $key) = parse_certificate_response($response);
 		if (defined($cert) && defined($key)) {
 			printlog "Received a certificate.\n";
@@ -310,13 +310,13 @@ elsif ($have_cert && !$cert_works) {
 		my $cert = undef;
 		my $key = undef;
 		# Request a new certificate on the grounds that we already have an old one
-		my $response = http_get($server_url . 'secure/renewcert');
+		my $response = http_get($server_url . 'secure/renewcert', 1);
 		($cert, $key) = parse_certificate_response($response);
 		if (defined($cert) && defined($key)) {
 			printlog "Successfully renewed the certificate.\n";
 		} else {
 			printlog "Wasn't able to renew the certificate. Requesting a new one instead...\n";
-			my $response = http_get($server_url . "reqcert?hostname=".hostname);
+			my $response = http_get($server_url . "reqcert?hostname=".hostname, 0);
 			($cert, $key) = parse_certificate_response($response);
 		}
 		# Did it work?
@@ -635,12 +635,15 @@ sub test_without_client_cert() {
 	return 1;
 }
 
-sub http_get($) {
+sub http_get($$) {
 	# Yes, it would have been nice to use LWP for this,
 	# but I see no way of using my own function for
 	# opening an SSL connection that way.
 
 	my $url = shift;
+	my $use_client_cert = shift;
+	if (!defined($use_client_cert)) { $use_client_cert = 1; }
+
 	my ($proto, $host, $port, $path) = split_url($url);
 	if (!defined($proto)) {
 		die "Invalid url: $url\n";
@@ -649,9 +652,10 @@ sub http_get($) {
 		die "http (without ssl) is not supported.";
 	}
 
-	my $ssl = ssl_connect($host, $port, 1);
+	my $ssl = ssl_connect($host, $port, $use_client_cert);
 	if (!$ssl) {
-		die "SSL connection failed: $url\n";
+		printlog("SSL connection failed: $url");
+		return undef;
 	}
 
 	print $ssl "GET $path HTTP/1.0\r\n"
@@ -672,7 +676,8 @@ sub http_get($) {
 	}
 	$ssl->close(SSL_ctx_free => 1);
 	if ($httpstatus =~ m#^HTTP/1.1 [45]\d\d#) {
-		die "$url: $httpstatus";
+		printlog("$url: $httpstatus");
+		return undef;
 	}
 	return $result;
 }
