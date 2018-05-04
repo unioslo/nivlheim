@@ -77,6 +77,9 @@ eval{
 		die "Unknown archive file format.";
 	}
 
+	# make sure the file modes allow to chdir into
+	chmod(0755, "$dir/files", "$dir/commands");
+
 	# Text files from Windows are usually UTF-16, so let's convert those
 	if ($archivefile =~ /\.zip$/) {
 		my $zip = Archive::Zip->new();
@@ -130,8 +133,11 @@ eval{
 		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
-	my $sth_crc = $dbh->prepare("SELECT crc32 FROM files WHERE certfp=? AND filename=? "
-		."ORDER BY received DESC LIMIT 1");
+	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true "
+		."WHERE fileid=?");
+
+	my $sth_crc = $dbh->prepare("SELECT crc32,fileid FROM files "
+		."WHERE certfp=? AND filename=? ORDER BY received DESC LIMIT 1");
 
 	my $sth_hostinfo1 = $dbh->prepare("UPDATE hostinfo SET lastseen=?, clientversion=? ".
 		"WHERE certfp=? AND lastseen<?");
@@ -198,13 +204,17 @@ eval{
 		$sth_crc->execute(($meta{certfp}, $originalfilename));
 		if ($dbh->err) { die $dbh->errstr; }
 		my $aref = $sth_crc->fetchrow_arrayref;
+		$sth_crc->finish;
 		if (defined($aref)) {
 			my $oldcrc = $$aref[0];
+			my $fileid = $$aref[1];
 			if (defined($oldcrc) && $crc32 eq $oldcrc) {
 				# Since this file isn't going to be inserted and parsed, update hostinfo directly
 				$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
 				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
-				next;
+				# also set current back to true
+				$sth_setcurrent->execute(($fileid));
+				return;
 			}
 		}
 
