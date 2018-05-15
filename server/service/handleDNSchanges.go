@@ -125,6 +125,9 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 		// (which means same claim to it by DNS) and is more recent?
 		err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1 AND ipaddr=$2 "+
 			"AND certfp!=$3 AND lastseen>$4", hostname, ipAddress, certfp, lastseen).Scan(&count)
+		if err != nil {
+			return "", err
+		}
 		if count > 0 {
 			// Yes, the name is in use by another, newer host that has the same ip address
 			// (and therefore DNS name). Leave it alone.

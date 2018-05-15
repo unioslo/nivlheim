@@ -112,8 +112,8 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	if vars.devmode {
-		log.Println(statement)
-		log.Print(qparams)
+		//log.Println(statement)
+		//log.Print(qparams)
 	}
 
 	rows, err := vars.db.Query(statement, qparams...)

@@ -124,8 +124,8 @@ eval{
 
 	my $iso_received = uts_to_rfc3339($meta{'received'});
 
-	$dbh->do("UPDATE files SET current=false WHERE certfp=? AND current", undef,
-		($meta{certfp}));
+	my $currentfiles = $dbh->selectall_hashref("SELECT fileid,filename FROM files "
+		."WHERE certfp=? AND current", "filename", undef, ($meta{certfp}));
 
 	my $sth = $dbh->prepare("INSERT INTO files(ipaddr,os_hostname,"
 		."certcn,certfp,filename,received,mtime,content,crc32,is_command,"
@@ -133,7 +133,7 @@ eval{
 		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
-	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true "
+	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
 		."WHERE fileid=?");
 
 	my $sth_crc = $dbh->prepare("SELECT crc32,fileid FROM files "
@@ -212,11 +212,15 @@ eval{
 				# Since this file isn't going to be inserted and parsed, update hostinfo directly
 				$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
 				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
-				# also set current back to true
-				$sth_setcurrent->execute(($fileid));
+				# Make sure this file record keeps it "current" flag set
+				delete $currentfiles->{$originalfilename};
 				return;
 			}
 		}
+
+		# Set current to false for the previous version of this file
+		$sth_clearcurrent->execute(($currentfiles->{$originalfilename}->{'fileid'}));
+		delete $currentfiles->{$originalfilename};
 
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{os_hostname},
@@ -227,6 +231,13 @@ eval{
 		if ($dbh->err) { die $dbh->errstr; }
 	}
 	find(\&callback1, $dir);
+
+	# clear the "current" flag for files that weren't in this package
+	foreach (keys %{$currentfiles}) {
+		my $fileid = $currentfiles->{$_}->{'fileid'};
+		$sth_clearcurrent->execute(($fileid));
+	}
+
 	$dbh->commit;
 	unlink($archivefile, "$archivefile.meta");
 };

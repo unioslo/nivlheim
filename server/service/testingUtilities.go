@@ -64,6 +64,15 @@ func StripProceduresAndTriggers(script string) string {
 		}
 		script = script[0:m[0]] + script[m[1]:]
 	}
+	// also change "create unlogged table" to "create table", since unlogged
+	// tables can't be created in a temporary tablespace.
+	script = regexp.MustCompile(`(?i)CREATE UNLOGGED TABLE`).
+		ReplaceAllString(script, "CREATE TABLE")
+
+	// Can't use extension pg_trgm during testing, it might not be available
+	re = regexp.MustCompile(`(?i)CREATE INDEX \w+ ON \w+ USING gin\(\w+ gin_trgm_ops\);`)
+	script = re.ReplaceAllString(script, "")
+
 	return script
 }
 

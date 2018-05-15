@@ -1,23 +1,27 @@
 package main
 
 import (
+	"bytes"
 	"database/sql"
 	"encoding/json"
+	"html"
 	"log"
-	"math"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 )
 
 type apiMethodSearchPage struct {
-	db *sql.DB
+	db      *sql.DB
+	devmode bool
 }
 
 type apiSearchPageHit struct {
 	FileID        int64      `json:"fileId"`
 	Filename      jsonString `json:"filename"`
 	IsCommand     bool       `json:"isCommand"`
-	Excerpt       jsonString `json:"excerpt"`
+	Excerpt       string     `json:"excerpt"`
 	Hostname      jsonString `json:"hostname"`
 	CertFP        jsonString `json:"certfp"`
 	DisplayNumber int        `json:"displayNumber"`
@@ -25,7 +29,6 @@ type apiSearchPageHit struct {
 
 type apiSearchPageResult struct {
 	Query   string             `json:"query"`
-	NumHits int                `json:"numberOfHits"`
 	Page    int                `json:"page"`
 	MaxPage int                `json:"maxPage"`
 	Hits    []apiSearchPageHit `json:"hits"`
@@ -52,7 +55,6 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	result.Query = req.FormValue("q")
 	if result.Query == "" {
 		result.Page = 1
-		result.NumHits = 0
 		result.Hits = make([]apiSearchPageHit, 0)
 		returnJSON(w, req, result)
 		return
@@ -61,23 +63,6 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	result.Page, err = strconv.Atoi(req.FormValue("page"))
 	if err != nil {
 		result.Page = 1
-	}
-
-	row, err := vars.db.Query(
-		"SELECT count(distinct(certfp,filename)) FROM files "+
-			"WHERE tsvec @@ plainto_tsquery('english',$1)",
-		result.Query)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer row.Close()
-	if row.Next() {
-		err = row.Scan(&result.NumHits)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
 	}
 
 	var pageSize = 10
@@ -91,20 +76,35 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		}
 	}
 
-	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
+	st := "SELECT fileid,filename,is_command,hostname,certfp,content FROM " +
+		"(SELECT fileid FROM files " +
+		"WHERE content ilike '%'||$1||'%' AND current " +
+		"ORDER BY fileid LIMIT $2 OFFSET $3) as foo " +
+		"LEFT JOIN files USING (fileid) " +
+		"LEFT JOIN hostinfo USING (certfp) " +
+		"WHERE hostname IS NOT NULL"
 
-	st := "SELECT fileid,filename,is_command,hostname,certfp,content," +
-		"ts_headline(content,plainto_tsquery('english',$1)) AS excerpt FROM " +
-		" (SELECT fileid,filename,is_command,certfp,content FROM " +
-		"   (SELECT fileid,filename,is_command,certfp,content,tsvec,row_number()" +
-		"    OVER (PARTITION BY certfp,filename ORDER BY mtime DESC)" +
-		"    FROM files WHERE tsvec @@ plainto_tsquery('english',$1)" +
-		"   ) AS foo1 " +
-		"   WHERE row_number=1 " +
-		"   ORDER BY ts_rank(tsvec, plainto_tsquery('english',$1)) DESC " +
-		"   LIMIT $2 OFFSET $3" +
-		" ) AS foo2 " +
-		" LEFT JOIN hostinfo USING (certfp)"
+	/*if vars.devmode {
+		var rows *sql.Rows
+		rows, err = vars.db.Query("EXPLAIN "+st, result.Query, pageSize,
+			(result.Page-1)*pageSize)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		for rows.Next() {
+			var s string
+			if err = rows.Scan(&s); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			log.Println(s)
+		}
+		if err = rows.Err(); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}*/
 
 	rows, err := vars.db.Query(st, result.Query, pageSize,
 		(result.Page-1)*pageSize)
@@ -116,11 +116,11 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 
 	result.Hits = make([]apiSearchPageHit, 0)
 	for rowNumber := 1; rows.Next(); rowNumber++ {
-		var filename, hostname, certfp, content, excerpt sql.NullString
+		var filename, hostname, certfp, content sql.NullString
 		var isCommand sql.NullBool
 		hit := apiSearchPageHit{}
 		err = rows.Scan(&hit.FileID, &filename, &isCommand, &hostname, &certfp,
-			&content, &excerpt)
+			&content)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -130,13 +130,20 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		hit.CertFP = jsonString(certfp)
 		hit.IsCommand = isCommand.Bool
 		hit.DisplayNumber = rowNumber
-		hit.Excerpt = jsonString(excerpt)
+		hit.Excerpt = createExcerpt(content.String, result.Query)
 		result.Hits = append(result.Hits, hit)
 	}
 	if err = rows.Err(); err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	result.MaxPage = result.Page + 1
+	if result.MaxPage < 10 {
+		result.MaxPage = 10
+	}
+	//result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	jsonEnc := json.NewEncoder(w)
 	jsonEnc.SetEscapeHTML(false)
@@ -147,4 +154,25 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		log.Println(err.Error())
 		return
 	}
+}
+
+func createExcerpt(content string, query string) string {
+	re := regexp.MustCompile(`(?i)\w{0,10}?.{0,20}` + query + `.{0,20}\w{0,10}?`)
+	escQ := html.EscapeString(strings.ToLower(query))
+	var buffer bytes.Buffer
+	for _, found := range re.FindAllString(content, 3) {
+		// html-escape, then add <em>-tags
+		found := html.EscapeString(found)
+		if i := strings.Index(strings.ToLower(found), escQ); i > -1 {
+			buffer.WriteString(found[0:i])
+			buffer.WriteString("<em>")
+			buffer.WriteString(found[i : i+len(escQ)])
+			buffer.WriteString("</em>")
+			buffer.WriteString(found[i+len(escQ):])
+		} else {
+			buffer.WriteString(found)
+		}
+		buffer.WriteString("<br>")
+	}
+	return buffer.String()
 }
