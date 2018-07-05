@@ -36,7 +36,7 @@ echo "buildrpm: The git branch is $GIT_BRANCH"
 sed -i -e "s|%{getenv:GIT_BRANCH}|$GIT_BRANCH|g" $SPEC
 
 # Check the spec file for errors
-rpmlint -i -f $SOURCEDIR/rpmlint.conf $SPEC || exit 1
+rpmlint -i -f "$SOURCEDIR/rpmlint.conf" $SPEC || exit 1
 
 echo "buildrpm: Downloading source archive files"
 cd $BUILDDIR/SOURCES
@@ -74,7 +74,7 @@ if [ $? -ne 0 ]; then
 fi
 
 A=$BUILDDIR/SRPMS/*
-rpmlint -i -f $SOURCEDIR/rpmlint.conf $A || exit 1
+rpmlint -i -f "$SOURCEDIR/rpmlint.conf" $A || exit 1
 
 srpm=`eval echo "~/rpmbuild/SRPMS/*.src.rpm"`
 if [ ! -f $srpm ]
@@ -104,4 +104,4 @@ echo ""
 echo "--------------------------------------------------------"
 echo "  rpmlint report"
 echo "--------------------------------------------------------"
-rpmlint -i -f $SOURCEDIR/rpmlint.conf /var/lib/mock/$config/result/*.rpm || exit 1
+rpmlint -i -f "$SOURCEDIR/rpmlint.conf" /var/lib/mock/$config/result/*.rpm || exit 1

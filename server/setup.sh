@@ -53,9 +53,14 @@ chgrp -R apache /var/www/nivlheim /var/log/nivlheim
 chmod -R g+w /var/log/nivlheim
 chmod 0640 /var/www/nivlheim/default_key.pem /var/www/nivlheim/CA/nivlheimca.key
 chmod 0644 /var/www/nivlheim/default_cert.pem /var/www/nivlheim/CA/nivlheimca.crt
-chcon -R -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}
 chown -R apache:apache /var/www/nivlheim/{db,certs,rand,queue}
 chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
+
+# SElinux
+chcon -R -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}
+for dir in /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}; do
+	semanage fcontext -a -t httpd_sys_rw_content_t $dir
+done
 setsebool -P httpd_can_network_connect_db on
 setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 
@@ -78,7 +83,7 @@ sudo -u postgres bash -c "psql -c \"create database apache\""
 sudo -u postgres bash -c "createuser root"
 sudo -u postgres bash -c "psql -c \"grant apache to root\""
 
-# PostgreSQL Trigram extension 
+# PostgreSQL Trigram extension
 sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" apache
 
 # update the database schema

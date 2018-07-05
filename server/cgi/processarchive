@@ -30,8 +30,16 @@ if ($ip ne "127.0.0.1" && $ip ne "::1") {
 my $confdir = "/var/www/nivlheim";
 
 # Logging
-Log::Log4perl->init("$confdir/log4perl.conf");
-my $logger = Log::Log4perl->get_logger();
+my $logger;
+eval {
+	Log::Log4perl->init("$confdir/log4perl.conf");
+	$logger = Log::Log4perl->get_logger("processarchive");
+};
+if ($@) {
+	# Probably unable to write to the log file (typically permission denied)
+	# but we don't want that to prevent the data flow.
+	$logger = Log::Log4perl->get_logger("syslogger");
+}
 
 # Connect to database
 my %attr = ("AutoCommit" => 0);
@@ -67,7 +75,7 @@ eval{
 	$logger->debug("Unpacking into $dir");
 	chdir($dir);
 	if ($archivefile =~ /\.tgz$/) {
-		run_command("/bin/tar -xzf $archivefile");
+		run_command("/bin/tar -xzf $archivefile --warning=no-timestamp");
 	}
 	elsif ($archivefile =~ /\.zip$/) {
 		run_command("/usr/bin/unzip -oqq $archivefile 2>&1");

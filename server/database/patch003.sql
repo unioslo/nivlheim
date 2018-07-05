@@ -20,6 +20,6 @@ DROP FUNCTION upd_tsvec();
 DROP INDEX files_tsvec;
 ALTER TABLE files DROP COLUMN tsvec;
 
-CREATE INDEX files_content_trgm ON files USING gin(content gin_trgm_ops);
+CREATE INDEX CONCURRENTLY files_content_trgm ON files USING gin(content gin_trgm_ops);
 
 UPDATE db SET patchlevel=3;
