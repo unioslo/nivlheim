@@ -88,7 +88,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchlevel int
-	const requirePatchLevel = 3
+	const requirePatchLevel = 1
 	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
 	if patchlevel != requirePatchLevel {
 		log.Printf("Error: Wrong database patch level. "+
@@ -98,6 +98,7 @@ func main() {
 
 	go runAPI(db, 4040, devmode)
 	go taskRunner(db, devmode)
+	go loadContentForFastSearch(db)
 
 	jobSlots := make(chan bool, 10) // max concurrent running jobs
 	for !quit {

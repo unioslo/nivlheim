@@ -62,9 +62,9 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
 		"kernel, vendor, model, serialno, certfp, clientversion " +
-		"FROM hostinfo WHERE hostname IS NOT NULL"
+		"FROM hostinfo"
 	if len(where) > 0 {
-		statement += " AND " + where
+		statement += " WHERE " + where
 	}
 
 	if sort := req.FormValue("sort"); sort != "" {
@@ -206,10 +206,9 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 	if ok {
 		group = g
 	}
-	statement := "SELECT " + group + ", count(*) FROM hostinfo " +
-		"WHERE hostname IS NOT NULL"
+	statement := "SELECT " + group + ", count(*) FROM hostinfo "
 	if len(where) > 0 {
-		statement += " AND " + where
+		statement += " WHERE " + where
 	}
 	statement += " GROUP BY " + group
 

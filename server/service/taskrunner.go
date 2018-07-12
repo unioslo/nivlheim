@@ -50,7 +50,7 @@ func markTaskDone(id int64) {
 }
 
 // taskRunner is intended to be run as a goroutine. It enters an infinite loop
-// where it periotically reads the "task" database table and executes tasks.
+// where it periodically reads the "task" database table and executes tasks.
 func taskRunner(db *sql.DB, devmode bool) {
 	taskSlots := make(chan bool, 10) // max concurrent running tasks
 	for {

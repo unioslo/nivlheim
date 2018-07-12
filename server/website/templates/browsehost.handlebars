@@ -1,7 +1,10 @@
 <section class="section">
 <div class="container">
 
-<h1 class="title">{{hostname}}</h1>
+<h1 class="title">
+	{{#if hostname}}{{hostname}}{{/if}}
+	{{#unless hostname}}{{ipAddress}}{{/unless}}
+</h1>
 
 <p>
 <table>

@@ -2,7 +2,10 @@
 {{#if @first}}
 <div class="column is-narrow">
 {{/if}}
-<a href="#/browsehost/{{certfp}}">{{hostname}}</a><br>
+<a href="#/browsehost/{{certfp}}">
+	{{#if hostname}}{{hostname}}{{/if}}
+	{{#unless hostname}}{{ipAddress}}{{/unless}}
+</a><br>
 {{#if @last}}
 </div>
 <div class="column is-narrow loadmore"></div>

@@ -1,13 +1,7 @@
 SET client_min_messages TO WARNING;
 
-DROP TABLE IF EXISTS waiting_for_approval;
-DROP TABLE IF EXISTS support;
-DROP TABLE IF EXISTS ipranges;
-DROP TABLE IF EXISTS hostinfo;
-DROP TABLE IF EXISTS files;
-DROP TABLE IF EXISTS certificates;
-DROP TABLE IF EXISTS tasks;
-DROP TABLE IF EXISTS db;
+DROP TABLE IF EXISTS waiting_for_approval, support, ipranges, hostinfo, files,
+	certificates, tasks, db CASCADE;
 
 CREATE TABLE waiting_for_approval(
 	approvalid serial PRIMARY KEY NOT NULL,
@@ -41,33 +35,17 @@ CREATE TABLE files(
 	received timestamp with time zone,
 	mtime timestamp with time zone,
 	content text,
-	tsvec tsvector,
 	crc32 int4,
 	is_command boolean not null default false,
 	clientversion text,
 	parsed boolean not null default false,
+	current boolean not null default true,
 	originalcertid int REFERENCES certificates(certid)
 );
 
-CREATE INDEX files_parsed ON files(parsed);
+CREATE INDEX files_unparsed ON files(parsed) WHERE NOT parsed;
+CREATE INDEX files_certfp_current ON files(certfp,current) WHERE current;
 CREATE INDEX files_certfp_fname ON files(certfp,filename);
-CREATE INDEX files_tsvec ON files USING gist(tsvec);
-
---start_of_procedures
-CREATE OR REPLACE FUNCTION upd_tsvec() RETURNS TRIGGER AS $upd_tsvec$
-	BEGIN
-		IF (TG_OP = 'INSERT') THEN
-			UPDATE files SET tsvec = to_tsvector('english', left(NEW.content,1024*1024))
-				WHERE fileid=NEW.fileid;
-			RETURN NEW;
-		END IF;
-	END;
-$upd_tsvec$ LANGUAGE plpgsql;
-
-CREATE TRIGGER files_update_tsvec
-AFTER INSERT ON files
-	FOR EACH ROW EXECUTE PROCEDURE upd_tsvec();
---end_of_procedures
 
 CREATE TABLE tasks(
 	taskid serial PRIMARY KEY NOT NULL,

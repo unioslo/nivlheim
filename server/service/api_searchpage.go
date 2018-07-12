@@ -4,10 +4,11 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"html"
 	"log"
+	"math"
 	"net/http"
-	"regexp"
 	"strconv"
 	"strings"
 )
@@ -31,6 +32,7 @@ type apiSearchPageResult struct {
 	Query   string             `json:"query"`
 	Page    int                `json:"page"`
 	MaxPage int                `json:"maxPage"`
+	NumHits int                `json:"numberOfHits"`
 	Hits    []apiSearchPageHit `json:"hits"`
 }
 
@@ -76,73 +78,47 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		}
 	}
 
-	st := "SELECT fileid,filename,is_command,hostname,certfp,content FROM " +
-		"(SELECT fileid FROM files " +
-		"WHERE content ilike '%'||$1||'%' AND current " +
-		"ORDER BY fileid LIMIT $2 OFFSET $3) as foo " +
-		"LEFT JOIN files USING (fileid) " +
-		"LEFT JOIN hostinfo USING (certfp) " +
-		"WHERE hostname IS NOT NULL"
-
-	/*if vars.devmode {
-		var rows *sql.Rows
-		rows, err = vars.db.Query("EXPLAIN "+st, result.Query, pageSize,
-			(result.Page-1)*pageSize)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		for rows.Next() {
-			var s string
-			if err = rows.Scan(&s); err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-			log.Println(s)
-		}
-		if err = rows.Err(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}*/
-
-	rows, err := vars.db.Query(st, result.Query, pageSize,
-		(result.Page-1)*pageSize)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+	if !isReadyForSearch() {
+		w.Header().Set("Retry-After", "60")
+		http.Error(w, "Not ready yet, still loading data", http.StatusServiceUnavailable)
 		return
 	}
-	defer rows.Close()
 
+	hitIDs := searchFiles(result.Query)
+	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
-	for rowNumber := 1; rows.Next(); rowNumber++ {
+	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
+
+	statement := "SELECT filename,is_command," +
+		"COALESCE(hostname,host(files.ipaddr)),certfp,content " +
+		"FROM files LEFT JOIN hostinfo USING (certfp) " +
+		"WHERE fileid=$1"
+
+	offset := (result.Page - 1) * pageSize
+	for i := offset; i < offset+pageSize && i < len(hitIDs); i++ {
+		fileID := hitIDs[i]
 		var filename, hostname, certfp, content sql.NullString
 		var isCommand sql.NullBool
 		hit := apiSearchPageHit{}
-		err = rows.Scan(&hit.FileID, &filename, &isCommand, &hostname, &certfp,
-			&content)
+		err = vars.db.QueryRow(statement, fileID).
+			Scan(&filename, &isCommand, &hostname, &certfp, &content)
+		if err == sql.ErrNoRows {
+			log.Printf("Didn't find the file %d", fileID)
+			continue
+		}
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		hit.FileID = fileID
 		hit.Filename = jsonString(filename)
 		hit.Hostname = jsonString(hostname)
 		hit.CertFP = jsonString(certfp)
 		hit.IsCommand = isCommand.Bool
-		hit.DisplayNumber = rowNumber
-		hit.Excerpt = createExcerpt(content.String, result.Query)
+		hit.DisplayNumber = i + 1
+		hit.Excerpt = createExcerpt(fileID, content.String, result.Query)
 		result.Hits = append(result.Hits, hit)
 	}
-	if err = rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	result.MaxPage = result.Page + 1
-	if result.MaxPage < 10 {
-		result.MaxPage = 10
-	}
-	//result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	jsonEnc := json.NewEncoder(w)
@@ -156,22 +132,44 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 }
 
-func createExcerpt(content string, query string) string {
-	re := regexp.MustCompile(`(?i)\w{0,10}?.{0,20}` + query + `.{0,20}\w{0,10}?`)
-	escQ := html.EscapeString(strings.ToLower(query))
+// Max returns the highest of the two input values
+func Max(x, y int) int {
+	if x > y {
+		return x
+	}
+	return y
+}
+
+// Min returns the lowest of the two input values
+func Min(x, y int) int {
+	if x < y {
+		return x
+	}
+	return y
+}
+
+func createExcerpt(fileID int64, content string, query string) string {
 	var buffer bytes.Buffer
-	for _, found := range re.FindAllString(content, 3) {
-		// html-escape, then add <em>-tags
-		found := html.EscapeString(found)
-		if i := strings.Index(strings.ToLower(found), escQ); i > -1 {
-			buffer.WriteString(found[0:i])
-			buffer.WriteString("<em>")
-			buffer.WriteString(found[i : i+len(escQ)])
-			buffer.WriteString("</em>")
-			buffer.WriteString(found[i+len(escQ):])
-		} else {
-			buffer.WriteString(found)
+	// use a fast function to find locations where the query string matched
+	for _, i := range findMatchesInFile(fileID, query, 3) {
+		// include some context, try to cut off at word boundaries
+		start := Max(i-30, 0)
+		cutoff := strings.IndexAny(content[start:i], " \n\t")
+		if cutoff != -1 {
+			start = start + cutoff + 1
 		}
+		end := Min(i+len(query)+30, len(content))
+		cutoff = strings.IndexAny(content[i:end], " \n\t")
+		if cutoff != -1 {
+			end = i + cutoff
+		}
+		// html-escape and add <em>-tags
+		fmt.Printf("start=%d i=%d i+len=%d end=%d\n", start, i, i+len(query), end)
+		buffer.WriteString(html.EscapeString(content[start:i]))
+		buffer.WriteString("<em>")
+		buffer.WriteString(html.EscapeString(content[i : i+len(query)]))
+		buffer.WriteString("</em>")
+		buffer.WriteString(html.EscapeString(content[i+len(query) : end]))
 		buffer.WriteString("<br>")
 	}
 	return buffer.String()

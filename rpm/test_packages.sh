@@ -17,6 +17,21 @@ if [ -f installerror ]; then
 	exit 1
 fi
 
+# Verify that the system service is running
+if ! sudo systemctl is-active --quiet nivlheim; then
+	sudo systemctl status nivlheim
+	exit 1
+fi
+
+# Show curl version
+curl --version
+
+# Verify that the API is available by direct connection
+if ! curl -sSfo /dev/null http://localhost:4040/api/v0/status; then
+	echo "The API is unavailable at port 4040."
+	exit 1
+fi
+
 # Check that the home page is being served
 if [ $(curl -sSk https://localhost/ | tee /tmp/homepage | grep -c "<title>Nivlheim</title>") -eq 0 ]; then
 	echo "The web server isn't properly configured and running."
@@ -33,7 +48,7 @@ done
 
 # Check that the API is available through the main web server
 if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
-	echo "The API is unavailable."
+	echo "The API is unavailable through httpd."
 	exit 1
 fi
 

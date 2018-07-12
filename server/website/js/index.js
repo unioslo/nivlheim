@@ -294,7 +294,7 @@ function reloadMatchingHosts() {
 	if (q) q = "?q="+q;
 	location.assign("/#/allhosts"+q);
 	// prepare the API call that loads the list of hosts that match
-	q = "/api/v0/hostlist?fields=hostname,certfp";
+	q = "/api/v0/hostlist?fields=hostname,ipAddress,certfp";
 	if (oses.length>0) q += "&os="+oses.join(',');
 	if (editions.length>0) q += "&osEdition="+editions.join(',');
 	if (manufacturers.length>0) q += "&vendor="+manufacturers.join(',');

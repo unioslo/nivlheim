@@ -102,6 +102,7 @@ func (p pruneOldFilesJob) Run(db *sql.DB) {
 				if err != nil {
 					log.Panic(err)
 				}
+				removeFileFromFastSearch(deleteID)
 				count++
 			}
 			if count > 0 {

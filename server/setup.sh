@@ -84,7 +84,7 @@ sudo -u postgres bash -c "createuser root"
 sudo -u postgres bash -c "psql -c \"grant apache to root\""
 
 # PostgreSQL Trigram extension
-sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" apache
+# sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" apache
 
 # update the database schema
 sudo -u apache /var/nivlheim/installdb.sh

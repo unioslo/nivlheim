@@ -72,19 +72,23 @@ func parseFile(database *sql.DB, fileId int64) {
 	var filename, content, certcn, ipaddr, certfp, cVersion,
 		osHostname sql.NullString
 	var received pq.NullTime
-	var isCommand sql.NullBool
+	var isCommand, isCurrent sql.NullBool
 	err = tx.QueryRow("SELECT filename, content, received, is_command, certcn,"+
-		"ipaddr, certfp, clientversion, os_hostname FROM files WHERE fileid=$1",
-		fileId).
+		"ipaddr, certfp, clientversion, os_hostname, current FROM files "+
+		"WHERE fileid=$1", fileId).
 		Scan(&filename, &content, &received, &isCommand, &certcn, &ipaddr,
-			&certfp, &cVersion, &osHostname)
+			&certfp, &cVersion, &osHostname, &isCurrent)
 	if err != nil {
 		return
 	}
 	if !certfp.Valid {
 		panic(fmt.Sprintf("certfp is null for file %d", fileId))
 	}
-	// first, try to update as if there is an existing row
+	// add (or replace) the file to the in-memory content
+	if isCurrent.Bool {
+		addFileToFastSearch(fileId, certfp.String, filename.String, content.String)
+	}
+	// first, try to update hostinfo as if there is an existing row
 	result, err := tx.Exec("UPDATE hostinfo SET lastseen=$1,clientversion=$2 "+
 		"WHERE certfp=$3", received, cVersion, certfp.String)
 	if err != nil {
