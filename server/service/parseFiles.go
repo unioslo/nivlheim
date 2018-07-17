@@ -26,7 +26,7 @@ func (s parseFilesJob) HowOften() time.Duration {
 }
 
 func (s parseFilesJob) Run(db *sql.DB) {
-	rows, err := db.Query("SELECT fileid FROM files WHERE parsed = false" +
+	rows, err := db.Query("SELECT fileid FROM files WHERE NOT parsed" +
 		" ORDER BY fileid")
 	if err != nil {
 		log.Panic(err)
@@ -88,7 +88,9 @@ func parseFile(database *sql.DB, fileId int64) {
 	if isCurrent.Bool {
 		addFileToFastSearch(fileId, certfp.String, filename.String, content.String)
 	}
-	// first, try to update hostinfo as if there is an existing row
+
+	// Workaround when PostgreSQL is too old to support UPSERT:
+	// First, try to update hostinfo as if there is an existing row
 	result, err := tx.Exec("UPDATE hostinfo SET lastseen=$1,clientversion=$2 "+
 		"WHERE certfp=$3", received, cVersion, certfp.String)
 	if err != nil {
@@ -100,11 +102,17 @@ func parseFile(database *sql.DB, fileId int64) {
 	}
 	if rowcount == 0 {
 		// no existing row? then try to insert
+		// (This can cause a "duplicate key" error if there's a race condition)
 		_, err = tx.Exec("INSERT INTO hostinfo(lastseen,ipaddr,clientversion,"+
 			"os_hostname,certfp) VALUES($1,$2,$3,$4,$5)",
 			received, ipaddr, cVersion, osHostname, certfp)
 		if err != nil {
-			// race condition (duplicate key value) or other error.
+			if strings.Contains(err.Error(), "duplicate key") {
+				// Error caused by a race condition between goroutines.
+				// No problem, just rollback and try again in a few moments.
+				tx.Rollback()
+				err = nil // fool the deferred func, don't want to log the error
+			}
 			return
 		}
 		triggerJob(handleDNSchangesJob{})
