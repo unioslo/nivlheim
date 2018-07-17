@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"encoding/json"
-	"fmt"
 	"html"
 	"log"
 	"math"
@@ -159,12 +158,11 @@ func createExcerpt(fileID int64, content string, query string) string {
 			start = start + cutoff + 1
 		}
 		end := Min(i+len(query)+30, len(content))
-		cutoff = strings.IndexAny(content[i:end], " \n\t")
+		cutoff = strings.LastIndexAny(content[i+len(query):end], " \n\t")
 		if cutoff != -1 {
-			end = i + cutoff
+			end = i + len(query) + cutoff
 		}
 		// html-escape and add <em>-tags
-		fmt.Printf("start=%d i=%d i+len=%d end=%d\n", start, i, i+len(query), end)
 		buffer.WriteString(html.EscapeString(content[start:i]))
 		buffer.WriteString("<em>")
 		buffer.WriteString(html.EscapeString(content[i : i+len(query)]))

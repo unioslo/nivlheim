@@ -125,7 +125,8 @@ func executeTask(db *sql.DB, task Task) {
 	if err == nil {
 		task.status = resp.StatusCode
 		resp.Body.Close()
-		if resp.StatusCode == 200 || resp.StatusCode == 410 {
+		if resp.StatusCode == 200 || resp.StatusCode == 204 ||
+			resp.StatusCode == 410 {
 			db.Exec("DELETE FROM tasks WHERE taskid=$1", task.taskid)
 			return
 		}

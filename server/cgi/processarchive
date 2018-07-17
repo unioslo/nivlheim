@@ -143,6 +143,7 @@ eval{
 
 	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
 		."WHERE fileid=?");
+	my @no_longer_current = ();
 
 	my $sth_crc = $dbh->prepare("SELECT crc32,fileid FROM files "
 		."WHERE certfp=? AND filename=? ORDER BY received DESC LIMIT 1");
@@ -204,6 +205,8 @@ eval{
 		$content =~ tr/\000-\010/ /;
 		$content =~ tr/\013-\014/ /;
 		$content =~ tr/\016-\037/ /;
+
+		# Compute a checksum
 		my $crc32 = crc32($content);
 		if ($crc32 > 0x7FFFFFFF) { $crc32 = -((~$crc32 & 0xFFFFFFFF)+1); }
 
@@ -227,8 +230,11 @@ eval{
 		}
 
 		# Set current to false for the previous version of this file
-		$sth_clearcurrent->execute(($currentfiles->{$originalfilename}->{'fileid'}));
-		delete $currentfiles->{$originalfilename};
+		if (exists($currentfiles->{$originalfilename})) {
+			$sth_clearcurrent->execute(($currentfiles->{$originalfilename}->{'fileid'}));
+			push @no_longer_current, $currentfiles->{$originalfilename}->{'fileid'};
+			delete $currentfiles->{$originalfilename};
+		}
 
 		# Run the database INSERT operation
 		my @values = ($meta{ip}, $meta{os_hostname},
@@ -244,6 +250,15 @@ eval{
 	foreach (keys %{$currentfiles}) {
 		my $fileid = $currentfiles->{$_}->{'fileid'};
 		$sth_clearcurrent->execute(($fileid));
+		push @no_longer_current, $fileid;
+	}
+
+	# Create a task that will call the API to signal that these files are
+	# no longer current, so they can be removed from the search cache.
+	if ($#no_longer_current>-1) {
+		$dbh->do("INSERT INTO tasks(url) VALUES(?)", undef,
+			("http://localhost:4040/api/v0/unsetCurrent?ids="
+				. join(',', @no_longer_current)));
 	}
 
 	$dbh->commit;

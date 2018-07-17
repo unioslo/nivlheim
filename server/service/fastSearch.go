@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 )
 
 var fsMutex sync.RWMutex
@@ -73,6 +74,76 @@ func removeFileFromFastSearch(fileID int64) {
 	delete(fsKey, fileID)
 }
 
+func compareSearchCacheToDB(db *sql.DB) {
+	// read a list of "current" file IDs from the database
+	source := make(map[int64]bool, 10000)
+	rows, err := db.Query("SELECT fileid FROM files WHERE current")
+	if err != nil {
+		log.Panic(err)
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fileID int64
+		err = rows.Scan(&fileID)
+		if err != nil {
+			log.Panic(err)
+		}
+		source[fileID] = true
+	}
+	if rows.Err() != nil {
+		log.Panic(rows.Err())
+	}
+	// find entries in the cache that should have been removed
+	fsMutex.RLock()
+	defer fsMutex.RUnlock()
+	var obsoleteCount int
+	for fileID := range fsKey {
+		if _, ok := source[fileID]; !ok {
+			obsoleteCount++
+			// fix it by removing the obsolete entry
+			delete(fsContent, fileID)
+			key, ok := fsKey[fileID]
+			if ok {
+				delete(fsID, key)
+			}
+			delete(fsKey, fileID)
+		}
+	}
+	if obsoleteCount > 0 {
+		log.Printf("The search cache had %d files that were obsolete", obsoleteCount)
+	}
+	// find missing entries
+	var missingCount int
+	for fileID := range source {
+		if _, ok := fsKey[fileID]; !ok {
+			missingCount++
+			// fix it by loading the missing entry
+			var filename, certfp, content sql.NullString
+			err := db.QueryRow("SELECT filename,certfp,content FROM files "+
+				"WHERE fileid=$1 AND current", fileID).
+				Scan(&filename, &certfp, &content)
+			if err == sql.ErrNoRows {
+				continue
+			} else if err != nil {
+				log.Panic(err)
+			}
+			if !certfp.Valid || !filename.Valid || !content.Valid {
+				continue
+			}
+			fsContent[fileID] = strings.ToLower(content.String)
+			key := certfp.String + ":" + filename.String
+			fsID[key] = fileID
+			fsKey[fileID] = key
+		}
+	}
+	if missingCount > 0 {
+		log.Printf("The search cache was missing %d files", missingCount)
+	}
+	if missingCount == 0 && obsoleteCount == 0 {
+		log.Printf("The search cache was up-to-date.")
+	}
+}
+
 type hitList []int64
 
 func (a hitList) Len() int           { return len(a) }
@@ -115,4 +186,19 @@ func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 		offset = offset + i + len(query)
 	}
 	return result
+}
+
+// Job
+type compareSearchCacheJob struct{}
+
+func init() {
+	RegisterJob(compareSearchCacheJob{})
+}
+
+func (job compareSearchCacheJob) HowOften() time.Duration {
+	return time.Minute * 15
+}
+
+func (job compareSearchCacheJob) Run(db *sql.DB) {
+	compareSearchCacheToDB(db)
 }

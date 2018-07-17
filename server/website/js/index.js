@@ -178,14 +178,19 @@ function browseFileByName(hostname, filename) {
 function newSearch() {
 	let q = $("input#search").val();
 	if (q == "") return;
-	location.href = "#/search/1/" +
-		encodeURIComponent(q);
+	let new_href = "#/search/1/" + encodeURIComponent(q);
+	if (location.href.endsWith(new_href)) {
+		// The user clicked "search" again, with the same query as before.
+		// Let's reload the search, then.
+		searchPage(1, encodeURIComponent(q));
+	} else {
+		location.href = new_href;
+	}
 }
 
 function searchPage(page, q) {
 	if (!q) q = "";
 	else q = decodeURIComponent(q);
-	//if ($("div#searchSpinner").length == 0) {
 	// if we're not already on the search page, render the template
 	renderTemplate("searchpage", {"query": q}, "div#pageContent")
 	.done(function(){
@@ -208,23 +213,14 @@ function searchPage(page, q) {
 			"/api/v0/searchpage?q="+encodeURIComponent(q)+
 			"&page="+page+"&hitsPerPage=8",
 			"searchresultfiles", "div#searchResult")
-		.done(function(){
+		.always(function(){
 			// hide the spinner
 			$("div#searchSpinner").hide();
+			// move the text cursor to the end of the search input box
+			let elem = $("input#search")[0];
+			elem.selectionStart = elem.selectionEnd = elem.value.length;
 		});
 	});
-/*
-	if ($("div#searchSpinner").length == 0) {
-		// if we're not already on the search page, show a blank page
-		$("div#pageContent").children().fadeOut().remove();
-		$("div#pageContent").append('<section class="section">'+
-			'<div class="container"><span class="icon">'+
-			'<i class="fas fa-cog fa-3x fa-spin"></i></span></div></section>');
-	} else {
-		// show the spinner
-		$("div#searchSpinner").fadeIn();
-		$("div#searchResult").fadeOut();
-	}*/
 }
 
 function allHosts() {

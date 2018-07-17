@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"reflect"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -26,6 +27,8 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
 	mux.HandleFunc("/api/v0/triggerJob/", runJob)
+	mux.HandleFunc("/api/v0/unsetCurrent", unsetCurrent)
+	mux.HandleFunc("/api/v0/mu", doNothing)
 	var h http.Handler = mux
 	if devmode {
 		h = wrapLog(wrapAllowLocalhostCORS(h))
@@ -155,7 +158,7 @@ func contains(needle string, haystack []string) bool {
 }
 
 func runJob(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	if req.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
@@ -178,6 +181,25 @@ func runJob(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	http.Error(w, "Job not found.", http.StatusNotFound)
+}
+
+func unsetCurrent(w http.ResponseWriter, req *http.Request) {
+	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+	for _, s := range strings.Split(req.FormValue("ids"), ",") {
+		fileID, err := strconv.ParseInt(s, 10, 64)
+		if err == nil {
+			removeFileFromFastSearch(fileID)
+		}
+	}
+	http.Error(w, "OK", http.StatusNoContent)
+}
+
+func doNothing(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	fmt.Fprintf(w, "無\n") // https://en.wikipedia.org/wiki/Mu_(negative)
 }
 
 func isTrueish(s string) bool {
