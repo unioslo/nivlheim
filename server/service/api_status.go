@@ -20,6 +20,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 	type Status struct {
 		NumOfMachines               int                `json:"numberOfMachines"`
+		NumOfFiles                  int                `json:"numberOfFiles"`
 		ReportingPercentageLastHour int                `json:"reportingPercentageLastHour"`
 		IncomingQueueSize           int                `json:"incomingQueueSize"`
 		ParseQueueSize              int                `json:"parseQueueSize"`
@@ -39,6 +40,9 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 	// NumOfMachines
 	vars.db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&status.NumOfMachines)
+
+	// NumOfFiles
+	vars.db.QueryRow("SELECT count(*) FROM files WHERE current").Scan(&status.NumOfFiles)
 
 	// ReportingPercentageLastHour
 	if status.NumOfMachines > 0 {

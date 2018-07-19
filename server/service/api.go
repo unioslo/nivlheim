@@ -26,9 +26,10 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
 	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
-	mux.HandleFunc("/api/v0/triggerJob/", runJob)
-	mux.HandleFunc("/api/v0/unsetCurrent", unsetCurrent)
-	mux.HandleFunc("/api/v0/mu", doNothing)
+	mux.HandleFunc("/api/internal/triggerJob", runJob)
+	mux.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
+	mux.HandleFunc("/api/internal/countFiles", countFiles)
+	mux.HandleFunc("/api/internal/mu", doNothing)
 	var h http.Handler = mux
 	if devmode {
 		h = wrapLog(wrapAllowLocalhostCORS(h))
@@ -195,6 +196,18 @@ func unsetCurrent(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 	http.Error(w, "OK", http.StatusNoContent)
+}
+
+func countFiles(w http.ResponseWriter, req *http.Request) {
+	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
+		http.Error(w, "", http.StatusForbidden)
+		return
+	}
+	i, err := strconv.Atoi(req.FormValue("n"))
+	if err != nil || i == 0 {
+		return
+	}
+	pfib.Add(float64(i))
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {

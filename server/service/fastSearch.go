@@ -139,9 +139,6 @@ func compareSearchCacheToDB(db *sql.DB) {
 	if missingCount > 0 {
 		log.Printf("The search cache was missing %d files", missingCount)
 	}
-	if missingCount == 0 && obsoleteCount == 0 {
-		log.Printf("The search cache was up-to-date.")
-	}
 }
 
 type hitList []int64

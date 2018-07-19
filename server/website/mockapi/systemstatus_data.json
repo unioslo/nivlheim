@@ -1,6 +1,7 @@
 {
 	"filesLastHour": 325,
 	"numberOfMachines": 11,
+	"numberOfFiles": 1234,
 	"reportingPercentageLastHour": 64,
 	"incomingQueueSize": 52,
 	"parseQueueSize": 13,

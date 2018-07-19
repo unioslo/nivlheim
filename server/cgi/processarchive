@@ -14,6 +14,7 @@ use IPC::Open3;
 use Log::Log4perl;
 use POSIX qw(strftime);
 use Symbol qw(gensym);
+use LWP::Simple;
 
 sub parse_query_string();
 sub run_command($);
@@ -153,6 +154,8 @@ eval{
 	my $sth_hostinfo2 = $dbh->prepare("UPDATE hostinfo SET ipaddr=?, os_hostname=?, ".
             "dnsttl=null WHERE (ipaddr!=? OR os_hostname!=?) AND certfp=?");
 
+	my $unchangedfilecount = 0;
+
 	# For each file
 	sub callback1 {
 		# Skip directories
@@ -225,6 +228,7 @@ eval{
 				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
 				# Make sure this file record keeps it "current" flag set
 				delete $currentfiles->{$originalfilename};
+				$unchangedfilecount++;
 				return;
 			}
 		}
@@ -256,9 +260,14 @@ eval{
 	# Create a task that will call the API to signal that these files are
 	# no longer current, so they can be removed from the search cache.
 	if ($#no_longer_current>-1) {
-		$dbh->do("INSERT INTO tasks(url) VALUES(?)", undef,
-			("http://localhost:4040/api/v0/unsetCurrent?ids="
-				. join(',', @no_longer_current)));
+		get("http://localhost:4040/api/internal/unsetCurrent?ids="
+			. join(',', @no_longer_current));
+	}
+
+	# Report the number of unchanged files to the system service
+	# so they too are counted (for statistical purposes)
+	if ($unchangedfilecount > 0) {
+		get("http://localhost:4040/api/internal/countFiles?n=".$unchangedfilecount);
 	}
 
 	$dbh->commit;
