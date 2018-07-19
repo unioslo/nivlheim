@@ -20,7 +20,7 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		[]string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
-			"kernel", "vendor", "model", "serialNo", "certfp",
+			"kernel", "manufacturer", "product", "serialNo", "certfp",
 			"clientVersion", "files", "support"})
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
@@ -29,7 +29,7 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	qparams := make([]interface{}, 0)
 	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
-		"kernel, vendor, model, serialno, certfp, clientversion " +
+		"kernel, manufacturer, product, serialno, certfp, clientversion " +
 		"FROM hostinfo "
 	if req.FormValue("hostname") != "" {
 		statement += "WHERE hostname=$1"
@@ -50,11 +50,11 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 	defer rows.Close()
 	if rows.Next() {
-		var ipaddr, hostname, os, osEdition, kernel, vendor,
-			model, serialNo, certfp, clientversion sql.NullString
+		var ipaddr, hostname, os, osEdition, kernel, manufacturer,
+			product, serialNo, certfp, clientversion sql.NullString
 		var lastseen pq.NullTime
 		err = rows.Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
-			&kernel, &vendor, &model, &serialNo, &certfp, &clientversion)
+			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -78,11 +78,11 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		if fields["kernel"] {
 			res["kernel"] = jsonString(kernel)
 		}
-		if fields["vendor"] {
-			res["vendor"] = jsonString(vendor)
+		if fields["manufacturer"] {
+			res["manufacturer"] = jsonString(manufacturer)
 		}
-		if fields["model"] {
-			res["model"] = jsonString(model)
+		if fields["product"] {
+			res["product"] = jsonString(product)
 		}
 		if fields["serialNo"] {
 			res["serialNo"] = jsonString(serialNo)

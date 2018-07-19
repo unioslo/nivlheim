@@ -20,8 +20,8 @@ func TestBuildSQLWhere(t *testing.T) {
 			params: []interface{}{"a", "b", "c", "dd", "ee"},
 		},
 		whereTest{
-			query:  "os=Fedora&vendor!=Dell*",
-			sql:    "os = $1 AND vendor NOT LIKE $2||'%'",
+			query:  "os=Fedora&manufacturer!=Dell*",
+			sql:    "os = $1 AND manufacturer NOT LIKE $2||'%'",
 			params: []interface{}{"Fedora", "Dell"},
 		},
 		whereTest{

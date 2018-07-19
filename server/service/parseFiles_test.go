@@ -42,7 +42,7 @@ func TestParseFile(t *testing.T) {
 
 	// verify the results
 	var kernel, manufacturer, product, serial sql.NullString
-	err := db.QueryRow("SELECT kernel,vendor,model,serialno "+
+	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
 		"FROM hostinfo WHERE certfp='1234'").
 		Scan(&kernel, &manufacturer, &product, &serial)
 	if err != nil {

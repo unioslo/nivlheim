@@ -65,8 +65,8 @@ CREATE TABLE hostinfo(
 	os text,
 	os_edition text,
 	kernel text,
-	vendor text,
-	model text,
+	manufacturer text,
+	product text,
 	serialno text,
 	clientversion text,
 	dnsttl timestamp with time zone

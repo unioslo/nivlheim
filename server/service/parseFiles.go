@@ -250,26 +250,26 @@ func parseFile(database *sql.DB, fileId int64) {
 	}
 
 	if filename.String == "/usr/sbin/dmidecode -t system" {
-		var vendor, model, serial sql.NullString
+		var manufacturer, product, serial sql.NullString
 		if m := regexp.MustCompile(`Manufacturer: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
-			vendor.String = strings.TrimSpace(m[1])
-			vendor.String = strings.Title(strings.ToLower(vendor.String))
-			vendor.Valid = len(vendor.String) > 0
+			manufacturer.String = strings.TrimSpace(m[1])
+			manufacturer.String = strings.Title(strings.ToLower(manufacturer.String))
+			manufacturer.Valid = len(manufacturer.String) > 0
 		}
 		if m := regexp.MustCompile(`Product Name: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
-			model.String = strings.TrimSpace(m[1])
-			model.String = strings.Title(strings.ToLower(model.String))
-			model.Valid = len(model.String) > 0
+			product.String = strings.TrimSpace(m[1])
+			product.String = strings.Title(strings.ToLower(product.String))
+			product.Valid = len(product.String) > 0
 		}
 		if m := regexp.MustCompile(`Serial Number: (\w+)`).
 			FindStringSubmatch(content.String); m != nil {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0
 		}
-		_, err = tx.Exec("UPDATE hostinfo SET vendor=$1,model=$2,serialno=$3"+
-			"WHERE certfp=$4", vendor, model, serial, certfp.String)
+		_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2,serialno=$3"+
+			"WHERE certfp=$4", manufacturer, product, serial, certfp.String)
 		return
 	}
 

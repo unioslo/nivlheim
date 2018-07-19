@@ -26,7 +26,7 @@ var hostInfoDbFieldNames = map[string]string{
 }
 
 var apiHostListSourceFields = []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
-	"kernel", "vendor", "model", "serialNo", "certfp",
+	"kernel", "manufacturer", "product", "serialNo", "certfp",
 	"clientVersion"}
 
 func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request) {
@@ -61,7 +61,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
-		"kernel, vendor, model, serialno, certfp, clientversion " +
+		"kernel, manufacturer, product, serialno, certfp, clientversion " +
 		"FROM hostinfo"
 	if len(where) > 0 {
 		statement += " WHERE " + where
@@ -124,11 +124,11 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	defer rows.Close()
 	result := make([]map[string]interface{}, 0)
 	for rows.Next() {
-		var ipaddr, hostname, os, osEdition, kernel, vendor,
-			model, serialNo, certfp, clientversion sql.NullString
+		var ipaddr, hostname, os, osEdition, kernel, manufacturer,
+			product, serialNo, certfp, clientversion sql.NullString
 		var lastseen pq.NullTime
 		err = rows.Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
-			&kernel, &vendor, &model, &serialNo, &certfp, &clientversion)
+			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -152,11 +152,11 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		if fields["kernel"] {
 			res["kernel"] = jsonString(kernel)
 		}
-		if fields["vendor"] {
-			res["vendor"] = jsonString(vendor)
+		if fields["manufacturer"] {
+			res["manufacturer"] = jsonString(manufacturer)
 		}
-		if fields["model"] {
-			res["model"] = jsonString(model)
+		if fields["product"] {
+			res["product"] = jsonString(product)
 		}
 		if fields["serialNo"] {
 			res["serialNo"] = jsonString(serialNo)

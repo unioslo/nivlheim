@@ -131,7 +131,7 @@ function browseHostByCert(certfp) {
 		//"mockapi/browsehost.json",
 		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
 		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
-		"kernel,vendor,model,serialNo,clientVersion,certfp,files",
+		"kernel,manufacturer,product,serialNo,clientVersion,certfp,files",
 		"browsehost", "div#pageContent")
 	.done(function(){
 		window.scrollTo(0,0);
@@ -231,8 +231,8 @@ function allHosts() {
 	let promises = [];
 	promises.push($.get(pfx+"/api/v0/hostlist?group=os"));
 	promises.push($.get(pfx+"/api/v0/hostlist?group=osEdition"));
-	promises.push($.get(pfx+"/api/v0/hostlist?group=vendor"));
-	promises.push($.get(pfx+"/api/v0/hostlist?group=model"));
+	promises.push($.get(pfx+"/api/v0/hostlist?group=manufacturer"));
+	promises.push($.get(pfx+"/api/v0/hostlist?group=product"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
 		// remove entries that are the string "null"
@@ -293,8 +293,8 @@ function reloadMatchingHosts() {
 	q = "/api/v0/hostlist?fields=hostname,ipAddress,certfp";
 	if (oses.length>0) q += "&os="+oses.join(',');
 	if (editions.length>0) q += "&osEdition="+editions.join(',');
-	if (manufacturers.length>0) q += "&vendor="+manufacturers.join(',');
-	if (products.length>0) q += "&model="+products.join(',');
+	if (manufacturers.length>0) q += "&manufacturer="+manufacturers.join(',');
+	if (products.length>0) q += "&product="+products.join(',');
 	$("div#hostlist").data("query",q).data("offset",0).html("");
 	loadMoreHosts();
 }
