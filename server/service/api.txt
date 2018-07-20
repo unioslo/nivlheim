@@ -44,3 +44,8 @@ Liste ut eksisterende. fields: ipRangeId, ipRange, useDns, comment
 GET /api/v0/settings/ipranges
 POST /api/v0/settings/ipranges      lage ny. parametre: ipRange, useDns, comment
 DELETE /api/v0/settings/ipranges/<id>  slette en
+
+Hente ut alle innstillinger:
+GET /api/v0/settings
+Endre en innstilling:
+PUT /api/v0/settings/<navn>

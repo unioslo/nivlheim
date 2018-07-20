@@ -71,6 +71,7 @@ $(document).ready(function(){
 		'/browsefile/:hostname/:filename': browseFileByName,
 		'/search/:page/:query': searchPage,
 		'/search': searchPage,
+		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
 		'/': showFrontPage
 	};
@@ -316,10 +317,7 @@ function loadMoreHosts() {
 function settingsPage() {
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
-		APIcall(
-			//"mockapi/ipranges.json",
-			"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
-			"ipranges", "div#ipranges_placeholder")
+		APIcall("/api/v0/settings", "settings", "#placeholder_settings")
 		.done(function(){
 			attachHandlersToForms();
 		});
@@ -328,5 +326,14 @@ function settingsPage() {
 			"/api/v0/awaitingApproval"+
 			"?fields=hostname,reversedns,ipaddress,approvalId",
 			"awaiting_approval", $('#placeholder_approval'));
+	});
+}
+
+function iprangesPage() {
+	APIcall(//"mockapi/ipranges.json",
+		"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
+		"ipranges", "div#pageContent")
+	.done(function(){
+		attachHandlersToForms();
 	});
 }

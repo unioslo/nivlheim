@@ -157,12 +157,14 @@ function submitForm(event) {
 	// Use the ACTION attribute from the FORM tag
 	let path = (new URL(this.action).pathname);
 	let url = getAPIURLprefix() + path;
+	// use the METHOD or data-method attribute
+	let method = this.dataset["method"] || this.method;
 	// Serialize the form values
 	let data = $(this).serialize();
 	// Perform the HTTP request
 	$.ajax({
 		"url": url,
-		"method": this.method, // Using the METHOD attribute from the FORM tag
+		"method": method, // Using the METHOD attribute from the FORM tag
 		"data": data,
 		"processData": false, // Tell jQuery that the data is already encoded
 	})
@@ -222,6 +224,24 @@ function restDelete(element, apiPath) {
 		APIcall(container.data("apiUrl"), container.data("handlebarsTemplate"),
 			"#"+container.attr("id"))
 		.done(attachHandlersToForms);
+	});
+}
+
+function restPut(apiPath, name, body) {
+	let url = getAPIURLprefix()+apiPath+"/"+name;
+	$.ajax({
+		"url": url,
+		"method": "PUT",
+		"data": body
+	})
+	.fail(function(jqxhr){
+		// Error. Display error messages, if any
+		let text = jqxhr.statusCode().responseText;
+		$("[data-error-for='"+name+"']").text(text);
+	})
+	.done(function(data,textStatus,jqxhr){
+		$("[data-error-for='"+name+"']").text('');
+		$("[data-saved-for='"+name+"']").text('Saved').show().fadeOut(1000);
 	});
 }
 

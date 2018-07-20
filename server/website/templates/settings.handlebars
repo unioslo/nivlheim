@@ -1,0 +1,17 @@
+<h1 class="title is-4">General settings</h1>
+
+Archive hosts if not heard from in this many days:
+<input type="text" size="3" name="DaysIfNotSeenThenArchive"
+	value="{{DaysIfNotSeenThenArchive}}" pattern="\d+" required
+	onchange="restPut('/api/v0/settings',this.name,'value='+this.value)">
+<span data-error-for="DaysIfNotSeenThenArchive" class="has-text-danger"></span>
+<span data-saved-for="DaysIfNotSeenThenArchive" class="has-text-info"></span>
+<br>
+
+Delete archived data for hosts that have not been heard from in this many days:
+<input type="text" size="4" name="DaysIfNotSeenThenDelete"
+	value="{{DaysIfNotSeenThenDelete}}" pattern="\d+" required
+	onchange="restPut('/api/v0/settings',this.name,'value='+this.value)">
+<span data-error-for="DaysIfNotSeenThenDelete" class="has-text-danger"></span>
+<span data-saved-for="DaysIfNotSeenThenDelete" class="has-text-info"></span>
+<br>

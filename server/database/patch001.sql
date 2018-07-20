@@ -1,7 +1,7 @@
 SET client_min_messages TO WARNING;
 
 DROP TABLE IF EXISTS waiting_for_approval, support, ipranges, hostinfo, files,
-	certificates, tasks, db CASCADE;
+	certificates, tasks, settings, db CASCADE;
 
 CREATE TABLE waiting_for_approval(
 	approvalid serial PRIMARY KEY NOT NULL,
@@ -91,6 +91,11 @@ CREATE TABLE ipranges(
 	iprange cidr NOT NULL,
 	comment text,
 	use_dns boolean not null default false
+);
+
+CREATE TABLE settings(
+	key varchar(50) PRIMARY KEY NOT NULL,
+	value text
 );
 
 CREATE TABLE db(

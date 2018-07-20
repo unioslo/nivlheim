@@ -61,6 +61,10 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		}
 		result = append(result, item)
 	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
 	type Wrapper struct {
 		A []map[string]interface{} `json:"ipRanges"`
