@@ -15,6 +15,13 @@ import (
 	"github.com/lib/pq"
 )
 
+const (
+	httpGET    = "GET"
+	httpPOST   = "POST"
+	httpPUT    = "PUT"
+	httpDELETE = "DELETE"
+)
+
 func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux := http.NewServeMux()
 	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})

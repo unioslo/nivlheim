@@ -142,8 +142,11 @@ eval{
 		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
+	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true "
+		."WHERE fileid=? AND NOT current");
+
 	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
-		."WHERE fileid=?");
+		."WHERE fileid=? AND current");
 	my @no_longer_current = ();
 
 	my $sth_crc = $dbh->prepare("SELECT crc32,fileid FROM files "
@@ -227,6 +230,7 @@ eval{
 				$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
 				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
 				# Make sure this file record keeps it "current" flag set
+				$sth_setcurrent->execute(($currentfiles->{$originalfilename}->{'fileid'}));
 				delete $currentfiles->{$originalfilename};
 				$unchangedfilecount++;
 				return;

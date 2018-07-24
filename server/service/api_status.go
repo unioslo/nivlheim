@@ -13,7 +13,7 @@ type apiMethodStatus struct {
 }
 
 func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}

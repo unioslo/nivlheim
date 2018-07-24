@@ -1,13 +1,13 @@
 # Getting started
 ### Install the server
-1. Spin up a clean VM running Fedora 27, 26, RHEL 7, or CentOS 7
+1. Spin up a clean VM running Fedora 28, 27, RHEL 7, or CentOS 7
 2. If you're using RHEL or CentOS, you need to [enable the EPEL package repository](https://fedoraproject.org/wiki/EPEL).
 3. Configure the package repository:
 ```
 sudo dnf copr enable oyvindh/Nivlheim
 ```
 or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim/),
-download the appropriate repository config file, and place it in 
+download the appropriate repository config file, and place it in
 `/etc/yum.repos.d/`  
 
 4. Install the packages:

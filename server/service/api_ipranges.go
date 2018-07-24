@@ -15,7 +15,7 @@ type apiMethodIpRanges struct {
 }
 
 func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	if req.Method != httpGET {
 		vars.ServeHTTPREST(w, req)
 		return
 	}
@@ -74,7 +74,7 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 
 func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
-	case "PUT":
+	case httpPUT:
 		match := regexp.MustCompile("/(\\d+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
 			http.Error(w, "Missing ipRangeId in URL path", http.StatusUnprocessableEntity)
@@ -94,7 +94,7 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 			return
 		}
 		http.Error(w, "", http.StatusNoContent) // 204 No Content
-	case "POST":
+	case httpPOST:
 		iprange, ok := verifyIpRangeParameter(w, req, vars.db, -1)
 		if !ok {
 			return
@@ -108,7 +108,7 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 			return
 		}
 		http.Error(w, "", http.StatusCreated) // 201 Created
-	case "DELETE":
+	case httpDELETE:
 		match := regexp.MustCompile("/(\\d+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
 			http.Error(w, "Missing ipRangeId in URL path", http.StatusUnprocessableEntity)

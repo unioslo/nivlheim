@@ -61,7 +61,7 @@
 		</tr>
 		<tr>
 			<th>Throughput per second</th>
-			<td>{{throughputPerSecond}} files</td>
+			<td>{{formatNumber throughputPerSecond}} files</td>
 		</tr>
 		{{#each lastExecutionTime}}
 		<tr>
@@ -69,7 +69,7 @@
 				<div data-error-for="{{@key}}"
 				class="has-text-danger is-size-7"></div>
 			</th>
-			<td>{{this}} seconds</td>
+			<td>{{formatNumber this}} seconds</td>
 		</tr>
 		{{/each}}
 	</tbody>

@@ -86,6 +86,7 @@ if [ $OK -eq 0 ]; then
 	echo "Home page does not show the new machine."
 	grep -A1 "ERROR" /var/log/nivlheim/system.log
 	sudo grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'
+	sudo journalctl -S yesterday -t nivlheim
 	exit 1
 fi
 

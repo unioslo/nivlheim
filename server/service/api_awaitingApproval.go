@@ -17,7 +17,7 @@ type apiMethodAwaitingApproval struct {
 }
 
 func (vars *apiMethodAwaitingApproval) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	if req.Method != httpGET {
 		vars.ServeHTTPREST(w, req)
 		return
 	}
@@ -85,9 +85,9 @@ func (vars *apiMethodAwaitingApproval) ServeHTTPREST(w http.ResponseWriter,
 	req *http.Request) {
 	var approved bool
 	switch req.Method {
-	case "PUT":
+	case httpPUT:
 		approved = true
-	case "DELETE":
+	case httpDELETE:
 		approved = false
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)

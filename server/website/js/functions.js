@@ -95,6 +95,13 @@ function htmlEntities(str) {
 		.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 }
 
+function shuffleArray(array) {
+    for (let i = array.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [array[i], array[j]] = [array[j], array[i]]; // eslint-disable-line no-param-reassign
+    }
+}
+
 // Reads the page's URL parameters and returns them as an associative array
 function getUrlParams() {
 	var vars = [];
@@ -200,7 +207,7 @@ function submitForm(event) {
 	});
 }
 
-function restDelete(element, apiPath) {
+function restDeleteWithRefresh(element, apiPath) {
 	// Find the outer placeholder container
 	let container = $(element).parents("[data-api-url]");
 	if (container.length == 0) {

@@ -1,0 +1,55 @@
+<section class="section">
+<div class="container">
+
+<h1 class="title">
+	{{#if hostname}}{{hostname}}{{/if}}
+	{{#unless hostname}}{{ipAddress}}{{/unless}}
+</h1>
+
+<div id="machinedetails">
+
+<p>
+	<span class="icon has-text-danger"><i class="fas fa-exclamation-triangle"></i></span>
+	Warning: You are about to <span class="has-text-danger">delete</span>
+	the machine
+	<span class="has-text-danger">
+		{{#if hostname}}{{hostname}}{{/if}}
+		{{#unless hostname}}{{ipAddress}}{{/unless}}
+	</span>
+	from Nivlheim.
+</p>
+
+<p>
+	<table>
+		<tr><th>OS</th><td>{{os}} {{osEdition}}</td></tr>
+		<tr><th>Hardware</th><td>{{manufacturer}} {{product}}</td></tr>
+		<tr><th>Last seen</th><td>{{formatDateTime lastseen}}</td></tr>
+	</table>
+</p>
+
+<p>
+	Are you sure?<br>
+
+	{{#each options}}
+	<label class="radio">
+		<input type="radio" name="sure" value="{{value}}"> {{label}}
+	</label><br>
+	{{/each}}
+</p>
+
+</div>
+
+<p>
+	<a id="deleteButton" class="button is-danger">
+		<span class="icon"><i class="fas fa-times"></i></span>
+		<span>Exterminate!!</span>
+	</a>
+</p>
+
+<p>
+	<span class="icon has-text-info"><i class="fas fa-info-circle"></i></span>
+	If the machine reports in again after you've deleted it,
+	it will automatically reappear in Nivlheim.
+</p>
+
+</div></section>

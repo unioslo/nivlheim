@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	"net/http"
 	"time"
 
@@ -13,11 +14,17 @@ type apiMethodHost struct {
 }
 
 func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != "GET" {
+	switch req.Method {
+	case httpGET:
+		(*vars).serveGET(w, req)
+	case httpDELETE:
+		(*vars).serveDELETE(w, req)
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
+func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 	fields, hErr := unpackFieldParam(req.FormValue("fields"),
 		[]string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
 			"kernel", "manufacturer", "product", "serialNo", "certfp",
@@ -35,7 +42,7 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		statement += "WHERE hostname=$1"
 		qparams = append(qparams, req.FormValue("hostname"))
 	} else if req.FormValue("certfp") != "" {
-		statement += "WHERE certfp=$1 AND hostname IS NOT NULL"
+		statement += "WHERE certfp=$1"
 		qparams = append(qparams, req.FormValue("certfp"))
 	} else {
 		http.Error(w, "Missing parameters. Requires either hostname or certfp.",
@@ -190,4 +197,67 @@ func makeSupportList(db *sql.DB, serialNo string) ([]apiSupport, *httpError) {
 		return nil, &httpError{code: http.StatusInternalServerError, message: err.Error()}
 	}
 	return supportList, nil
+}
+
+func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request) {
+	certfp := req.FormValue("certfp")
+	hostname := req.FormValue("hostname")
+	if certfp == "" && hostname == "" {
+		http.Error(w, "Missing a hostname or certfp parameter", http.StatusUnprocessableEntity)
+		return
+	}
+	var tx *sql.Tx
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			if tx != nil {
+				tx.Rollback()
+			}
+			panic(r)
+		} else if err != nil {
+			if tx != nil {
+				tx.Rollback()
+			}
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Println(err)
+		}
+	}()
+	tx, err = vars.db.Begin()
+	if err != nil {
+		return
+	}
+	if certfp == "" {
+		var nullstr sql.NullString
+		err = tx.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
+			hostname).Scan(&nullstr)
+		if err != nil {
+			return
+		}
+		certfp = nullstr.String
+	}
+	if certfp == "" {
+		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	_, err = tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
+	if err != nil {
+		return
+	}
+	res, err := tx.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
+	if err != nil {
+		return
+	}
+	rowcount, err := res.RowsAffected()
+	if err != nil {
+		return
+	}
+	err = tx.Commit()
+	if err != nil {
+		return
+	}
+	if rowcount == 0 {
+		http.Error(w, "Host not found", http.StatusNotFound) // 404
+	} else {
+		http.Error(w, "", http.StatusNoContent) // 204 OK
+	}
 }

@@ -8,7 +8,16 @@
 
 <p>
 <table>
-<tr><th>IP address</th><td>{{ipAddress}}</td></tr>
+<tr>
+	<th>IP address</th>
+	<td>{{ipAddress}}</td>
+	<td rowspan="5">
+		<a class="button" href="/#/deletehost/{{certfp}}">
+			<span>Delete this machine</span>
+			<span class="icon"><i class="fas fa-times"></i></span>
+		</a>
+	</td>
+</tr>
 <tr><th>Last seen</th><td>{{formatDateTime lastseen}}</td></tr>
 <tr><th>OS</th><td>{{os}}</td></tr>
 <tr><th>OS edition</th><td>{{osEdition}}</td></tr>

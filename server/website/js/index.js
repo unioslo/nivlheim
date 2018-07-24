@@ -18,6 +18,12 @@ $(document).ready(function(){
 		let str = m.fromNow(true);
 		return Handlebars.Utils.escapeExpression(str);
 	});
+	Handlebars.registerHelper('formatNumber', function(number){
+		if (typeof number == "number")
+			return number.toPrecision(3);
+		else
+			return "-";
+	});
 	Handlebars.registerHelper('urlescape', function(s){
 		if (!s) return "";
 		return encodeURIComponent(s);
@@ -67,6 +73,7 @@ $(document).ready(function(){
 	var routes = {
 		'/allhosts': allHosts,
 		'/browsehost/:certfp': browseHostByCert,
+		'/deletehost/:certfp': deleteHostByCert,
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:hostname/:filename': browseFileByName,
 		'/search/:page/:query': searchPage,
@@ -136,6 +143,59 @@ function browseHostByCert(certfp) {
 		"browsehost", "div#pageContent")
 	.done(function(){
 		window.scrollTo(0,0);
+	});
+}
+
+function deleteHostByCert(certfp) {
+	APIcall(
+		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
+		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
+		"manufacturer,product,certfp",
+		"deletehost", "div#pageContent",
+	function(data){
+		var options = [
+			{"value": "0", "label": "No"},
+			{"value": "0", "label": "Maybe"},
+			{"value": "0", "label": "90%"},
+			{"value": "0", "label": "I don't know"},
+			{"value": "1", "label": "Yes"},
+		];
+		shuffleArray(options);
+		data["options"] = options;
+		return data;
+	})
+	.done(function(){
+		$("a#deleteButton").click(function(){
+			if ($("input[name='sure']:checked").val()==1) {
+				restDeleteHost(certfp);
+			} else {
+				$("a#deleteButton").text("You must be sure you want to delete the machine");
+			}
+		});
+	});
+}
+
+function restDeleteHost(certfp) {
+	// Put a spinner on the button
+	$("a#deleteButton").addClass("is-loading");
+	// Perform the ajax call
+	let url = getAPIURLprefix()+"/api/v0/host?certfp="+certfp;
+	$.ajax({
+		"url": url,
+		"method": "DELETE"
+	})
+	.fail(function(jqxhr){
+		// Error. Display error messages, if any
+		let text = jqxhr.statusCode().responseText;
+		alert(text);
+		// Remove the spinner
+		$("a#deleteButton").removeClass("is-loading");
+	})
+	.done(function(){
+		// Success. Change the button
+		$("a#deleteButton").replaceWith('<a class="button">The machine has been deleted.</a>');
+		// Fade out the details
+		$("div#machinedetails").fadeOut(1500);
 	});
 }
 

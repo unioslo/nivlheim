@@ -101,14 +101,14 @@ func setSystemSetting(db *sql.DB, key SystemSetting, value string) error {
 
 func (vars *apiMethodSettings) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	switch req.Method {
-	case "GET":
+	case httpGET:
 		settings := make(map[string]string, 0)
 		for _, s := range AllSettings {
 			settings[s.String()] = getSystemSetting(vars.db, s)
 		}
 		returnJSON(w, req, settings)
 
-	case "PUT":
+	case httpPUT:
 		match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
 			http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
