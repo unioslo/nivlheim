@@ -18,13 +18,27 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	fields, hErr := unpackFieldParam(req.FormValue("fields"),
-		[]string{"fileId", "filename", "isCommand", "lastModified", "received",
-			"content", "certfp", "hostname", "versions",
-			"isNewestVersion", "isDeleted"})
-	if hErr != nil {
-		http.Error(w, hErr.message, hErr.code)
-		return
+	var fields map[string]bool
+	var hErr *httpError
+
+	var rawFormat = req.FormValue("format") == "raw"
+
+	if rawFormat {
+		fields = make(map[string]bool, 0)
+		fields["content"] = true
+		if req.FormValue("fields") != "" {
+			http.Error(w, "Can't use format=raw with fields parameter", http.StatusBadRequest)
+			return
+		}
+	} else {
+		fields, hErr = unpackFieldParam(req.FormValue("fields"),
+			[]string{"fileId", "filename", "isCommand", "lastModified", "received",
+				"content", "certfp", "hostname", "versions",
+				"isNewestVersion", "isDeleted"})
+		if hErr != nil {
+			http.Error(w, hErr.message, hErr.code)
+			return
+		}
 	}
 
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
@@ -140,6 +154,12 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				return
 			}
 			res["versions"] = versions
+		}
+		if rawFormat {
+			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+			str := res["content"].(jsonString)
+			w.Write([]byte(str.String))
+			return
 		}
 		returnJSON(w, req, res)
 	} else {
