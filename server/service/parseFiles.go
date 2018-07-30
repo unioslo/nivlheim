@@ -301,12 +301,12 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 		log.Panic(err)
 	}
 	defer rows.Close()
-	type foundItem struct {
-		certfp string
+	type Item struct {
 		fieldID int
-		value string
+		value   string
 	}
-	found := make([]foundItem,0)
+	found := make([]Item, 0)
+	notfound := make([]Item, 0)
 	for rows.Next() {
 		var fieldID int
 		var name, regexpStr sql.NullString
@@ -317,26 +317,34 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 		}
 		re, err := regexp.Compile(regexpStr.String)
 		if err != nil {
+			notfound = append(notfound, Item{fieldID: fieldID})
 			continue
 		}
 		match := re.FindStringSubmatch(content)
 		if match == nil || len(match) < 2 {
+			notfound = append(notfound, Item{fieldID: fieldID})
 			continue
 		}
-		found = append(found, foundItem{
-			certfp: certfp,
+		found = append(found, Item{
 			fieldID: fieldID,
-			value: match[1],
+			value:   match[1],
 		})
 	}
 	if err := rows.Err(); err != nil {
 		log.Panic(err)
 	}
 	rows.Close()
-	for _,item := range found {
+	for _, item := range notfound {
+		_, err := tx.Exec("DELETE FROM hostinfo_customfields "+
+			"WHERE certfp=$1 AND fieldid=$2", certfp, item.fieldID)
+		if err != nil {
+			log.Panic(err)
+		}
+	}
+	for _, item := range found {
 		res, err := tx.Exec("UPDATE hostinfo_customfields SET value=$1 "+
 			"WHERE certfp=$2 AND fieldid=$3",
-			item.value, item.certfp, item.fieldID)
+			item.value, certfp, item.fieldID)
 		if err != nil {
 			log.Panic(err)
 		}
@@ -347,7 +355,7 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 		}
 		if rowsAffected == 0 {
 			tx.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) "+
-				"VALUES($1,$2,$3)", item.certfp, item.fieldID, item.value)
+				"VALUES($1,$2,$3)", certfp, item.fieldID, item.value)
 		}
 	}
 }

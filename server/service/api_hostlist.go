@@ -3,14 +3,11 @@ package main
 import (
 	"database/sql"
 	"fmt"
-	"log"
 	"net/http"
 	"net/url"
 	"regexp"
 	"strconv"
 	"strings"
-
-	"github.com/lib/pq"
 )
 
 type apiMethodHostList struct {
@@ -18,16 +15,24 @@ type apiMethodHostList struct {
 	devmode bool
 }
 
-var hostInfoDbFieldNames = map[string]string{
-	"ipAddress":     "ipaddr",
-	"osEdition":     "os_edition",
-	"serialNo":      "serialno",
-	"clientVersion": "clientversion",
+type apiHostListStandardField struct {
+	publicName string
+	columnName string
 }
 
-var apiHostListSourceFields = []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
-	"kernel", "manufacturer", "product", "serialNo", "certfp",
-	"clientVersion"}
+var apiHostListStandardFields = []apiHostListStandardField{
+	{publicName: "ipAddress", columnName: "ipaddr"},
+	{publicName: "hostname", columnName: "hostname"},
+	{publicName: "lastseen", columnName: "lastseen"},
+	{publicName: "os", columnName: "os"},
+	{publicName: "osEdition", columnName: "os_edition"},
+	{publicName: "kernel", columnName: "kernel"},
+	{publicName: "manufacturer", columnName: "manufacturer"},
+	{publicName: "product", columnName: "product"},
+	{publicName: "serialNo", columnName: "serialno"},
+	{publicName: "certfp", columnName: "certfp"},
+	{publicName: "clientVersion", columnName: "clientversion"},
+}
 
 func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if req.Method != httpGET {
@@ -35,38 +40,116 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	// Grouping changes the whole SQL statement and returned fields
-	if req.FormValue("group") != "" {
-		performGroupQuery(w, req, vars.db, vars.devmode)
-		return
-	}
-
-	fields, hErr := unpackFieldParam(req.FormValue("fields"),
-		apiHostListSourceFields)
-	if hErr != nil {
-		http.Error(w, hErr.message, hErr.code)
-		return
-	}
-
-	err := req.ParseForm()
+	// Get a list of names and IDs of all defined custom fields
+	customFields := make([]string, 0)
+	customFieldIDs := make(map[string]int)
+	rows, err := vars.db.Query("SELECT fieldid,name FROM customfields")
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fieldID int
+		var name string
+		err = rows.Scan(&fieldID, &name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		customFields = append(customFields, name)
+		customFieldIDs[name] = fieldID
+	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rows.Close()
+
+	// Make a complete list of allowed field names (standard + custom)
+	allowedFields := make([]string, len(apiHostListStandardFields))
+	for i, f := range apiHostListStandardFields {
+		allowedFields[i] = f.publicName
+	}
+	allowedFields = append(allowedFields, customFields...)
+
+	// Grouping changes the whole SQL statement and what's returned,
+	// so it is handled in a separate function
+	if req.FormValue("group") != "" {
+		performGroupQuery(w, req, vars.db, customFieldIDs, vars.devmode)
 		return
 	}
 
-	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery)
+	// Parse the "fields" parameter and verify that all given field names are valid
+	fields, hErr := unpackFieldParam(req.FormValue("fields"), allowedFields)
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
 	}
 
-	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
-		"kernel, manufacturer, product, serialno, certfp, clientversion " +
-		"FROM hostinfo"
+	// Reduce the customfields array and map
+	// down to the actual fields used in the query
+	for i := 0; i < len(customFields); {
+		name := customFields[i]
+		if !strings.Contains(req.URL.RawQuery, name) {
+			// This field wasn't in the query
+			last := len(customFields) - 1
+			customFields[i] = customFields[last]
+			customFields = customFields[0:last]
+			delete(customFieldIDs, name)
+		} else {
+			i++
+		}
+	}
+
+	// allowedFields = all standard fields (regardless of what was specified)
+	//                 + the custom fields that were asked for
+	allowedFields = append(allowedFields[0:len(apiHostListStandardFields)], customFields...)
+
+	//TODO: Why are we calling req.ParseForm?
+	//      Let's see what happens if we don't!
+	//err = req.ParseForm()
+	//if err != nil {
+	//	http.Error(w, err.Error(), http.StatusBadRequest)
+	//	return
+	//}
+
+	// Call a function that assembles the "WHERE" clause with associated
+	// parameter values based on the query
+	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery, allowedFields)
+	if hErr != nil {
+		http.Error(w, hErr.message, hErr.code)
+		return
+	}
+
+	// Build the "SELECT ... " part of the statement, including custom fields
+	// Start with the standard fields:
+	temp := make([]string, 0, 10)
+	for _, f := range apiHostListStandardFields {
+		temp = append(temp, f.columnName)
+	}
+	statement := "SELECT " + strings.Join(temp, ",")
+
+	// Then, append the custom fields
+	for _, name := range customFields {
+		statement = statement +
+			", (SELECT value FROM hostinfo_customfields hc " +
+			"WHERE hc.certfp=h.certfp AND hc.fieldid=" +
+			strconv.Itoa(customFieldIDs[name]) + ") as " + name
+	}
+	statement += " FROM hostinfo h"
+
+	if len(customFields) > 0 {
+		// Must wrap the statement
+		statement = "SELECT * FROM (" + statement + ") as foo "
+	}
+
+	// Add the WHERE clause, if any
 	if len(where) > 0 {
 		statement += " WHERE " + where
 	}
 
+	// Add an ORDER BY clause
 	if sort := req.FormValue("sort"); sort != "" {
 		var desc string
 		if sort[0] == '-' {
@@ -77,12 +160,18 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			sort = sort[1:]
 			// order is ASC by default
 		}
-		if contains(sort, apiHostListSourceFields) {
-			h, ok := hostInfoDbFieldNames[sort]
-			if ok {
-				sort = h
+		ok := false
+		for _, f := range apiHostListStandardFields {
+			if sort == f.publicName {
+				sort = f.columnName
+				ok = true
+				break
 			}
-		} else {
+		}
+		if !ok {
+			_, ok = customFieldIDs[sort]
+		}
+		if !ok {
 			http.Error(w, "Unsupported sort field", http.StatusUnprocessableEntity)
 			return
 		}
@@ -92,6 +181,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		statement += fmt.Sprintf(" ORDER BY hostname")
 	}
 
+	// Append LIMIT and OFFSET
 	if req.FormValue("limit") != "" {
 		var limit int
 		if limit, err = strconv.Atoi(req.FormValue("limit")); err == nil {
@@ -112,60 +202,46 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	if vars.devmode {
-		//log.Println(statement)
-		//log.Print(qparams)
+		//	log.Println(statement)
+		//	log.Print(qparams)
 	}
 
-	rows, err := vars.db.Query(statement, qparams...)
+	rows, err = vars.db.Query(statement, qparams...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 	defer rows.Close()
+	cols, err := rows.Columns()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	scanvars := make([]sql.NullString, len(cols))
+	scanpointers := make([]interface{}, len(cols))
+	for i := 0; i < len(scanvars); i++ {
+		scanpointers[i] = &scanvars[i]
+	}
 	result := make([]map[string]interface{}, 0)
 	for rows.Next() {
-		var ipaddr, hostname, os, osEdition, kernel, manufacturer,
-			product, serialNo, certfp, clientversion sql.NullString
-		var lastseen pq.NullTime
-		err = rows.Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
-			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
+		err = rows.Scan(scanpointers...)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		res := make(map[string]interface{}, 0)
-		if fields["ipAddress"] {
-			res["ipAddress"] = jsonString(ipaddr)
+		res := make(map[string]interface{}, len(fields))
+		var i = 0
+		for _, f := range apiHostListStandardFields {
+			if fields[f.publicName] {
+				res[f.publicName] = jsonString(scanvars[i])
+			}
+			i++
 		}
-		if fields["hostname"] {
-			res["hostname"] = jsonString(hostname)
-		}
-		if fields["lastseen"] {
-			res["lastseen"] = jsonTime(lastseen)
-		}
-		if fields["os"] {
-			res["os"] = jsonString(os)
-		}
-		if fields["osEdition"] {
-			res["osEdition"] = jsonString(osEdition)
-		}
-		if fields["kernel"] {
-			res["kernel"] = jsonString(kernel)
-		}
-		if fields["manufacturer"] {
-			res["manufacturer"] = jsonString(manufacturer)
-		}
-		if fields["product"] {
-			res["product"] = jsonString(product)
-		}
-		if fields["serialNo"] {
-			res["serialNo"] = jsonString(serialNo)
-		}
-		if fields["certfp"] {
-			res["certfp"] = jsonString(certfp)
-		}
-		if fields["clientVersion"] {
-			res["clientVersion"] = jsonString(clientversion)
+		for _, f := range customFields {
+			if fields[f] {
+				res[f] = jsonString(scanvars[i])
+			}
+			i++
 		}
 		result = append(result, res)
 	}
@@ -177,7 +253,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 }
 
 func performGroupQuery(w http.ResponseWriter, req *http.Request,
-	db *sql.DB, devmode bool) {
+	db *sql.DB, customFieldIDs map[string]int, devmode bool) {
 	if req.FormValue("fields") != "" {
 		http.Error(w, "Can't combine group and fields parameters",
 			http.StatusUnprocessableEntity)
@@ -190,31 +266,56 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 		return
 	}
 
-	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery)
+	allowedFields := make([]string, len(apiHostListStandardFields))
+	for i, f := range apiHostListStandardFields {
+		allowedFields[i] = f.publicName
+	}
+
+	// Find the column name to group by
+	group := req.FormValue("group")
+	var colname string
+	for _, f := range apiHostListStandardFields {
+		if group == f.publicName {
+			colname = f.columnName
+		}
+	}
+
+	// Is it a custom field?
+	var isCustomField = false
+	if colname == "" {
+		if _, ok := customFieldIDs[group]; !ok {
+			http.Error(w, "Unsupported group field", http.StatusUnprocessableEntity)
+			return
+		}
+		colname = group
+		allowedFields = append(allowedFields, group)
+		isCustomField = true
+	}
+
+	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery, allowedFields)
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
 	}
 
-	group := req.FormValue("group")
+	var statement string
+	if !isCustomField {
+		statement = "SELECT " + group + ", count(*) FROM hostinfo "
+	} else {
+		statement = "SELECT (SELECT value FROM hostinfo_customfields hc " +
+			"WHERE hc.certfp=h.certfp AND hc.fieldid=" +
+			strconv.Itoa(customFieldIDs[group]) + ") as " + group +
+			", count(*) FROM hostinfo h "
+	}
 
-	if !contains(group, apiHostListSourceFields) {
-		http.Error(w, "Unsupported group field", http.StatusUnprocessableEntity)
-		return
-	}
-	g, ok := hostInfoDbFieldNames[group]
-	if ok {
-		group = g
-	}
-	statement := "SELECT " + group + ", count(*) FROM hostinfo "
 	if len(where) > 0 {
 		statement += " WHERE " + where
 	}
 	statement += " GROUP BY " + group
 
 	if devmode {
-		log.Println(statement)
-		log.Print(qparams)
+		//log.Println(statement)
+		//log.Print(qparams)
 	}
 
 	rows, err := db.Query(statement, qparams...)
@@ -249,7 +350,7 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 // - Supports "*" as a wildcard
 // - If a value starts with "!" it means not equal to or not like
 // - If a value starts with "<" or ">" it affects the comparison
-func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
+func buildSQLWhere(queryString string, allowedFields []string) (string, []interface{}, *httpError) {
 	// This slice will hold multiple clauses that will be ANDed together after
 	where := make([]string, 0)
 	// This slice will hold parameter values for the query
@@ -287,24 +388,22 @@ func buildSQLWhere(queryString string) (string, []interface{}, *httpError) {
 				message: "Unsupported operator: " + operator,
 			}
 		}
-		validFieldName := false
-		for _, key := range apiHostListSourceFields {
-			if strings.EqualFold(key, name) {
-				validFieldName = true
-				break
-			}
-		}
-		if !validFieldName {
+
+		if !contains(name, allowedFields) {
 			return "", nil, &httpError{
 				message: "Unsupported field name: " + name,
 				code:    http.StatusUnprocessableEntity,
 			}
 		}
-		// the name of the field in the database
-		colname, ok := hostInfoDbFieldNames[name]
-		if !ok {
-			colname = name
+
+		// The column name of the field may differ
+		colname := name
+		for _, f := range apiHostListStandardFields {
+			if name == f.publicName {
+				colname = f.columnName
+			}
 		}
+
 		// Wildcards?
 		value := m[3]
 		if strings.Index(value, "*") > -1 {

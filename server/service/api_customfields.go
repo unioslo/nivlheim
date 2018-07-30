@@ -33,7 +33,7 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 		returnJSON(w, req, data)
 
 	case httpPOST:
-		// Create a new one
+		// Create a new item. Check parameters
 		requiredParams := []string{"name", "filename", "regexp"}
 		missingParams := make([]string, 0)
 		for _, paramName := range requiredParams {
@@ -51,12 +51,17 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 			http.Error(w, "name contains invalid characters", http.StatusBadRequest)
 			return
 		}
+		// Everything checks out, insert
 		_, err := vars.db.Exec("INSERT INTO customfields(name, filename, regexp) VALUES($1,$2,$3)",
 			name, req.FormValue("filename"), req.FormValue("regexp"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		// Mark relevant files for re-parsing
+		vars.db.Exec("UPDATE files SET parsed=false WHERE filename=$1",
+			req.FormValue("filename"))
+		// Return
 		w.Header().Set("Location", req.URL.RequestURI()+"/"+name)
 		http.Error(w, "", http.StatusCreated) // 201 Created
 
@@ -138,12 +143,24 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 		if newName == "" {
 			newName = name
 		}
-		_, err := vars.db.Exec("UPDATE customfields SET name=$1, filename=$2, regexp=$3 "+
+		res, err := vars.db.Exec("UPDATE customfields SET name=$1, filename=$2, regexp=$3 "+
 			"WHERE name=$4", newName, req.FormValue("filename"), req.FormValue("regexp"), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if rowsAffected == 0 {
+			http.Error(w, "Not Found", http.StatusNotFound) // 404 Not Found
+			return
+		}
+		// Mark relevant files for re-parsing
+		vars.db.Exec("UPDATE files SET parsed=false WHERE filename=$1",
+			req.FormValue("filename"))
 		http.Error(w, "OK", http.StatusNoContent) // 204 No Content
 
 	default:

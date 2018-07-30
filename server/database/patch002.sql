@@ -3,7 +3,7 @@ DROP TABLE IF EXISTS customfields, hostinfo_customfields CASCADE;
 
 CREATE TABLE customfields(
     fieldid serial PRIMARY KEY not null,
-    name text UNIQUE,
+    name text UNIQUE not null,
     filename text,
     regexp text
 );

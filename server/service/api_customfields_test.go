@@ -65,6 +65,12 @@ func TestApiMethodCustomFields(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[]",
 		},
+		// Trying to overwrite an item that doesn't exist should give an error
+		{
+			methodAndPath: "PUT /api/v0/settings/customfields/unicorn",
+			body: "filename=/etc/foo&regexp=(.*)",
+			expectStatus: http.StatusNotFound,
+		},
 	}
 
 	db := getDBconnForTesting(t)

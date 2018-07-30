@@ -1,6 +1,8 @@
 package main
 
 import (
+	"net/http"
+	"os"
 	"reflect"
 	"testing"
 )
@@ -76,8 +78,13 @@ func TestBuildSQLWhere(t *testing.T) {
 		},
 	}
 
+	allowedFields := make([]string, len(apiHostListStandardFields))
+	for i, f := range apiHostListStandardFields {
+		allowedFields[i] = f.publicName
+	}
+
 	for _, w := range tests {
-		result, params, err := buildSQLWhere(w.query)
+		result, params, err := buildSQLWhere(w.query, allowedFields)
 		if err != nil && err.message != w.errmsg {
 			if w.errmsg != "" {
 				t.Errorf("Wrong error message.\n     Got: %s\n"+
@@ -100,4 +107,67 @@ func TestBuildSQLWhere(t *testing.T) {
 			t.Errorf("Wrong SQL params. Got %v, expected %v", params, w.params)
 		}
 	}
+}
+
+func TestApiMethodHostList(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+
+	tests := []apiCall{
+		// a list that includes a custom field
+		{
+			methodAndPath: "GET /api/v0/hostlist?fields=hostname,duck",
+			expectStatus:  http.StatusOK,
+			expectJSON: "[{\"hostname\":\"bar.baz.no\",\"duck\":\"gladstone\"}," +
+				"{\"hostname\":\"foo.bar.no\",\"duck\":\"donald\"}]",
+		},
+		// filter on a custom field
+		{
+			methodAndPath: "GET /api/v0/hostlist?fields=hostname,duck&duck=donald",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"hostname\":\"foo.bar.no\", \"duck\": \"donald\"}]",
+		},
+		// filter on a custom field (that isn't in the list of returned fields)
+		{
+			methodAndPath: "GET /api/v0/hostlist?fields=hostname&duck=donald",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"hostname\":\"foo.bar.no\"}]",
+		},
+		// Group query
+		{
+			methodAndPath: "GET /api/v0/hostlist?group=hostname",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"bar.baz.no\":1,\"foo.bar.no\":1}",
+		},
+		// Group query on a custom field
+		{
+			methodAndPath: "GET /api/v0/hostlist?group=town",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"duckville\":2}",
+		},
+	}
+
+	db := getDBconnForTesting(t)
+	defer db.Close()
+	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname) " +
+		"VALUES('1111','foo.bar.no'),('2222','bar.baz.no')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO customfields(name) VALUES('duck'),('town')")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) " +
+		"VALUES('1111',1,'donald'),('2222',1,'gladstone')," +
+		"('1111',2,'duckville'),('2222',2,'duckville')")
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: db, devmode: true})
+	testAPIcalls(t, mux, tests)
 }
