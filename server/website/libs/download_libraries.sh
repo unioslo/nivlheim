@@ -23,7 +23,7 @@ echo "Downloading Javascript and CSS libraries into `pwd`"
 OPTS="-sSfO --retry 10"
 
 # clean
-rm -rf *.js *.css *.map fontawesome
+rm -rf *.js *.css *.map fontawesome*
 
 echo "Handlebars"
 if [[ "$1" == "--prod" ]]; then
@@ -43,8 +43,10 @@ echo "Tarantino"
 curl $OPTS https://raw.githubusercontent.com/CodeYellowBV/tarantino/master/build/tarantino.min.js
 
 echo "Font Awesome"
-curl $OPTS https://use.fontawesome.com/releases/v5.0.6/fontawesome-free-5.0.6.zip
-rm -rf fontawesome-free-5.0.6 fontawesome
-unzip -q fontawesome-free-5.0.6.zip
-mv fontawesome-free-5.0.6/on-server fontawesome
-rm -rf fontawesome-free-5.0.6 fontawesome-free-5.0.6.zip
+curl $OPTS https://use.fontawesome.com/releases/v5.2.0/fontawesome-free-5.2.0-web.zip
+unzip -q fontawesome-free-5.2.0-web.zip
+#  https://fontawesome.com/how-to-use/on-the-web/setup/hosting-font-awesome-yourself
+mkdir fontawesome fontawesome/css
+mv fontawesome-free-5.2.0-web/webfonts fontawesome/
+mv fontawesome-free-5.2.0-web/css/all.css fontawesome/css/
+rm -rf fontawesome-free-5.2.0-web fontawesome-free-5.2.0-web.zip
