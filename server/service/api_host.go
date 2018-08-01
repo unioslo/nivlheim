@@ -35,7 +35,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 	}
 
 	qparams := make([]interface{}, 0)
-	statement := "SELECT ipaddr, hostname, lastseen, os, os_edition, " +
+	statement := "SELECT ipaddr, COALESCE(hostname,host(ipaddr)) as hostname, lastseen, os, os_edition, " +
 		"kernel, manufacturer, product, serialno, certfp, clientversion " +
 		"FROM hostinfo "
 	if req.FormValue("hostname") != "" {

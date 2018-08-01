@@ -126,7 +126,11 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// Start with the standard fields:
 	temp := make([]string, 0, 10)
 	for _, f := range apiHostListStandardFields {
-		temp = append(temp, f.columnName)
+		if f.columnName == "hostname" {
+			temp = append(temp, "COALESCE(hostname,host(ipaddr)) as hostname")
+		} else {
+			temp = append(temp, f.columnName)
+		}
 	}
 	statement := "SELECT " + strings.Join(temp, ",")
 

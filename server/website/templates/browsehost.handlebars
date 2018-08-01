@@ -2,8 +2,7 @@
 <div class="container">
 
 <h1 class="title">
-	{{#if hostname}}{{hostname}}{{/if}}
-	{{#unless hostname}}{{ipAddress}}{{/unless}}
+	{{hostname}}
 </h1>
 
 <p>
@@ -36,7 +35,7 @@
 		{{#each files}}
 		{{#unless isCommand}}
 		{{#if isDeleted}}<span class="strikethrough">{{/if}}
-		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		<a href="#/browsefile/{{../certfp}}/{{urlescape filename}}">{{filename}}</a><br>
 		{{#if isDeleted}}</span>{{/if}}
 		{{/unless}}
 		{{/each}}
@@ -46,7 +45,7 @@
 		{{#each files}}
 		{{#if isCommand}}
 		{{#if isDeleted}}<span class="strikethrough">{{/if}}
-		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		<a href="#/browsefile/{{../certfp}}/{{urlescape filename}}">{{filename}}</a><br>
 		{{#if isDeleted}}</span>{{/if}}
 		{{/if}}
 		{{/each}}

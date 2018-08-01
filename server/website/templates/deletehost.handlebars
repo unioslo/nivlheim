@@ -2,8 +2,7 @@
 <div class="container">
 
 <h1 class="title">
-	{{#if hostname}}{{hostname}}{{/if}}
-	{{#unless hostname}}{{ipAddress}}{{/unless}}
+	{{hostname}}
 </h1>
 
 <div id="machinedetails">
@@ -11,11 +10,7 @@
 <p>
 	<span class="icon has-text-danger"><i class="fas fa-exclamation-triangle"></i></span>
 	Warning: You are about to <span class="has-text-danger">delete</span>
-	the machine
-	<span class="has-text-danger">
-		{{#if hostname}}{{hostname}}{{/if}}
-		{{#unless hostname}}{{ipAddress}}{{/unless}}
-	</span>
+	the machine	<span class="has-text-danger">{{hostname}}</span>
 	from Nivlheim.
 </p>
 

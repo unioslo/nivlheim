@@ -42,7 +42,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
-		"certfp,hostname,current FROM files f " +
+		"certfp,COALESCE(h.hostname,host(h.ipaddr)),current FROM files f " +
 		"LEFT JOIN hostinfo h USING (certfp) "
 	var rows *sql.Rows
 	var err error
@@ -59,14 +59,16 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else if req.FormValue("filename") != "" {
 		statement += "WHERE filename=$1 "
 		if req.FormValue("hostname") != "" {
-			statement += "AND hostname=$2 ORDER BY mtime DESC LIMIT 1"
+			statement += "AND certfp=(SELECT certfp FROM hostinfo " +
+				"WHERE hostname=$2 OR host(ipaddr)=$2)"
 			rows, err = vars.db.Query(statement, req.FormValue("filename"),
 				req.FormValue("hostname"))
 		} else if req.FormValue("certfp") != "" {
-			statement += "AND certfp=$2 ORDER BY mtime DESC LIMIT 1"
+			statement += "AND certfp=$2"
 			rows, err = vars.db.Query(statement, req.FormValue("filename"),
 				req.FormValue("certfp"))
 		}
+		statement += " ORDER BY mtime DESC LIMIT 1"
 	}
 
 	if rows == nil && err == nil {

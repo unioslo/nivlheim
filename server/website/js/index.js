@@ -75,7 +75,7 @@ $(document).ready(function(){
 		'/browsehost/:certfp': browseHostByCert,
 		'/deletehost/:certfp': deleteHostByCert,
 		'/browsefile/:fileId': browseFileById,
-		'/browsefile/:hostname/:filename': browseFileByName,
+		'/browsefile/:certfp/:filename': browseFileByName,
 		'/search/:page/:query': searchPage,
 		'/search': searchPage,
 		'/settings/ipranges': iprangesPage,
@@ -91,13 +91,13 @@ $(document).ready(function(){
 			$("div#pageContent").html('<section class="section">'
 				+'<i class="fas fa-question fa-2x"></i>'
 				+'<i class="fas fa-exclamation fa-2x"></i> '
-				+'Oops. Something went wrong...</section>');
+				+'Route not found...</section>');
 		}
 	});
 
 	router.param('fileId', /(\\d+)/);
 	router.param('certfp', /([0-9A-F]{40})/);
-	router.param('hostname', /([\\w\\.]+\\w+)/);
+	//router.param('hostname', /([\\w\\.]+\\w+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 	router.param('page', /(\d+)/);
@@ -216,7 +216,7 @@ function browseFileById(fileId) {
 	});
 }
 
-function browseFileByName(hostname, filename) {
+function browseFileByName(certfp, filename) {
 	filename = decodeURIComponent(filename);
 	APIcall(
 		//"mockapi/browsefile.json",
@@ -224,7 +224,7 @@ function browseFileByName(hostname, filename) {
 		"hostname,filename,content,certfp,versions,"+
 		"isNewestVersion,isDeleted"+
 		"&filename="+encodeURIComponent(filename)+
-		"&hostname="+encodeURIComponent(hostname),
+		"&certfp="+certfp,
 		"browsefile", "div#pageContent")
 	.done(showDiff)
 	.done(function(){
