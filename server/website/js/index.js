@@ -75,7 +75,7 @@ $(document).ready(function(){
 		'/browsehost/:certfp': browseHostByCert,
 		'/deletehost/:certfp': deleteHostByCert,
 		'/browsefile/:fileId': browseFileById,
-		'/browsefile/:hostname/:filename': browseFileByName,
+		'/browsefile/:certfp/:filename': browseFileByName,
 		'/search/:page/:query': searchPage,
 		'/search': searchPage,
 		'/settings/ipranges': iprangesPage,
@@ -91,13 +91,13 @@ $(document).ready(function(){
 			$("div#pageContent").html('<section class="section">'
 				+'<i class="fas fa-question fa-2x"></i>'
 				+'<i class="fas fa-exclamation fa-2x"></i> '
-				+'Oops. Something went wrong...</section>');
+				+'Route not found...</section>');
 		}
 	});
 
 	router.param('fileId', /(\\d+)/);
 	router.param('certfp', /([0-9A-F]{40})/);
-	router.param('hostname', /([\\w\\.]+\\w+)/);
+	//router.param('hostname', /([\\w\\.]+\\w+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 	router.param('page', /(\d+)/);
@@ -135,14 +135,35 @@ function showFrontPage() {
 }
 
 function browseHostByCert(certfp) {
-	APIcall(
-		//"mockapi/browsehost.json",
-		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
-		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
-		"kernel,manufacturer,product,serialNo,clientVersion,certfp,files",
-		"browsehost", "div#pageContent")
+	// First, get a list of custom fields (if any)
+	let customfields = [];
+	$.get(getAPIURLprefix()+"/api/v0/settings/customfields?fields=name",
+	function(data){
+		for (let i=0; i<data.length; i++) {
+			customfields[i] = data[i].name;
+		}
+	})
 	.done(function(){
-		window.scrollTo(0,0);
+		APIcall(
+			//"mockapi/browsehost.json",
+			"/api/v0/host?certfp="+encodeURIComponent(certfp)+
+			"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
+			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
+				customfields.join(","), // also ask for the custom fields
+			"browsehost", "div#pageContent",
+			function(data){
+				// put the custom fields in a map so they can be iterated through
+				let m = {};
+				for (let i=0; i<customfields.length; i++) {
+					let name = customfields[i];
+					m[name] = data[name];
+				}
+				data["customfields"] = m;
+				return data;
+			})
+		.done(function(){
+			window.scrollTo(0,0);
+		});
 	});
 }
 
@@ -216,7 +237,7 @@ function browseFileById(fileId) {
 	});
 }
 
-function browseFileByName(hostname, filename) {
+function browseFileByName(certfp, filename) {
 	filename = decodeURIComponent(filename);
 	APIcall(
 		//"mockapi/browsefile.json",
@@ -224,7 +245,7 @@ function browseFileByName(hostname, filename) {
 		"hostname,filename,content,certfp,versions,"+
 		"isNewestVersion,isDeleted"+
 		"&filename="+encodeURIComponent(filename)+
-		"&hostname="+encodeURIComponent(hostname),
+		"&certfp="+certfp,
 		"browsefile", "div#pageContent")
 	.done(showDiff)
 	.done(function(){
@@ -325,6 +346,10 @@ function allHosts() {
 				reloadMatchingHosts();
 			});
 		});
+	})
+	.fail(function(){
+		showError("Something went wrong when querying the server.",
+			"div#pageContent", "fa-sad-cry");
 	});
 }
 
@@ -377,15 +402,18 @@ function loadMoreHosts() {
 function settingsPage() {
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
-		APIcall("/api/v0/settings", "settings", "#placeholder_settings")
-		.done(function(){
-			attachHandlersToForms();
-		});
-		APIcall(
+		let p1 = APIcall("/api/v0/settings", "settings", "#placeholder_settings")
+		let p2 = APIcall(
 			//"mockapi/awaiting_approval.json",
 			"/api/v0/awaitingApproval"+
 			"?fields=hostname,reversedns,ipaddress,approvalId",
 			"awaiting_approval", $('#placeholder_approval'));
+		let p3 = APIcall(
+			"/api/v0/settings/customfields?fields=name,filename,regexp",
+			"customfields", "#placeholder_customfields");
+		Promise.all([p1,p2,p3]).then(function(){
+			attachHandlersToForms();
+		});
 	});
 }
 

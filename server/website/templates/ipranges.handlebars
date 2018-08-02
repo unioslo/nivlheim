@@ -6,17 +6,21 @@
 	<div class="column is-narrow">
 		<table class="table is-transparent is-hoverable">
 		{{#each ipRanges}}
-		<tr>
+		<tr data-edit-action="/api/v0/settings/ipranges/{{ipRangeId}}">
 			<td>
 				{{#if useDns}}
 				<span class="tag is-dark">DNS</span>
 				{{/if}}
 			</td>
-			<td>{{ipRange}}</td>
-			<td><i>{{comment}}</i></td>
+			<td><span data-name="ipRange">{{ipRange}}</span></td>
+			<td><i><span data-name="comment">{{comment}}</span></i></td>
 			<td>
-				<button class="button is-outlined is-transparent"
-					onclick="restDeleteWithRefresh(this,'/api/v0/settings/ipranges/{{ipRangeId}}')">
+				<button class="button editbutton">
+					<i class="far fa-edit"></i>
+				</button>
+			</td>
+			<td>
+				<button class="button deletebutton">
 					<i class="far fa-trash-alt"></i>
 				</button>
 			</td>

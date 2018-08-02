@@ -36,15 +36,24 @@ func TestParseFile(t *testing.T) {
 			t.Fatal(err)
 		}
 	}
+	_, err := db.Exec("INSERT INTO customfields(name,filename,regexp) " +
+		"VALUES('foo', '" + testfiles[0].filename + "', '(.*)')")
+	if err != nil {
+		t.Fatal(err)
+	}
+
 	// run the parseFiles Job
 	job := parseFilesJob{}
 	job.Run(db)
 
 	// verify the results
 	var kernel, manufacturer, product, serial sql.NullString
-	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
+	err = db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
 		"FROM hostinfo WHERE certfp='1234'").
 		Scan(&kernel, &manufacturer, &product, &serial)
+	if err == sql.ErrNoRows {
+		t.Fatal("No hostinfo row found")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -66,6 +75,16 @@ func TestParseFile(t *testing.T) {
 	expectedSerial := "AFK5678"
 	if serial.String != expectedSerial {
 		t.Errorf("Serial no = %s, expected %s", serial.String, expectedSerial)
+	}
+
+	var v sql.NullString
+	err = db.QueryRow("SELECT value FROM hostinfo_customfields " +
+		"WHERE certfp='1234' AND fieldid=1").Scan(&v)
+	switch {
+	case err == sql.ErrNoRows:
+		t.Errorf("The custom field wasn't parsed.")
+	case err != nil:
+		t.Fatal(err)
 	}
 
 	testOSdetection(db, t)

@@ -2,8 +2,7 @@
 <div class="container">
 
 <h1 class="title">
-	{{#if hostname}}{{hostname}}{{/if}}
-	{{#unless hostname}}{{ipAddress}}{{/unless}}
+	{{hostname}}
 </h1>
 
 <p>
@@ -27,6 +26,9 @@
 <tr><th>Serial number</th><td>{{serialNo}}</td></tr>
 <tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
 <tr><th>Client version</th><td>{{clientVersion}}</td></tr>
+{{#each customfields}}
+<tr><th>{{@key}}</th><td>{{this}}</td></tr>
+{{/each}}
 </table>
 </p>
 
@@ -36,7 +38,7 @@
 		{{#each files}}
 		{{#unless isCommand}}
 		{{#if isDeleted}}<span class="strikethrough">{{/if}}
-		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		<a href="#/browsefile/{{../certfp}}/{{urlescape filename}}">{{filename}}</a><br>
 		{{#if isDeleted}}</span>{{/if}}
 		{{/unless}}
 		{{/each}}
@@ -46,7 +48,7 @@
 		{{#each files}}
 		{{#if isCommand}}
 		{{#if isDeleted}}<span class="strikethrough">{{/if}}
-		<a href="#/browsefile/{{../hostname}}/{{urlescape filename}}">{{filename}}</a><br>
+		<a href="#/browsefile/{{../certfp}}/{{urlescape filename}}">{{filename}}</a><br>
 		{{#if isDeleted}}</span>{{/if}}
 		{{/if}}
 		{{/each}}

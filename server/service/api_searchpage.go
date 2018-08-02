@@ -68,12 +68,18 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 
 	var pageSize = 10
 	if req.FormValue("hitsPerPage") != "" {
-		var ps int
-		if ps, err = strconv.Atoi(req.FormValue("hitsPerPage")); err == nil {
-			pageSize = ps
+		if req.FormValue("hitsPerPage") == "all" {
+			const MaxUint = ^uint(0)
+			const MaxInt = int(MaxUint >> 1)
+			pageSize = MaxInt
 		} else {
-			http.Error(w, "Invalid hitsPerPage value", http.StatusBadRequest)
-			return
+			var ps int
+			if ps, err = strconv.Atoi(req.FormValue("hitsPerPage")); err == nil {
+				pageSize = ps
+			} else {
+				http.Error(w, "Invalid hitsPerPage value", http.StatusBadRequest)
+				return
+			}
 		}
 	}
 
