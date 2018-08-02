@@ -14,7 +14,7 @@ func TestApiMethodCustomFields(t *testing.T) {
 	tests := []apiCall{
 		// At first, an empty list
 		{
-			methodAndPath: "GET /api/v0/settings/customfields",
+			methodAndPath: "GET /api/v0/settings/customfields?fields=name",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[]",
 		},
@@ -26,13 +26,13 @@ func TestApiMethodCustomFields(t *testing.T) {
 		},
 		// Now, the list contains that item
 		{
-			methodAndPath: "GET /api/v0/settings/customfields",
+			methodAndPath: "GET /api/v0/settings/customfields?fields=name",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "[\"siteadmin\"]",
+			expectJSON:    "[{\"name\":\"siteadmin\"}]",
 		},
 		// Read the item details
 		{
-			methodAndPath: "GET /api/v0/settings/customfields/siteadmin",
+			methodAndPath: "GET /api/v0/settings/customfields/siteadmin?fields=name,filename,regexp",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"name\":\"siteadmin\",\"filename\":\"/etc/siteadmin\",\"regexp\":\".+\"}",
 		},
@@ -44,13 +44,13 @@ func TestApiMethodCustomFields(t *testing.T) {
 		},
 		// The list verifies the name is changed
 		{
-			methodAndPath: "GET /api/v0/settings/customfields",
+			methodAndPath: "GET /api/v0/settings/customfields?fields=name",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "[\"siteowner\"]",
+			expectJSON:    "[{\"name\":\"siteowner\"}]",
 		},
 		// The item details are correct with the new name
 		{
-			methodAndPath: "GET /api/v0/settings/customfields/siteowner",
+			methodAndPath: "GET /api/v0/settings/customfields/siteowner?fields=name,filename,regexp",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"name\":\"siteowner\",\"filename\":\"/etc/bob\",\"regexp\":\".+\"}",
 		},
@@ -61,15 +61,15 @@ func TestApiMethodCustomFields(t *testing.T) {
 		},
 		// The list should be empty now
 		{
-			methodAndPath: "GET /api/v0/settings/customfields",
+			methodAndPath: "GET /api/v0/settings/customfields?fields=name",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[]",
 		},
 		// Trying to overwrite an item that doesn't exist should give an error
 		{
 			methodAndPath: "PUT /api/v0/settings/customfields/unicorn",
-			body: "filename=/etc/foo&regexp=(.*)",
-			expectStatus: http.StatusNotFound,
+			body:          "filename=/etc/foo&regexp=(.*)",
+			expectStatus:  http.StatusNotFound,
 		},
 	}
 

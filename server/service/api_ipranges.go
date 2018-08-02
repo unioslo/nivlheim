@@ -86,14 +86,24 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 			return
 		}
 		// Update
-		_, err := vars.db.Exec("UPDATE ipranges SET iprange=$1, comment=$2, "+
+		res, err := vars.db.Exec("UPDATE ipranges SET iprange=$1, comment=$2, "+
 			"use_dns=$3 WHERE iprangeid=$4", iprange, req.FormValue("comment"),
 			isTrueish(req.FormValue("useDns")), ipRangeID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if rowsAffected == 0 {
+			http.Error(w, "Not Found", http.StatusNotFound) // 404 Not Found
+			return
+		}
 		http.Error(w, "", http.StatusNoContent) // 204 No Content
+
 	case httpPOST:
 		iprange, ok := verifyIpRangeParameter(w, req, vars.db, -1)
 		if !ok {
@@ -108,6 +118,7 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 			return
 		}
 		http.Error(w, "", http.StatusCreated) // 201 Created
+
 	case httpDELETE:
 		match := regexp.MustCompile("/(\\d+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
@@ -115,12 +126,22 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 			return
 		}
 		ipRangeID, _ := strconv.Atoi(match[1])
-		_, err := vars.db.Exec("DELETE FROM ipranges WHERE iprangeid=$1", ipRangeID)
+		res, err := vars.db.Exec("DELETE FROM ipranges WHERE iprangeid=$1", ipRangeID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		rowsAffected, err := res.RowsAffected()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if rowsAffected == 0 {
+			http.Error(w, "Not Found", http.StatusNotFound) // 404 Not Found
+			return
+		}
 		http.Error(w, "", http.StatusNoContent) // 204 OK
+
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

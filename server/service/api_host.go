@@ -25,10 +25,39 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
-	fields, hErr := unpackFieldParam(req.FormValue("fields"),
-		[]string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
-			"kernel", "manufacturer", "product", "serialNo", "certfp",
-			"clientVersion", "files", "support"})
+	// Get a list of names and IDs of all defined custom fields
+	customFields := make([]string, 0)
+	customFieldIDs := make(map[string]int)
+	rows, err := vars.db.Query("SELECT fieldid,name FROM customfields")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fieldID int
+		var name string
+		err = rows.Scan(&fieldID, &name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		customFields = append(customFields, name)
+		customFieldIDs[name] = fieldID
+	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rows.Close()
+
+	// Make a complete list of allowed field names (standard + custom)
+	allowedFields := []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
+		"kernel", "manufacturer", "product", "serialNo", "certfp",
+		"clientVersion", "files", "support"}
+	allowedFields = append(allowedFields, customFields...)
+
+	fields, hErr := unpackFieldParam(req.FormValue("fields"), allowedFields)
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
@@ -50,81 +79,89 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	rows, err := vars.db.Query(statement, qparams...)
+	var ipaddr, hostname, os, osEdition, kernel, manufacturer,
+		product, serialNo, certfp, clientversion sql.NullString
+	var lastseen pq.NullTime
+	err = vars.db.QueryRow(statement, qparams...).
+		Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
+			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
+	if err == sql.ErrNoRows {
+		// No host found. Return a "not found" status instead
+		http.Error(w, "Host not found.", http.StatusNotFound)
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
-	if rows.Next() {
-		var ipaddr, hostname, os, osEdition, kernel, manufacturer,
-			product, serialNo, certfp, clientversion sql.NullString
-		var lastseen pq.NullTime
-		err = rows.Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
-			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		res := make(map[string]interface{}, 0)
-		if fields["ipAddress"] {
-			res["ipAddress"] = jsonString(ipaddr)
-		}
-		if fields["hostname"] {
-			res["hostname"] = jsonString(hostname)
-		}
-		if fields["lastseen"] {
-			res["lastseen"] = jsonTime(lastseen)
-		}
-		if fields["os"] {
-			res["os"] = jsonString(os)
-		}
-		if fields["osEdition"] {
-			res["osEdition"] = jsonString(osEdition)
-		}
-		if fields["kernel"] {
-			res["kernel"] = jsonString(kernel)
-		}
-		if fields["manufacturer"] {
-			res["manufacturer"] = jsonString(manufacturer)
-		}
-		if fields["product"] {
-			res["product"] = jsonString(product)
-		}
-		if fields["serialNo"] {
-			res["serialNo"] = jsonString(serialNo)
-		}
-		if fields["certfp"] {
-			res["certfp"] = jsonString(certfp)
-		}
-		if fields["clientVersion"] {
-			res["clientVersion"] = jsonString(clientversion)
-		}
-		if fields["files"] {
-			files, err := makeFileList(vars.db, certfp.String)
-			if err != nil {
-				http.Error(w, err.message, err.code)
-				return
-			}
-			res["files"] = files
-		}
-		if fields["support"] {
-			support, err := makeSupportList(vars.db, serialNo.String)
-			if err != nil {
-				http.Error(w, err.message, err.code)
-				return
-			}
-			res["support"] = support
-		}
-		returnJSON(w, req, res)
-	} else {
-		if err = rows.Err(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// No host found. Return a "not found" status instead
-		http.Error(w, "Host not found.", http.StatusNotFound)
+	res := make(map[string]interface{}, 0)
+	if fields["ipAddress"] {
+		res["ipAddress"] = jsonString(ipaddr)
 	}
+	if fields["hostname"] {
+		res["hostname"] = jsonString(hostname)
+	}
+	if fields["lastseen"] {
+		res["lastseen"] = jsonTime(lastseen)
+	}
+	if fields["os"] {
+		res["os"] = jsonString(os)
+	}
+	if fields["osEdition"] {
+		res["osEdition"] = jsonString(osEdition)
+	}
+	if fields["kernel"] {
+		res["kernel"] = jsonString(kernel)
+	}
+	if fields["manufacturer"] {
+		res["manufacturer"] = jsonString(manufacturer)
+	}
+	if fields["product"] {
+		res["product"] = jsonString(product)
+	}
+	if fields["serialNo"] {
+		res["serialNo"] = jsonString(serialNo)
+	}
+	if fields["certfp"] {
+		res["certfp"] = jsonString(certfp)
+	}
+	if fields["clientVersion"] {
+		res["clientVersion"] = jsonString(clientversion)
+	}
+	if fields["files"] {
+		files, err := makeFileList(vars.db, certfp.String)
+		if err != nil {
+			http.Error(w, err.message, err.code)
+			return
+		}
+		res["files"] = files
+	}
+	if fields["support"] {
+		support, err := makeSupportList(vars.db, serialNo.String)
+		if err != nil {
+			http.Error(w, err.message, err.code)
+			return
+		}
+		res["support"] = support
+	}
+	// add the custom fields to the result
+	for _, name := range customFields {
+		if fields[name] {
+			var value sql.NullString
+			err = vars.db.QueryRow(
+				"SELECT value FROM hostinfo_customfields "+
+					"WHERE certfp=$1 AND fieldid=$2",
+				certfp.String, customFieldIDs[name]).Scan(&value)
+			if err == sql.ErrNoRows {
+				continue
+			}
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			res[name] = jsonString(value)
+		}
+	}
+	returnJSON(w, req, res)
 }
 
 type apiFile struct {

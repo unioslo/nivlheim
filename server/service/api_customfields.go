@@ -25,7 +25,19 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 	switch req.Method {
 	case httpGET:
 		// List all
-		data, err := QueryColumn(vars.db, "SELECT name FROM customfields ORDER BY name")
+		fields, hErr := unpackFieldParam(req.FormValue("fields"), []string{"name", "filename", "regexp"})
+		if hErr != nil {
+			http.Error(w, hErr.message, hErr.code)
+			return
+		}
+		keys := make([]string, len(fields))
+		i := 0
+		for k := range fields {
+			keys[i] = k
+			i++
+		}
+		data, err := QueryList(vars.db, "SELECT "+strings.Join(keys, ",")+
+			" FROM customfields ORDER BY name")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -80,6 +92,11 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			http.Error(w, "Missing field name in URL path", http.StatusUnprocessableEntity)
 			return
 		}
+		fields, hErr := unpackFieldParam(req.FormValue("fields"), []string{"name", "filename", "regexp"})
+		if hErr != nil {
+			http.Error(w, hErr.message, hErr.code)
+			return
+		}
 		var name, filename, re sql.NullString
 		err := vars.db.QueryRow("SELECT name, filename, regexp FROM customfields "+
 			"WHERE name=$1", match[1]).Scan(&name, &filename, &re)
@@ -92,9 +109,15 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			return
 		}
 		result := make(map[string]interface{})
-		result["name"] = jsonString(name)
-		result["filename"] = jsonString(filename)
-		result["regexp"] = jsonString(re)
+		if fields["name"] {
+			result["name"] = jsonString(name)
+		}
+		if fields["filename"] {
+			result["filename"] = jsonString(filename)
+		}
+		if fields["regexp"] {
+			result["regexp"] = jsonString(re)
+		}
 		returnJSON(w, req, result)
 
 	case httpDELETE:

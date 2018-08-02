@@ -80,6 +80,17 @@ func TestApiMethodIpRanges(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    `{"ipRanges":[]}`,
 		},
+		// Delete nonexistent, should return 404
+		{
+			methodAndPath: "DELETE /api/v0/settings/ipranges/1",
+			expectStatus:  http.StatusNotFound,
+		},
+		// Update nonexistent, should return 404
+		{
+			methodAndPath: "PUT /api/v0/settings/ipranges/1",
+			body:          "ipRange=192.168.0.0%2F16&useDns=0&comment=different",
+			expectStatus:  http.StatusNotFound,
+		},
 	}
 	db := getDBconnForTesting(t)
 	defer db.Close()
