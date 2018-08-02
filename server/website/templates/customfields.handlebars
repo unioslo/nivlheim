@@ -1,0 +1,68 @@
+<h1 class="title is-4">Custom fields</h1>
+
+<div class="columns">
+	<div class="column is-narrow">
+		<table class="table is-transparent is-hoverable">
+            <tr>
+                <th>Name</th>
+                <th>File</th>
+                <th>Regular expression</th>
+            </tr>
+            {{#each .}}
+            <tr data-edit-action="/api/v0/settings/customfields/{{name}}">
+                <td><span data-name="name">{{name}}</span></td>
+                <td><span data-name="filename">{{filename}}</span></td>
+                <td><span data-name="regexp">{{regexp}}</span></td>
+                <td>
+                    <button class="button editbutton">
+                        <i class="far fa-edit"></i>
+                    </button>
+                </td>
+                <td>
+                    <button class="button deletebutton">
+                        <i class="far fa-trash-alt"></i>
+                    </button>
+                </td>
+            </tr>
+            {{/each}}
+		</table>
+		<form method="POST" action="/api/v0/settings/customfields">
+			<h1 class="title is-5">Add a new custom field:</h1>
+			<table>
+				<tr>
+					<th>Name</th>
+					<td>
+						<div class="control">
+							<input class="input" name="name" required type="text" pattern="[a-z][a-z0-9]*">
+							<span data-error-for="name" class="has-text-danger"></span>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<th>Filename</th>
+					<td>
+						<div class="control">
+							<input class="input" name="filename" required type="text" pattern="[/\w,\.\s-]+">
+							<span data-error-for="filename" class="has-text-danger"></span>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<th>Regular expression</th>
+					<td>
+						<div class="control">
+							<input class="input" name="regexp" required type="text">
+							<span data-error-for="regexp" class="has-text-danger"></span>
+						</div>
+					</td>
+				</tr>
+				<tr>
+					<td></td>
+					<td>
+            			<input type="submit" class="button is-primary" value="Add new custom field">
+					</td>
+				</tr>
+			</table>
+        </form>
+	</div>
+</div>

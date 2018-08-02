@@ -26,6 +26,9 @@
 <tr><th>Serial number</th><td>{{serialNo}}</td></tr>
 <tr><th>Certificate fingerprint</th><td>{{certfp}}</td></tr>
 <tr><th>Client version</th><td>{{clientVersion}}</td></tr>
+{{#each customfields}}
+<tr><th>{{@key}}</th><td>{{this}}</td></tr>
+{{/each}}
 </table>
 </p>
 

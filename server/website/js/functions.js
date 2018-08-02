@@ -26,7 +26,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 					$(domElement).html(output);
 					deferredObj.resolve(templateValues);
 				} catch(err) {
-					showError(err, domElement, "fa-exclamation-triangle");
+					showError(err, domElement, "fa-exclamation");
 					deferredObj.reject();
 				}
 			}
@@ -90,9 +90,9 @@ function APIcall(url, templateName, domElement, transform) {
 	return deferredObj.promise();
 }
 
-function htmlEntities(str) {
+function htmlEscape(str) {
 	return String(str).replace(/&/g, '&amp;').replace(/</g, '&lt;')
-		.replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+		.replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, "&#039;");
 }
 
 function shuffleArray(array) {
@@ -156,6 +156,8 @@ function attachHandlersToForms() {
 		}
 	});
 	$("form").submit(submitForm);
+	$(".editbutton").click(editInPlace);
+	$(".deletebutton").click(askDeleteAndRefresh);
 }
 
 function submitForm(event) {
@@ -163,14 +165,18 @@ function submitForm(event) {
 	event.preventDefault();
 	// Use the ACTION attribute from the FORM tag
 	let path = (new URL(this.action).pathname);
-	let url = getAPIURLprefix() + path;
 	// use the METHOD or data-method attribute
 	let method = this.dataset["method"] || this.method;
 	// Serialize the form values
 	let data = $(this).serialize();
 	// Perform the HTTP request
+	AJAXwithRefresh(event.target, path, method, data);
+}
+
+function AJAXwithRefresh(domElement, urlPath, method, data) {
+	// Perform the HTTP request
 	$.ajax({
-		"url": url,
+		"url": getAPIURLprefix()+urlPath,
 		"method": method, // Using the METHOD attribute from the FORM tag
 		"data": data,
 		"processData": false, // Tell jQuery that the data is already encoded
@@ -183,7 +189,7 @@ function submitForm(event) {
 			let obj = JSON.parse(text);
 			for (let prop in obj) {
 				if (!obj.hasOwnProperty(prop)) continue;
-				$(event.target).find("[data-error-for='"+prop+"']").html(obj[prop]);
+				$(domElement).find("[data-error-for='"+prop+"']").html(obj[prop]);
 			}
 		} catch (e) {
 			// Generic error message
@@ -192,7 +198,7 @@ function submitForm(event) {
 	})
 	.done(function(data,textStatus,jqxhr){
 		// Success. Find the outer placeholder container
-		let container = $(event.target).parents("[data-api-url]");
+		let container = $(domElement).parents("[data-api-url]");
 		if (container.length == 0) {
 			console.log("Couldn't find container to refresh.");
 			return;
@@ -202,36 +208,61 @@ function submitForm(event) {
 			container.data("handlebarsTemplate"),
 			"#"+container.attr("id"))
 		.done(attachHandlersToForms);
-		// Reset the form
-		//event.target.reset();
 	});
 }
 
-function restDeleteWithRefresh(element, apiPath) {
+function refresh(domElement) {
 	// Find the outer placeholder container
-	let container = $(element).parents("[data-api-url]");
+	let container = $(domElement).parents("[data-api-url]");
 	if (container.length == 0) {
 		console.log("Couldn't find the container to refresh.");
 		return;
 	}
-	// Perform the HTTP request
-	let url = getAPIURLprefix()+apiPath;
-	$.ajax({
-		"url": url,
-		"method": "DELETE"
-	})
-	.fail(function(jqxhr){
-		// Error. Display error messages, if any
-		let text = jqxhr.statusCode().responseText;
-		alert(text);
-	})
-	.done(function(data,textStatus,jqxhr){
-		// Success.
-		// Make an API call to refresh the appropriate part of the page
-		APIcall(container.data("apiUrl"), container.data("handlebarsTemplate"),
-			"#"+container.attr("id"))
-		.done(attachHandlersToForms);
+	// Make an API call to refresh the appropriate part of the page
+	APIcall(container.data("apiUrl"), container.data("handlebarsTemplate"),
+		"#"+container.attr("id"))
+	.done(attachHandlersToForms);
+}
+
+function editInPlace() {
+	// this = the button that was clicked
+	let button = this;
+	let container = $(this).parents("[data-edit-action]");
+	// for each text that should be converted to an input field
+	$(container).find("[data-name]").each(function(){
+		// in here, "this" is the element with the data-name attribute
+		let name = $(this).data("name");
+		let value = htmlEscape($(this).text());
+		$(this).replaceWith('<input class="input" type="text" '+
+			'name="'+name+'" value="'+value+'" '+
+			'style="width:'+($(this).width()+30)+'px">');
 	});
+	// replace the "edit" button with two "accept" and "cancel" buttons
+	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
+		'<button class="button cancel"><i class="fas fa-times color-deny"></i></button>');
+	// add click handlers to the buttons
+	$(container).find("button.submit").click(function(){
+		let action = $(container).data("edit-action");
+		let body = $(container).find("input").serialize();
+		AJAXwithRefresh(container, action, "PUT", body);
+	});
+	$(container).find("button.cancel").click(function(){
+		refresh(container);
+	});
+}
+
+function askDeleteAndRefresh() {
+	// this = the button that was clicked
+	let button = this;
+	let container = $(this).parents("[data-edit-action]");
+	let name = $(container).find("[data-name=name]").text();
+	if (!name) name = $(container).find("[data-name]:first").text();
+	// confirm
+	if (!confirm("Delete \"" + name + "\", are you sure?")) {
+		return;
+	}
+	let action = $(container).data("edit-action");
+	AJAXwithRefresh(container, action, "DELETE");
 }
 
 function restPut(apiPath, name, body) {
@@ -327,8 +358,8 @@ function showDiff(data) {
 	$.getJSON(getAPIURLprefix()+"/api/v0/file?fileId="+otherFileId+"&fields=content",
 		function(data2){
 			$("div.filecontent").html(diffString(
-				htmlEntities(data2.content),
-				htmlEntities(data.content)));
+				htmlEscape(data2.content),
+				htmlEscape(data.content)));
 		})
 		.fail(function(jqxhr, textStatus){
 			console.log(jqxhr.status + ' ' + jqxhr.statusCode().responseText);
