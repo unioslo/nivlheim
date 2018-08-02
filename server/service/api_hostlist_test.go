@@ -147,12 +147,18 @@ func TestApiMethodHostList(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"duckville\":2}",
 		},
+		// Group on a field where the column name differs from the API name
+		{
+			methodAndPath: "GET /api/v0/hostlist?group=osEdition",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"workstation\":2}",
+		},
 	}
 
 	db := getDBconnForTesting(t)
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname) " +
-		"VALUES('1111','foo.bar.no'),('2222','bar.baz.no')")
+	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition) " +
+		"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','workstation')")
 	if err != nil {
 		t.Fatal(err)
 	}

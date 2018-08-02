@@ -304,18 +304,18 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 
 	var statement string
 	if !isCustomField {
-		statement = "SELECT " + group + ", count(*) FROM hostinfo "
+		statement = "SELECT " + colname + ", count(*) FROM hostinfo "
 	} else {
 		statement = "SELECT (SELECT value FROM hostinfo_customfields hc " +
 			"WHERE hc.certfp=h.certfp AND hc.fieldid=" +
-			strconv.Itoa(customFieldIDs[group]) + ") as " + group +
+			strconv.Itoa(customFieldIDs[group]) + ") as " + colname +
 			", count(*) FROM hostinfo h "
 	}
 
 	if len(where) > 0 {
 		statement += " WHERE " + where
 	}
-	statement += " GROUP BY " + group
+	statement += " GROUP BY " + colname
 
 	if devmode {
 		//log.Println(statement)
