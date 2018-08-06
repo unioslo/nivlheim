@@ -37,10 +37,14 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: theDB})
 	mux.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
 	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
+	mux.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
 	mux.HandleFunc("/api/internal/triggerJob/", runJob)
 	mux.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
 	mux.HandleFunc("/api/internal/countFiles", countFiles)
 	mux.HandleFunc("/api/internal/mu", doNothing)
+	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
+	mux.HandleFunc("/api/oauth2/redirect", handleOauth2Redirect)
+	mux.HandleFunc("/api/oauth2/logout", oauth2Logout)
 	var h http.Handler = mux
 	if devmode {
 		h = wrapLog(wrapAllowLocalhostCORS(h))
@@ -110,6 +114,10 @@ func wrapLog(h http.Handler) http.Handler {
 	})
 }
 
+func isLocal(req *http.Request) bool {
+	return strings.HasPrefix(req.RemoteAddr, "127.0.0.1")
+}
+
 // Wrappers for sql nulltypes that encodes the values when marshalling JSON
 type jsonTime pq.NullTime
 type jsonString sql.NullString
@@ -133,6 +141,8 @@ type httpError struct {
 	code    int
 }
 
+// unpackFieldParam is a helper function to parse a comma-separated
+// "fields" parameter and verify that the given fields are valid.
 func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]bool, *httpError) {
 	if fieldParam == "" {
 		return nil, &httpError{
@@ -169,13 +179,15 @@ func contains(needle string, haystack []string) bool {
 	return false
 }
 
+// runJob sets the "trigger" flag on the Job struct in the jobs array,
+// but it doesn't actually execute the job. The main loop does that.
 func runJob(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
@@ -195,9 +207,13 @@ func runJob(w http.ResponseWriter, req *http.Request) {
 	http.Error(w, "Job not found.", http.StatusNotFound)
 }
 
+// unsetCurrent is an internal API function that the CGI scripts use
+// to notify the system service/daemon that some file(s) have had
+// their "current" flag cleared, and can be removed from the
+// in-memory search cache.
 func unsetCurrent(w http.ResponseWriter, req *http.Request) {
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	for _, s := range strings.Split(req.FormValue("ids"), ",") {
@@ -209,16 +225,20 @@ func unsetCurrent(w http.ResponseWriter, req *http.Request) {
 	http.Error(w, "OK", http.StatusNoContent)
 }
 
+// countFiles is an internal API function that the CGI scripts use
+// to notify the system service/daemon that a number of files
+// have been processed, so we can produce an accurate count of
+// files-per-minute.
 func countFiles(w http.ResponseWriter, req *http.Request) {
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	i, err := strconv.Atoi(req.FormValue("n"))
 	if err != nil || i == 0 {
 		return
 	}
-	pfib.Add(float64(i))
+	pfib.Add(float64(i)) // pfib = parsed files interval buffer
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {

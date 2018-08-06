@@ -141,6 +141,7 @@ install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
 install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim/
+install -p -m 0644 server/server.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0755 server/cgi/ping %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/cgi/ping2 %{buildroot}/var/www/cgi-bin/secure/ping
 install -p -m 0755 server/cgi/reqcert %{buildroot}/var/www/cgi-bin/
@@ -191,6 +192,7 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/nivlheim/version
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
+%config %{_sysconfdir}/nivlheim/server.conf
 %config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service

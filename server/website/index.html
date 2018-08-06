@@ -69,15 +69,29 @@
 					</div>
 				</div>
 				<div class="navbar-end">
+					<a class="navbar-item" id="loginLink">
+						<span class="icon"><i class="fas fa-sign-in-alt"></i></span>
+						Login
+					</a>
+					<div class="navbar-item has-dropdown is-hoverable is-not-displayed"
+						id="loggedInUser">
+						<a class="navbar-link">
+							<span class="icon"><i class="fas fa-user"></i></span>
+							<span id="fullname"></span>
+						</a>
+						<div class="navbar-dropdown is-boxed">
+							<a class="navbar-item" id="logoutLink">
+								Sign out 
+								<span class="icon"><i class="fas fa-sign-out-alt"></i></span>
+							</a>
+						</div>
+					</div>
 					<a class="navbar-item" target="_blank"
 						href="https://github.com/usit-gd/nivlheim/releases">
-						<span id="navbarVersion"></span>
-					</a>
-					<a class="navbar-item" target="_blank"
-						href="https://github.com/usit-gd/nivlheim">
 						<span class="icon">
 							<i class="fab fa-github fa-lg"></i>
 						</span>
+						<span id="navbarVersion"></span>
 					</a>
 				</div>
 			</div>

@@ -104,6 +104,7 @@ $(document).ready(function(){
 
 	router.init('/');
 
+	// retrieve the version number from a static file and display it
 	$.get('/version.txt', function(data){
 		$("span#navbarVersion").text('Version ' + data);
 	});
@@ -118,9 +119,26 @@ $(document).ready(function(){
 		$("div.navbar-menu").removeClass('is-active');
 	});
 
-	// load more elements when scrolling
+	// attach a handler that will load more elements when scrolling
 	$(window).scroll(scrollHandler);
 	window.setInterval(scrollHandler,500);
+
+	// attach a login click handler, or show the name of the logged in user
+	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
+		if (data == null) {
+			// Not logged in
+			$("a#loginLink").click(function(){
+				location.href = getAPIURLprefix()+"/api/oauth2/start"
+					+"?redirect="+encodeURIComponent(location.href);
+			});
+		} else {
+			// Logged in
+			$("a#loginLink").remove();
+			$("div#loggedInUser").removeClass("is-not-displayed")
+			$("div#loggedInUser span#fullname").text(data.name);
+			$("a#logoutLink").prop("href", getAPIURLprefix()+"/api/oauth2/logout");
+		}
+	});
 });
 
 function showFrontPage() {
