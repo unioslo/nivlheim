@@ -13,6 +13,8 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 Source1:  https://github.com/lib/pq/archive/master.tar.gz#/pq-master.tar.gz
+Source2:  https://github.com/golang/oauth2/archive/master.tar.gz#/oauth2-master.tar.gz
+Source3:  https://github.com/golang/net/archive/master.tar.gz#/net-master.tar.gz
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -107,23 +109,32 @@ This package contains the server components of Nivlheim.
 
 %prep
 %setup -q -T -b 1 -n pq-master
+%setup -q -T -b 2 -n oauth2-master
+%setup -q -T -b 3 -n net-master
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 
 %build
 # Compile web templates
 handlebars server/website/templates --min -f server/website/js/templates.js
 # Compile system service
-rm -rf gopath
-mkdir -p gopath/{src,bin}
 export GOPATH=`pwd`/gopath
+rm -rf $GOPATH
+mkdir -p $GOPATH/{src,bin}
 export GOBIN="$GOPATH/bin"
-mv server/service gopath/src/
-mkdir -p gopath/src/github.com/lib/
-mv ../pq-master gopath/src/github.com/lib/pq
-NONETWORK=1 NOPOSTGRES=1 go test -v service
-rm -f gopath/bin/*
+mkdir -p $GOPATH/src/github.com/usit-gd/nivlheim
+mv server $GOPATH/src/github.com/usit-gd/nivlheim
+mkdir -p $GOPATH/src/github.com/lib/
+mv ../pq-master $GOPATH/src/github.com/lib/pq
+mkdir -p $GOPATH/src/golang.org/x
+mv ../net-master $GOPATH/src/golang.org/x/net
+mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
+pushd $GOPATH/src/github.com/usit-gd/nivlheim/server/service
+NONETWORK=1 NOPOSTGRES=1 go test -v
+rm -f $GOPATH/bin/*
 # Fix for the error "No build ID note found in ..."
-go install -ldflags=-linkmode=external service
+go install -ldflags=-linkmode=external
+popd
+mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
 
 %install
 rm -rf %{buildroot}
@@ -213,6 +224,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Aug  7 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.9.0-20180807
+- Added sources for Go package golang.org/x/oauth2 and its dependencies
+
 * Tue May  1 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.6.1-20180501
 - Replaced init.sql with a set of sql patch files and an install script
 

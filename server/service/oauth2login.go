@@ -1,11 +1,12 @@
 package main
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"log"
 	"net/http"
 
-	"github.com/tidwall/gjson"
+	"github.com/usit-gd/nivlheim/server/service/utility"
 	"golang.org/x/oauth2"
 )
 
@@ -85,7 +86,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	// The HTTP client returned by conf.Client will refresh the token as necessary.
 	client := session.Oauth2Config.Client(oauth2.NoContext, tok)
 
-	// Retrieve user info and store it in the session.
+	// Retrieve user info
 	res, err := client.Get(oauth2UserInfoEndpoint)
 	if err != nil {
 		log.Printf("Oauth2 UserInfo error: %v", err)
@@ -96,15 +97,28 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		log.Printf("Error reading Userinfo request body: %s", err.Error())
+		http.Error(w, "Error reading Userinfo from Oauth2 provider", http.StatusInternalServerError)
+		return
 	}
 	log.Printf("Oauth2: Userinfo: %s", string(body))
-	if gjson.GetBytes(body, "audience").String() != oauth2ClientID {
+
+	// Parse the JSON
+	var userinfo interface{}
+	err = json.Unmarshal(body, &userinfo)
+	if err != nil {
+		log.Printf("Error parsing Userinfo from Oauth2 provider: %s", err.Error())
+		http.Error(w, "Error while parsing Userinfo from Oauth2 provider", http.StatusInternalServerError)
+		return
+	}
+
+	// Store the interesting values in the session
+	if utility.GetString(userinfo, "audience") != oauth2ClientID {
 		log.Printf("Oauth2 audience mismatch")
 		http.Error(w, "Oauth2 audience mismatch", http.StatusInternalServerError)
 		return
 	}
-	session.userinfo.ID = gjson.GetBytes(body, "user.userid_sec.0").String()
-	session.userinfo.Name = gjson.GetBytes(body, "user.name").String()
+	session.userinfo.ID = utility.GetString(userinfo, "user.userid_sec.0")
+	session.userinfo.Name = utility.GetString(userinfo, "user.name")
 
 	// Redirect to the page set in redirectAfterLogin.
 	log.Printf("Oauth2: Redirecting to %s", session.RedirectAfterLogin)

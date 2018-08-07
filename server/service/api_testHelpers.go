@@ -6,6 +6,8 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
 type apiCall struct {
@@ -36,7 +38,7 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 			continue
 		}
 		if tt.expectJSON != "" {
-			isEqual, err := IsEqualJSON(rr.Body.String(), tt.expectJSON)
+			isEqual, err := utility.IsEqualJSON(rr.Body.String(), tt.expectJSON)
 			if err != nil {
 				t.Error(err)
 			}
