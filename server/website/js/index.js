@@ -139,6 +139,16 @@ $(document).ready(function(){
 			$("a#logoutLink").prop("href", getAPIURLprefix()+"/api/oauth2/logout");
 		}
 	});
+
+	// create a shake effect
+    jQuery.fn.shake = function() {
+        this.each(function() {
+            $(this).css({
+                "position": "relative"
+            }).animate({left:20},30).animate({left:-20},30).animate({left:0},30);
+        });
+        return this;
+    }
 });
 
 function showFrontPage() {
@@ -208,8 +218,11 @@ function deleteHostByCert(certfp) {
 			if ($("input[name='sure']:checked").val()==1) {
 				restDeleteHost(certfp);
 			} else {
-				$("a#deleteButton").text("You must be sure you want to delete the machine");
+				$("a#deleteButton").shake();
 			}
+		});
+		$("a#cancelButton").click(function(){
+			history.back();
 		});
 	});
 }
@@ -235,6 +248,7 @@ function restDeleteHost(certfp) {
 		$("a#deleteButton").replaceWith('<a class="button">The machine has been deleted.</a>');
 		// Fade out the details
 		$("div#machinedetails").fadeOut(1500);
+		$("a#cancelButton").fadeOut(1500);
 	});
 }
 

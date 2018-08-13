@@ -33,6 +33,9 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 		keys := make([]string, len(fields))
 		i := 0
 		for k := range fields {
+			if k == "filename" {
+				k = "replace(filename,'%','*') as filename"
+			}
 			keys[i] = k
 			i++
 		}
@@ -64,15 +67,15 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 			return
 		}
 		// Everything checks out, insert
+		filename := strings.Replace(req.FormValue("filename"), "*", "%", -1)
 		_, err := vars.db.Exec("INSERT INTO customfields(name, filename, regexp) VALUES($1,$2,$3)",
-			name, req.FormValue("filename"), req.FormValue("regexp"))
+			name, filename, req.FormValue("regexp"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 		// Mark relevant files for re-parsing
-		vars.db.Exec("UPDATE files SET parsed=false WHERE filename=$1",
-			req.FormValue("filename"))
+		vars.db.Exec("UPDATE files SET parsed=false WHERE current AND filename LIKE $1", filename)
 		// Return
 		w.Header().Set("Location", req.URL.RequestURI()+"/"+name)
 		http.Error(w, "", http.StatusCreated) // 201 Created
@@ -113,6 +116,9 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			result["name"] = jsonString(name)
 		}
 		if fields["filename"] {
+			if filename.Valid {
+				filename.String = strings.Replace(filename.String, "%", "*", -1)
+			}
 			result["filename"] = jsonString(filename)
 		}
 		if fields["regexp"] {
@@ -166,8 +172,9 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 		if newName == "" {
 			newName = name
 		}
+		filename := strings.Replace(req.FormValue("filename"), "*", "%", -1)
 		res, err := vars.db.Exec("UPDATE customfields SET name=$1, filename=$2, regexp=$3 "+
-			"WHERE name=$4", newName, req.FormValue("filename"), req.FormValue("regexp"), name)
+			"WHERE name=$4", newName, filename, req.FormValue("regexp"), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -182,8 +189,7 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			return
 		}
 		// Mark relevant files for re-parsing
-		vars.db.Exec("UPDATE files SET parsed=false WHERE filename=$1",
-			req.FormValue("filename"))
+		vars.db.Exec("UPDATE files SET parsed=false WHERE current AND filename LIKE $1", filename)
 		http.Error(w, "OK", http.StatusNoContent) // 204 No Content
 
 	default:

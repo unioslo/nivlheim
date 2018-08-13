@@ -89,18 +89,21 @@ func parseFile(database *sql.DB, fileId int64) {
 		addFileToFastSearch(fileId, certfp.String, filename.String, content.String)
 	}
 
-	// Workaround when PostgreSQL is too old to support UPSERT:
-	// First, try to update hostinfo as if there is an existing row
-	result, err := tx.Exec("UPDATE hostinfo SET lastseen=$1,clientversion=$2 "+
-		"WHERE certfp=$3", received, cVersion, certfp.String)
+	// Workaround when PostgreSQL is too old to support "upsert"
+	// (INSERT...ON CONFLICT...)
+	// First, SELECT to find out if a row exists, then insert or update.
+	// Race condition conflicts are handled by doing rollback and re-trying later.
+	var numrows int
+	err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE certfp=$1", certfp.String).Scan(&numrows)
 	if err != nil {
 		return
 	}
-	rowcount, err := result.RowsAffected()
-	if err != nil {
-		return
-	}
-	if rowcount == 0 {
+	if numrows == 0 {
+		// If the file isn't "current", i.e. it's an old archived version,
+		// and the host doesn't exist in the hostinfo table, it should not be inserted again.
+		if !isCurrent.Bool {
+			return
+		}
 		// no existing row? then try to insert
 		// (This can cause a "duplicate key" error if there's a race condition)
 		_, err = tx.Exec("INSERT INTO hostinfo(lastseen,ipaddr,clientversion,"+
@@ -115,13 +118,22 @@ func parseFile(database *sql.DB, fileId int64) {
 			}
 			return
 		}
+		// When a new host has been discovered, immediately look up in DNS to
+		// determine the hostname.
 		triggerJob(handleDNSchangesJob{})
 	} else {
-		// The row exists already. This statement will set dnsttl to null
-		// only if ipaddr or os_hostname changed.
+		// There's an existing row.
+		// Update lastseen and clientversion:
+		_, err := tx.Exec("UPDATE hostinfo SET lastseen=$1,clientversion=$2 "+
+			"WHERE certfp=$3 AND lastseen < $1", received, cVersion, certfp.String)
+		if err != nil {
+			return
+		}
+		// This statement will set dnsttl to null only if ipaddr or os_hostname changed.
 		_, err = tx.Exec("UPDATE hostinfo SET ipaddr=$1, os_hostname=$2, "+
-			"dnsttl=null WHERE (ipaddr!=$1 OR os_hostname!=$2) AND certfp=$3",
-			ipaddr, osHostname, certfp)
+			"dnsttl=null WHERE (ipaddr!=$1 OR os_hostname!=$2) AND certfp=$3"+
+			" AND lastseen < $4",
+			ipaddr, osHostname, certfp, received)
 		if err != nil {
 			return
 		}
@@ -296,7 +308,7 @@ func parseFile(database *sql.DB, fileId int64) {
 func parseCustomFields(tx *sql.Tx, certfp string, filename string, content string) {
 	// Custom fields
 	rows, err := tx.Query("SELECT fieldID, name, regexp FROM customfields "+
-		"WHERE filename = $1", filename)
+		"WHERE $1 LIKE filename", filename)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -315,7 +327,7 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 			log.Println(err)
 			break
 		}
-		re, err := regexp.Compile(regexpStr.String)
+		re, err := regexp.Compile("(?m)" + regexpStr.String)
 		if err != nil {
 			notfound = append(notfound, Item{fieldID: fieldID})
 			continue

@@ -152,6 +152,9 @@ func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]boo
 	}
 	fields := make(map[string]bool)
 	for _, f := range strings.Split(fieldParam, ",") {
+		if len(f) == 0 {
+			continue
+		}
 		ok := false
 		for _, af := range allowedFields {
 			if strings.EqualFold(f, af) {

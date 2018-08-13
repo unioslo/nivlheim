@@ -163,6 +163,10 @@ function attachHandlersToForms() {
 function submitForm(event) {
 	// prevent the browser from loading the whole page
 	event.preventDefault();
+	// replace the submit button with a spinner
+	let b = $(event.target).find("input[type=submit]");
+	b.replaceWith(
+		'<a class="button is-loading" style="width:'+b.width()+'px">Loading</a>');
 	// Use the ACTION attribute from the FORM tag
 	let path = (new URL(this.action).pathname);
 	// use the METHOD or data-method attribute
@@ -241,9 +245,11 @@ function editInPlace() {
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
 		'<button class="button cancel"><i class="fas fa-times color-deny"></i></button>');
 	// add click handlers to the buttons
-	$(container).find("button.submit").click(function(){
+	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let body = $(container).find("input").serialize();
+		$(event.currentTarget).addClass("is-loading");
+		$(container).find("button.cancel").prop("disabled","disabled");
 		AJAXwithRefresh(container, action, "PUT", body);
 	});
 	$(container).find("button.cancel").click(function(){
