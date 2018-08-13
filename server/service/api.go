@@ -115,6 +115,11 @@ func wrapLog(h http.Handler) http.Handler {
 }
 
 func isLocal(req *http.Request) bool {
+	// The X-Forwarded-For header can be set by the client,
+	// so just to be safe let's not trust any proxy connections.
+	if req.Header.Get("X-Forwarded-For") != "" {
+		return false
+	}
 	return strings.HasPrefix(req.RemoteAddr, "127.0.0.1")
 }
 
@@ -245,6 +250,10 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "無\n") // https://en.wikipedia.org/wiki/Mu_(negative)
 }

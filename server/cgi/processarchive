@@ -20,10 +20,10 @@ sub parse_query_string();
 sub run_command($);
 sub uts_to_rfc3339($);
 
-# Restrict access to only localhost
+# Restrict access to only localhost, and disallow proxy connections
 my $ip = $ENV{'REMOTE_ADDR'};
-if ($ip ne "127.0.0.1" && $ip ne "::1") {
-	print "Status: 403\n";
+if (defined($ENV{'HTTP_X_FORWARDED_FOR'}) || ($ip ne "127.0.0.1" && $ip ne "::1")) {
+	print "Status: 403\n\n";
 	exit;
 }
 
