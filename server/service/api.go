@@ -24,29 +24,49 @@ const (
 
 func runAPI(theDB *sql.DB, port int, devmode bool) {
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
-	mux.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: theDB})
-	mux.Handle("/api/v0/file", &apiMethodFile{db: theDB})
-	mux.Handle("/api/v0/host", &apiMethodHost{db: theDB})
-	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
-	mux.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB, devmode: devmode})
-	mux.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
-	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
-	mux.Handle("/api/v0/settings/", &apiMethodSettings{db: theDB})
-	mux.Handle("/api/v0/settings", &apiMethodSettings{db: theDB})
-	mux.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: theDB})
-	mux.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
-	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
-	mux.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
-	mux.HandleFunc("/api/internal/triggerJob/", runJob)
-	mux.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
-	mux.HandleFunc("/api/internal/countFiles", countFiles)
-	mux.HandleFunc("/api/internal/mu", doNothing)
+
+	// API functions
+	api := http.NewServeMux()
+	api.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
+	api.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: theDB})
+	api.Handle("/api/v0/file", &apiMethodFile{db: theDB})
+	api.Handle("/api/v0/host", &apiMethodHost{db: theDB})
+	api.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
+	api.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB, devmode: devmode})
+	api.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
+	api.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
+	api.Handle("/api/v0/settings/", &apiMethodSettings{db: theDB})
+	api.Handle("/api/v0/settings", &apiMethodSettings{db: theDB})
+	api.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: theDB})
+	api.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
+	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
+	api.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
+	var h http.Handler = api
+	h = wrapCSRFprotection(h)
+	if !devmode {
+		h = wrapLog(h)
+	}
+	mux.Handle("/api/v0/", h)
+
+	// Oauth2-related endpoints
 	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
 	mux.HandleFunc("/api/oauth2/redirect", handleOauth2Redirect)
 	mux.HandleFunc("/api/oauth2/logout", oauth2Logout)
-	var h http.Handler = mux
+
+	// internal API functions. Only allowed from localhost.
+	internal := http.NewServeMux()
+	internal.HandleFunc("/api/internal/triggerJob/", runJob)
+	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
+	internal.HandleFunc("/api/internal/countFiles", countFiles)
+	internal.HandleFunc("/api/internal/mu", doNothing)
+	h = internal
+	h = wrapOnlyAllowLocal(h)
+	mux.Handle("/api/internal/", h)
+
+	h = mux
 	if devmode {
+		// In development mode, log every request to stdout, and
+		// add CORS headers to responses to local requests.
 		h = wrapLog(wrapAllowLocalhostCORS(h))
 	}
 	log.Printf("Serving API requests on localhost:%d\n", port)
@@ -121,6 +141,49 @@ func isLocal(req *http.Request) bool {
 		return false
 	}
 	return strings.HasPrefix(req.RemoteAddr, "127.0.0.1")
+}
+
+func wrapOnlyAllowLocal(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !isLocal(req) {
+			http.Error(w, "Only local requests are allowed", http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, req)
+	})
+}
+
+func wrapCSRFprotection(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Requests from localhost are allowed regardless
+		if isLocal(req) {
+			h.ServeHTTP(w, req)
+			return
+		}
+		// If the http header "Origin" is present, it indicates
+		// that the request was sent by a web browser and that
+		// the web page came from a different host.
+		if req.Header.Get("Origin") != "" {
+			http.Error(w, "CSRF", http.StatusBadRequest)
+			return
+		}
+		// TODO check for the presence of an API key (and absence of session cookie) here
+		// && !HasSessionCookie(req)
+
+		// Check for the presence of the http header "X-Requested-With: XMLHttpRequest".
+		// Its presence indicate that the request came from JavaScript on a web page
+		// from the *same* host.
+		// Without CORS (i.e. the consent of this server), it is not possible
+		// to add headers such as X-Requested-With to a cross domain XHR request.
+		// This also checks that the request wasn't POSTed from a regular HTML form,
+		// because in that situation you can't add custom http headers.
+		// Keep in mind that API calls from scripts won't have this header.
+		if req.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+			h.ServeHTTP(w, req)
+		} else {
+			http.Error(w, "CSRF", http.StatusBadRequest)
+		}
+	})
 }
 
 // Wrappers for sql nulltypes that encodes the values when marshalling JSON
@@ -250,10 +313,6 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {
-	if !isLocal(req) {
-		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
-		return
-	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "無\n") // https://en.wikipedia.org/wiki/Mu_(negative)
 }
