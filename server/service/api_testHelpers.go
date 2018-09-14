@@ -29,6 +29,7 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 			t.Fatal(err)
 		}
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		req.RemoteAddr = "127.0.0.1"
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
 		if status := rr.Code; status != tt.expectStatus {

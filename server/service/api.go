@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -58,10 +59,12 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	internal.HandleFunc("/api/internal/triggerJob/", runJob)
 	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
 	internal.HandleFunc("/api/internal/countFiles", countFiles)
-	internal.HandleFunc("/api/internal/mu", doNothing)
 	h = internal
 	h = wrapOnlyAllowLocal(h)
 	mux.Handle("/api/internal/", h)
+
+	//
+	mux.HandleFunc("/api/v0/mu", doNothing)
 
 	h = mux
 	if devmode {
@@ -160,29 +163,83 @@ func wrapCSRFprotection(h http.Handler) http.Handler {
 			h.ServeHTTP(w, req)
 			return
 		}
-		// If the http header "Origin" is present, it indicates
-		// that the request was sent by a web browser and that
-		// the web page came from a different host.
-		if req.Header.Get("Origin") != "" {
+
+		// First, find the hostname for this request.
+		// Apache httpd ProxyPass will add the X-Forwarded-Host header.
+		// It will contain more than one (comma-separated) value if the original
+		// request already contained a X-Forwarded-Host header.
+		var hostlist []string
+		fwdh := req.Header.Get("X-Forwarded-Host")
+		if fwdh != "" {
+			hostlist = strings.Split(fwdh, ",")
+		} else {
+			// If X-Forwarded-Host is absent, try using the regular host header
+			host := req.Host
+			// It may be of the form "host:port"
+			if i := strings.Index(host, ":"); i > -1 {
+				host = host[0:i]
+			}
+			hostlist = []string{host}
+		}
+
+		// If the http header "Origin" is present, check that it matches
+		// the host name in the request
+		origin := req.Header.Get("Origin")
+		if origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil {
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			origin = u.Hostname()
+			found := false
+			for _, h := range hostlist {
+				if h == origin {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Origin is present and doesn't match the host
+				http.Error(w, "CSRF", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// If the http header "Referer" is present, check that it matches
+		// the host name in the request
+		referer := req.Header.Get("Referer")
+		if referer != "" {
+			u, err := url.Parse(referer)
+			if err != nil {
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			referer = u.Hostname()
+			found := false
+			for _, h := range hostlist {
+				if h == referer {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Referer is present and doesn't match the host
+				http.Error(w, "CSRF", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// If neither referer nor origin headers are present,
+		// the assumption is that this request doesn't come from a web browser.
+		// In that case, there shouldn't be any session cookie in the request either.
+		if req.Header.Get("Referer") == "" && req.Header.Get("Origin") == "" && HasSessionCookie(req) {
 			http.Error(w, "CSRF", http.StatusBadRequest)
 			return
 		}
-		// TODO check for the presence of an API key (and absence of session cookie) here
-		// && !HasSessionCookie(req)
 
-		// Check for the presence of the http header "X-Requested-With: XMLHttpRequest".
-		// Its presence indicate that the request came from JavaScript on a web page
-		// from the *same* host.
-		// Without CORS (i.e. the consent of this server), it is not possible
-		// to add headers such as X-Requested-With to a cross domain XHR request.
-		// This also checks that the request wasn't POSTed from a regular HTML form,
-		// because in that situation you can't add custom http headers.
-		// Keep in mind that API calls from scripts won't have this header.
-		if req.Header.Get("X-Requested-With") == "XMLHttpRequest" {
-			h.ServeHTTP(w, req)
-		} else {
-			http.Error(w, "CSRF", http.StatusBadRequest)
-		}
+		h.ServeHTTP(w, req)
+		return
 	})
 }
 
@@ -313,8 +370,20 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {
+	w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
+	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
+	w.Header().Set("Vary", "Origin")
+	if req.Method == "OPTIONS" || req.Method == "HEAD" {
+		// When cross-domain, browsers sends OPTIONS first, to check for CORS headers
+		// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
+		http.Error(w, "", http.StatusNoContent) // 204 OK
+		return
+	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "無\n") // https://en.wikipedia.org/wiki/Mu_(negative)
+	fmt.Fprintf(w, "無\n\n") // https://en.wikipedia.org/wiki/Mu_(negative)
+	for key, values := range req.Header {
+		fmt.Fprintf(w, "%s = %v\n", key, values)
+	}
 }
 
 func isTrueish(s string) bool {
