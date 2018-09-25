@@ -93,6 +93,9 @@ Requires: perl(File::Temp)
 Requires: perl(JSON)
 Requires: perl(Log::Log4perl)
 Requires: perl(Log::Log4perl::Level)
+Requires: perl(Log::Dispatch)
+Requires: perl(Log::Dispatch::FileRotate)
+Requires: perl(Log::Dispatch::Syslog)
 Requires: perl(LWP::Simple)
 Requires: perl(MIME::Base64)
 Requires: perl(Net::CIDR)
@@ -147,7 +150,6 @@ mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/www/html
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
-mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
@@ -162,7 +164,6 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
-install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
 rm -rf server/website/mockapi server/website/templates
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
@@ -204,7 +205,6 @@ rm -rf %{buildroot}
 %config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config %{_sysconfdir}/nivlheim/server.conf
-%config %{_sysconfdir}/logrotate.d/%{name}-server
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
 %dir /var/log/nivlheim
