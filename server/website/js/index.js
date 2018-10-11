@@ -19,10 +19,11 @@ $(document).ready(function(){
 		return Handlebars.Utils.escapeExpression(str);
 	});
 	Handlebars.registerHelper('formatNumber', function(number){
-		if (typeof number == "number")
+		if (typeof number == "number") {
+			if (Math.abs(number)>=999) return Math.round(number);
 			return number.toPrecision(3);
-		else
-			return "-";
+		}
+		return "-";
 	});
 	Handlebars.registerHelper('urlescape', function(s){
 		if (!s) return "";

@@ -224,7 +224,7 @@ func parseFile(database *sql.DB, fileId int64) {
 
 	if filename.String == "(Get-WmiObject Win32_OperatingSystem).Caption" {
 		reWinX := regexp.MustCompile(`Microsoft Windows (\d+)`)
-		reWinServer := regexp.MustCompile(`Microsoft Windows Server (\d+)( R2)?`)
+		reWinServer := regexp.MustCompile(`Microsoft®? Windows Server®? (\d+)( R2)?`)
 		if m := reWinX.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1, os_edition=null "+
 				"WHERE certfp=$2", "Windows "+m[1], certfp.String)

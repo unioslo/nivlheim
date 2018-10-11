@@ -71,7 +71,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		defer f.Close()
 		names, err := f.Readdirnames(0)
 		if err == nil {
-			status.IncomingQueueSize = len(names)
+			status.IncomingQueueSize = len(names) / 2 // half of them are .meta files
 		}
 	}
 

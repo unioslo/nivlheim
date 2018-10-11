@@ -136,6 +136,11 @@ BuildVersion:   17D102`,
 			content:  "Microsoft Windows 7 Enterprise",
 		},
 		{
+			osLabel:  "Windows 2008",
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft® Windows Server® 2008 Standard",
+		},
+		{
 			osLabel:  "Windows 2008 R2",
 			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
 			content:  "Microsoft Windows Server 2008 R2 Standard",
