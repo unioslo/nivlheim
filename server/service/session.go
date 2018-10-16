@@ -14,8 +14,9 @@ import (
 // Session holds session data for interactive user sessions (people, not scripts)
 type Session struct {
 	userinfo struct {
-		ID   string `json:"id"`
-		Name string `json:"name"`
+		ID      string `json:"id"`
+		Name    string `json:"name"`
+		IsAdmin bool   `json:"isAdmin"`
 	}
 	Oauth2AccessToken  *oauth2.Token
 	Oauth2Config       *oauth2.Config
@@ -23,6 +24,7 @@ type Session struct {
 	RedirectAfterLogin string
 	lastUsed           time.Time
 	mutex              sync.RWMutex
+	AccessProfile      *AccessProfile
 }
 
 var sessionMutex sync.RWMutex

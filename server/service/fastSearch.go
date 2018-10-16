@@ -163,6 +163,28 @@ func searchFiles(searchString string) []int64 {
 	return hits
 }
 
+func searchFilesWithFilter(searchString string, ap *AccessProfile) []int64 {
+	fsMutex.RLock()
+	defer fsMutex.RUnlock()
+	searchString = strings.ToLower(searchString)
+	hits := make(hitList, 0, 0)
+	for key, id := range fsID {
+		// extract certfp from key
+		ar := strings.SplitN(key, ":", 2)
+		certfp := ar[0]
+		if ap.HasAccessTo(certfp) {
+			content := fsContent[id]
+			if strings.Contains(content, searchString) {
+				hits = append(hits, id)
+			}
+		}
+	}
+	// The result list must be in the same order every time for pagination to work.
+	// The hits are reverse sorted so the newest files will show first.
+	sort.Sort(hits)
+	return hits
+}
+
 func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 	fsMutex.RLock()
 	content, ok := fsContent[fileID]

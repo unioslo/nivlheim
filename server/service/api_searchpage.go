@@ -41,6 +41,14 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
+	// Enforce login
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+
 	result := new(apiSearchPageResult)
 	err := req.ParseForm()
 	if err != nil {
@@ -89,7 +97,12 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	hitIDs := searchFiles(result.Query)
+	var hitIDs []int64
+	if session.AccessProfile.IsAdmin() {
+		hitIDs = searchFiles(result.Query)
+	} else {
+		hitIDs = searchFilesWithFilter(result.Query, session.AccessProfile)
+	}
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
 	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
@@ -114,6 +127,9 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if !session.AccessProfile.HasAccessTo(certfp.String) {
+			continue
 		}
 		hit.FileID = fileID
 		hit.Filename = jsonString(filename)

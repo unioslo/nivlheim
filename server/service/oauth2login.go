@@ -120,6 +120,15 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	session.userinfo.ID = utility.GetString(userinfo, "user.userid_sec.0")
 	session.userinfo.Name = utility.GetString(userinfo, "user.name")
 
+	// Generate an access profile for this user by calling an external service
+	session.AccessProfile, err = GenerateAccessProfileForUser(session.userinfo.Name)
+	if err != nil {
+		log.Printf("Error while generating an access profile: %s", err.Error())
+		http.Error(w, "Error while generating an access profile", http.StatusInternalServerError)
+		return
+	}
+	session.userinfo.IsAdmin = session.AccessProfile.IsAdmin()
+
 	// Redirect to the page set in redirectAfterLogin.
 	log.Printf("Oauth2: Redirecting to %s", session.RedirectAfterLogin)
 	http.Redirect(w, req, session.RedirectAfterLogin, http.StatusTemporaryRedirect)

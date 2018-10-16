@@ -42,12 +42,7 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	api.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
 	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
 	api.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
-	var h http.Handler = api
-	h = wrapCSRFprotection(h)
-	if !devmode {
-		h = wrapLog(h)
-	}
-	mux.Handle("/api/v0/", h)
+	mux.Handle("/api/v0/", wrapCSRFprotection(api))
 
 	// Oauth2-related endpoints
 	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
@@ -59,14 +54,12 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	internal.HandleFunc("/api/internal/triggerJob/", runJob)
 	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
 	internal.HandleFunc("/api/internal/countFiles", countFiles)
-	h = internal
-	h = wrapOnlyAllowLocal(h)
-	mux.Handle("/api/internal/", h)
+	mux.Handle("/api/internal/", wrapOnlyAllowLocal(internal))
 
 	//
 	mux.HandleFunc("/api/v0/mu", doNothing)
 
-	h = mux
+	var h http.Handler = mux
 	if devmode {
 		// In development mode, log every request to stdout, and
 		// add CORS headers to responses to local requests.
@@ -137,6 +130,7 @@ func wrapLog(h http.Handler) http.Handler {
 	})
 }
 
+// isLocal returns true if the http request originated from localhost.
 func isLocal(req *http.Request) bool {
 	// The X-Forwarded-For header can be set by the client,
 	// so just to be safe let's not trust any proxy connections.
@@ -370,20 +364,8 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {
-	w.Header().Set("Access-Control-Allow-Origin", req.Header.Get("Origin"))
-	w.Header().Set("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS")
-	w.Header().Set("Vary", "Origin")
-	if req.Method == "OPTIONS" || req.Method == "HEAD" {
-		// When cross-domain, browsers sends OPTIONS first, to check for CORS headers
-		// See: https://developer.mozilla.org/en-US/docs/Web/HTTP/CORS
-		http.Error(w, "", http.StatusNoContent) // 204 OK
-		return
-	}
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "無\n\n") // https://en.wikipedia.org/wiki/Mu_(negative)
-	for key, values := range req.Header {
-		fmt.Fprintf(w, "%s = %v\n", key, values)
-	}
 }
 
 func isTrueish(s string) bool {

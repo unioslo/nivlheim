@@ -25,6 +25,14 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
+	// Enforce login
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+
 	// Get a list of names and IDs of all defined custom fields
 	customFields := make([]string, 0)
 	customFieldIDs := make(map[string]int)
@@ -93,6 +101,12 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	if !session.AccessProfile.HasAccessTo(certfp.String) {
+		http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
+		return
+	}
+
 	res := make(map[string]interface{}, 0)
 	if fields["ipAddress"] {
 		res["ipAddress"] = jsonString(ipaddr)

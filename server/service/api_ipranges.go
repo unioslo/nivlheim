@@ -15,6 +15,19 @@ type apiMethodIpRanges struct {
 }
 
 func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Check if the user has admin rights
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+	if !session.userinfo.IsAdmin {
+		// The user isn't admin
+		http.Error(w, "This operation requires admin", http.StatusForbidden)
+		return
+	}
+
 	if req.Method != httpGET {
 		vars.ServeHTTPREST(w, req)
 		return

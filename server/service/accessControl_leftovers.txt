@@ -1,0 +1,222 @@
+type AccessProfile struct {
+	key     string
+	validIPs []net.IP
+	created time.Time
+}
+
+// IsValidIPAddress returns true if the given IP address
+// (typically remote_addr from a http request)
+// is on the access profile's list of valid IP addresses.
+func (ap *AccessProfile) IsValidIPAddress(addr net.IP) bool {
+	for _, testAgainst := range ap.validIPs {
+		if addr.Equal(testAgainst) {
+			return true
+		}
+	}
+	return false
+}
+
+// IsExpired returns true if the access profile has expired.
+// Note that the user session or API key is (normally) still valid,
+// it's just that it's time to reload/re-generate the access profile.
+func (ap *AccessProfile) IsExpired() bool {
+	return time.Since(ap.created) < time.Minute*5
+}
+
+
+
+var mapMutex sync.RWMutex
+var profiles map[string]*AccessProfile
+
+type HttpError struct {
+	Code    int
+	Message string
+}
+
+func (h *HttpError) Error() string {
+	return fmt.Sprintf("%d %s", h.Code, h.Message)
+}
+
+func GetAccessProfileForRequest(req *http.Request, db *sql.DB) (*AccessProfile, *HttpError) {
+	// If the request came with an API key, use it
+	apiKey := getAPIKeyFromRequest(req)
+	if apiKey != nil {
+		return getAccessProfileForAPIkey(*apiKey, req, db)
+	}
+
+	//TODO: For interactive sessions, the access profile should be stored IN THE SESSION. Duh.
+
+	/*
+		// If there's an active session, use it
+		session := getSessionFromRequest(req)
+		if session != nil {
+			return getAccessProfileForSession(session)
+		}
+	*/
+
+	// Otherwise, you have no access.
+	return nil, nil
+}
+
+func getAccessProfileForAPIkey(apiKey APIkey, req *http.Request, db *sql.DB) (*AccessProfile, *HttpError) {
+	// See if there's already a cached access profile,
+	// that it hasn't expired, and that the ip address is valid.
+	mapMutex.RLock()
+	profile, ok := profiles[apiKey.String()]
+	mapMutex.RUnlock()
+	remoteAddr := getRealRemoteAddr(req)
+	if ok && !profile.IsExpired() && profile.IsValidIPAddress(remoteAddr) {
+		return profile, nil
+	}
+
+	// Wasn't able to use a cached profile, must generate one.
+
+	// First, use the API key to look up the username
+	var username string
+	err := db.QueryRow("SELECT owner_username FROM apikeys WHERE keyid=$1", apiKey.String()).
+		Scan(&username)
+	switch {
+	case err == sql.ErrNoRows:
+		// The API key was not found in the database.
+		return nil, &HttpError{Code: http.StatusUnauthorized, Message: "Invalid API key"}
+	case err != nil:
+		// Another kind of error occurred
+		return nil, &HttpError{Code: http.StatusInternalServerError, Message: err.Error()}
+	}
+
+	// Get a list of valid IP addresses for this API key
+	rows, err := db.Query("SELECT ipaddr FROM apikey_ips WHERE keyid=$1", apiKey.String())
+	if err != nil {
+		return nil, &HttpError{Code: http.StatusInternalServerError, Message: err.Error()}
+	}
+	defer rows.Close()
+	validIPs := make([]net.IP, 0, 0)
+	for rows.Next() {
+		var i net.IP
+		rows.Scan(&i)
+		validIPs = append(validIPs, i)
+	}
+	if err = rows.Err(); err != nil {
+		return nil, &HttpError{Code: http.StatusInternalServerError, Message: err.Error()}
+	}
+
+	// TODO: Call an external service to find out what this user has access to
+
+	// Create a new AccessProfile and set a timestamp in it.
+	profile = new(AccessProfile)
+	profile.created = time.Now()
+	profile.validIPs = validIPs
+	// Store the new profile in memory
+	mapMutex.Lock()
+	profiles[apiKey.String()] = profile
+	mapMutex.Unlock()
+	// Return the new AccessProfile.
+	return profile, nil
+}
+
+
+/*
+	Kjøre to løp: Ett for API og et for brukersesjoner.
+
+	For API-nøkler:
+
+	1. Har vi cachet profil?
+	   	Hvis ja: Sjekk utløpstid og ip-adresse
+		   Hvis gyldig: Returner den
+		   Hvis ikke: fortsett
+
+	2. Vi må lage en profil. Konverter API-nøkkel til brukernavn
+	   	Var ikke nøkkelen gyldig? Returner feilmelding
+
+	3. Bruk ekstern tjeneste for å lage en profil for brukernavnet
+
+	4. Cache den nye profilen, og returner den
+
+	For brukersesjoner:
+
+	1. Har vi cachet profil?
+		Hvis ja: Sjekk utløpstid
+			Hvis gyldig: Returner den
+			Hvis ikke: fortsett
+
+	2. Bruk ekstern tjeneste for å lage en profil for brukernavnet
+
+	3. Cache den nye profilen, og returner den
+
+*/
+/*
+	// Extract the API key from the request (it's in a http header)
+	apiKey := getAPIKeyFromRequest(req)
+	// (Alternatively) If there's a session cookie, get the user id from the session
+	var userID, profileKey string
+	if apiKey == nil {
+		session := getSessionFromRequest(req)
+		if session != nil {
+			userID = session.userinfo.ID
+			profileKey = userID
+		} else {
+			// If neither API key nor session, return an error
+			return nil, &HttpError{Code: http.StatusUnauthorized, Message: "Needs authentication"}
+		}
+	} else {
+		profileKey = apiKey.String()
+	}
+	// See if there's already a cached access profile,
+	// that it hasn't expired, and that the ip address is valid.
+	mapMutex.RLock()
+	profile, ok := profiles[profileKey]
+	mapMutex.RUnlock()
+	if ok && time.Since(profile.created) < time.Minute*10 {
+		if profile.IsValidIpAddress(getRealRemoteAddr(req)) {
+			return profile, nil
+		}
+	}
+	// 3. If we have a username, go directly to step 7.
+	if userID == "" {
+		// 4. Verify the API key. Is it valid?
+		// 5. Verify the API key limitations. Remote IP? Expiry date?
+		// 6. Map the API key to a username
+		return nil, &HttpError{Code: http.StatusNotImplemented, Message: "Not implemented yet"}
+	}
+	// 7. Call the external service to retrieve access data for that user.
+
+	// 8. Create a new AccessProfile and set a timestamp in it.
+	profile = new(AccessProfile)
+	profile.created = time.Now()
+	// 9. Store the new profile in memory, either by APIkey or username.
+	mapMutex.Lock()
+	profiles[profileKey] = profile
+	mapMutex.Unlock()
+	// A. Return the new AccessProfile.
+	return profile, nil
+
+	// Possible outcomes:
+	// 1a. Here's an AccessProfile, based on your API key
+	// 1b. Here's an AccessProfile, based on your user session
+	// 2. The API key isn't valid
+	// 3. The API key is valid, but can't be used for this request according to its limitations
+	// 4. No API key was supplied, and there's no user session
+	// 5. The external service is down.
+	// 6. Another error occurred
+
+	//TODO
+	// 1. Decide how this integrates with the API code. Wrapper?
+}
+*/
+
+
+func getAPIKeyFromRequest(req *http.Request) *APIkey {
+	auth := strings.Split(req.Header.Get("Authorization"), " ")
+	if len(auth) == 2 && auth[0] == "APIKEY" && auth[1] != "" {
+		return &APIkey{key: auth[1]}
+	}
+	return nil
+}
+
+type APIkey struct {
+	key string
+}
+
+func (a *APIkey) String() string {
+	return a.key
+}

@@ -22,6 +22,19 @@ type apiMethodCustomFieldsItem struct {
 }
 
 func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Check if the user has admin rights
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+	if !session.userinfo.IsAdmin {
+		// The user isn't admin
+		http.Error(w, "This operation requires admin", http.StatusForbidden)
+		return
+	}
+
 	switch req.Method {
 	case httpGET:
 		// List all
@@ -87,6 +100,19 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 }
 
 func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Check if the user has admin rights
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+	if !session.userinfo.IsAdmin {
+		// The user isn't admin
+		http.Error(w, "This operation requires admin", http.StatusForbidden)
+		return
+	}
+
 	switch req.Method {
 	case httpGET:
 		// Return details for one item

@@ -40,6 +40,14 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
+	// Enforce login
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+
 	// Get a list of names and IDs of all defined custom fields
 	customFields := make([]string, 0)
 	customFieldIDs := make(map[string]int)
@@ -233,13 +241,20 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		var hasAccessToThisRow = false
 		res := make(map[string]interface{}, len(fields))
 		var i = 0
 		for _, f := range apiHostListStandardFields {
+			if f.columnName == "certfp" {
+				hasAccessToThisRow = session.AccessProfile.HasAccessTo(scanvars[i].String)
+			}
 			if fields[f.publicName] {
 				res[f.publicName] = jsonString(scanvars[i])
 			}
 			i++
+		}
+		if !hasAccessToThisRow {
+			continue
 		}
 		for _, f := range customFields {
 			if fields[f] {

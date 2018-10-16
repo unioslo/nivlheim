@@ -13,6 +13,14 @@ type apiMethodFile struct {
 }
 
 func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	// Enforce login
+	session := getSessionFromRequest(req)
+	if session == nil {
+		// The user isn't logged in
+		http.Error(w, "Not logged in", http.StatusUnauthorized)
+		return
+	}
+
 	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -93,6 +101,11 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if !session.AccessProfile.HasAccessTo(certfp.String) {
+			http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
+			return
+		}
+
 		res := make(map[string]interface{}, 0)
 		if fields["fileId"] {
 			res["fileId"] = fileID
