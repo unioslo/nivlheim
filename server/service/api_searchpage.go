@@ -35,17 +35,9 @@ type apiSearchPageResult struct {
 	Hits    []apiSearchPageHit `json:"hits"`
 }
 
-func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Enforce login
-	session := getSessionFromRequest(req)
-	if session == nil {
-		// The user isn't logged in
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
 		return
 	}
 
@@ -98,10 +90,10 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	}
 
 	var hitIDs []int64
-	if session.AccessProfile.IsAdmin() {
+	if access.IsAdmin() {
 		hitIDs = searchFiles(result.Query)
 	} else {
-		hitIDs = searchFilesWithFilter(result.Query, session.AccessProfile)
+		hitIDs = searchFilesWithFilter(result.Query, access)
 	}
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
@@ -128,7 +120,7 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if !session.AccessProfile.HasAccessTo(certfp.String) {
+		if !access.HasAccessTo(certfp.String) {
 			continue
 		}
 		hit.FileID = fileID

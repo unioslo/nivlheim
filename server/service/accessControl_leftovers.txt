@@ -220,3 +220,14 @@ type APIkey struct {
 func (a *APIkey) String() string {
 	return a.key
 }
+
+
+func getRealRemoteAddr(req *http.Request) net.IP {
+	// Only works if there's exactly one proxy (no more, no less).
+	// If there's no proxy, the client could spoof the XFF header.
+	ff, ok := req.Header["X-Forwarded-For"]
+	if ok {
+		return net.ParseIP(ff[len(ff)-1])
+	}
+	return net.ParseIP(strings.Split(req.RemoteAddr, ":")[0])
+}

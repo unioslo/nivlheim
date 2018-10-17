@@ -94,18 +94,6 @@ func setSystemSetting(db *sql.DB, key SystemSetting, value string) error {
 }
 
 func (vars *apiMethodSettings) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	// Check if the user has admin rights
-	session := getSessionFromRequest(req)
-	if session == nil {
-		// The user isn't logged in
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
-	if !session.userinfo.IsAdmin {
-		// The user isn't admin
-		http.Error(w, "This operation requires admin", http.StatusForbidden)
-		return
-	}
 	switch req.Method {
 	case httpGET:
 		settings := make(map[string]string, 0)

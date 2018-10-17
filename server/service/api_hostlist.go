@@ -34,17 +34,9 @@ var apiHostListStandardFields = []apiHostListStandardField{
 	{publicName: "clientVersion", columnName: "clientversion"},
 }
 
-func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	// Enforce login
-	session := getSessionFromRequest(req)
-	if session == nil {
-		// The user isn't logged in
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
 		return
 	}
 
@@ -246,7 +238,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		var i = 0
 		for _, f := range apiHostListStandardFields {
 			if f.columnName == "certfp" {
-				hasAccessToThisRow = session.AccessProfile.HasAccessTo(scanvars[i].String)
+				hasAccessToThisRow = access.HasAccessTo(scanvars[i].String)
 			}
 			if fields[f.publicName] {
 				res[f.publicName] = jsonString(scanvars[i])

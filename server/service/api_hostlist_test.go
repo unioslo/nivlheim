@@ -174,6 +174,6 @@ func TestApiMethodHostList(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: db, devmode: true})
+	mux.Handle("/api/v0/hostlist", wrapRequireAuth(&apiMethodHostList{db: db, devmode: true}))
 	testAPIcalls(t, mux, tests)
 }

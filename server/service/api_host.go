@@ -13,26 +13,18 @@ type apiMethodHost struct {
 	db *sql.DB
 }
 
-func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	switch req.Method {
 	case httpGET:
-		(*vars).serveGET(w, req)
+		(*vars).serveGET(w, req, access)
 	case httpDELETE:
-		(*vars).serveDELETE(w, req)
+		(*vars).serveDELETE(w, req, access)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
-	// Enforce login
-	session := getSessionFromRequest(req)
-	if session == nil {
-		// The user isn't logged in
-		http.Error(w, "Not logged in", http.StatusUnauthorized)
-		return
-	}
-
+func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// Get a list of names and IDs of all defined custom fields
 	customFields := make([]string, 0)
 	customFieldIDs := make(map[string]int)
@@ -102,7 +94,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	if !session.AccessProfile.HasAccessTo(certfp.String) {
+	if !access.HasAccessTo(certfp.String) {
 		http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
 		return
 	}
@@ -250,7 +242,7 @@ func makeSupportList(db *sql.DB, serialNo string) ([]apiSupport, *httpError) {
 	return supportList, nil
 }
 
-func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	certfp := req.FormValue("certfp")
 	hostname := req.FormValue("hostname")
 	if certfp == "" && hostname == "" {
@@ -288,6 +280,10 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request)
 	}
 	if certfp == "" {
 		http.Error(w, err.Error(), http.StatusNotFound)
+		return
+	}
+	if !access.HasAccessTo(certfp) {
+		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
 	_, err = tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)

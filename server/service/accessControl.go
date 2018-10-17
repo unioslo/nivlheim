@@ -3,20 +3,18 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
-	"net"
 	"net/http"
-	"strings"
 )
 
-// AccessProfile holds information about what data and
-// which admin functions the owner is allowed access to.
+// AccessProfile holds information about which hosts the user is allowed access to,
+// and whether the user has admin rights.
 type AccessProfile struct {
 	certs   map[string]bool
 	isAdmin bool
 }
 
 func (ap *AccessProfile) HasAccessTo(certfp string) bool {
-	return ap.certs[certfp]
+	return ap.isAdmin || ap.certs[certfp]
 }
 
 func (ap *AccessProfile) IsAdmin() bool {
@@ -52,12 +50,59 @@ func GenerateAccessProfileForUser(username string) (*AccessProfile, error) {
 	return ap, nil
 }
 
-func getRealRemoteAddr(req *http.Request) net.IP {
-	// Only works if there's exactly one proxy (no more, no less).
-	// If there's no proxy, the client could spoof the XFF header.
-	ff, ok := req.Header["X-Forwarded-For"]
-	if ok {
-		return net.ParseIP(ff[len(ff)-1])
-	}
-	return net.ParseIP(strings.Split(req.RemoteAddr, ":")[0])
+// ------------------------- http helpers -----------
+
+type httpHandlerWithAccessProfile interface {
+	ServeHTTP(http.ResponseWriter, *http.Request, *AccessProfile)
+}
+
+// wrapRequireAdmin adds a layer that requires that there is
+// an interactive user session and that the user has admin rights.
+// Connections from localhost are allowed regardless.
+func wrapRequireAdmin(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if isLocal(req) {
+			h.ServeHTTP(w, req)
+			return
+		}
+		session := getSessionFromRequest(req)
+		if session == nil {
+			// The user isn't logged in
+			http.Error(w, "Not logged in", http.StatusUnauthorized)
+			return
+		}
+		if !session.userinfo.IsAdmin {
+			// The user isn't admin
+			http.Error(w, "This operation requires admin", http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, req)
+	})
+}
+
+// wrapRequireAuth adds a layer that requires that the user
+// has authenticated, either through Oauth2 or an API key.
+// Connections from localhost are allowed regardless.
+func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Connections from localhost are allowed regardless
+		if isLocal(req) {
+			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
+			return
+		}
+		// Enforce login
+		session := getSessionFromRequest(req)
+		if session == nil {
+			// The user isn't logged in
+			http.Error(w, "Not logged in", http.StatusUnauthorized)
+			return
+		}
+		if session.AccessProfile == nil {
+			// For some reason, the session is missing an access profile.
+			// This is probably due to an error during login, and the user should re-authenticate.
+			http.Error(w, "Not logged in", http.StatusUnauthorized)
+			return
+		}
+		h.ServeHTTP(w, req, session.AccessProfile)
+	})
 }

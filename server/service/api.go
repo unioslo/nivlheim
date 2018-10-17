@@ -28,20 +28,38 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 
 	// API functions
 	api := http.NewServeMux()
-	api.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
-	api.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: theDB})
-	api.Handle("/api/v0/file", &apiMethodFile{db: theDB})
-	api.Handle("/api/v0/host", &apiMethodHost{db: theDB})
-	api.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
-	api.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB, devmode: devmode})
-	api.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
-	api.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
-	api.Handle("/api/v0/settings/", &apiMethodSettings{db: theDB})
-	api.Handle("/api/v0/settings", &apiMethodSettings{db: theDB})
-	api.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: theDB})
-	api.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
+	api.Handle("/api/v0/file",
+		wrapRequireAuth(&apiMethodFile{db: theDB}))
+	api.Handle("/api/v0/host",
+		wrapRequireAuth(&apiMethodHost{db: theDB}))
+	api.Handle("/api/v0/hostlist",
+		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}))
+	api.Handle("/api/v0/searchpage",
+		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}))
+
+	// API functions that are only available to administrators
+	api.Handle("/api/v0/awaitingApproval",
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+	api.Handle("/api/v0/awaitingApproval/",
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+	api.Handle("/api/v0/settings/ipranges",
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+	api.Handle("/api/v0/settings/ipranges/",
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+	api.Handle("/api/v0/settings/",
+		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
+	api.Handle("/api/v0/settings",
+		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
+	api.Handle("/api/v0/settings/customfields",
+		wrapRequireAdmin(&apiMethodCustomFieldsCollection{db: theDB}))
+	api.Handle("/api/v0/settings/customfields/",
+		wrapRequireAdmin(&apiMethodCustomFieldsItem{db: theDB}))
+
+	// API functions that don't require authentication
 	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
 	api.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
+
+	// Add CSRF protection to all the api functions
 	mux.Handle("/api/v0/", wrapCSRFprotection(api))
 
 	// Oauth2-related endpoints
@@ -233,7 +251,6 @@ func wrapCSRFprotection(h http.Handler) http.Handler {
 		}
 
 		h.ServeHTTP(w, req)
-		return
 	})
 }
 
