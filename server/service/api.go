@@ -23,7 +23,7 @@ const (
 	httpDELETE = "DELETE"
 )
 
-func runAPI(theDB *sql.DB, port int, devmode bool) {
+func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// API functions
@@ -77,7 +77,11 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 	//
 	mux.HandleFunc("/api/v0/mu", doNothing)
 
-	var h http.Handler = mux
+	return mux
+}
+
+func runAPI(theDB *sql.DB, port int, devmode bool) {
+	var h http.Handler = createAPImuxer(theDB, devmode)
 	if devmode {
 		// In development mode, log every request to stdout, and
 		// add CORS headers to responses to local requests.
