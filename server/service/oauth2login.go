@@ -121,7 +121,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	session.userinfo.Name = utility.GetString(userinfo, "user.name")
 
 	// Generate an access profile for this user by calling an external service
-	session.AccessProfile, err = GenerateAccessProfileForUser(session.userinfo.Name)
+	session.AccessProfile, err = GenerateAccessProfileForUser(session.userinfo.ID)
 	if err != nil {
 		log.Printf("Error while generating an access profile: %s", err.Error())
 		http.Error(w, "Error while generating an access profile", http.StatusInternalServerError)

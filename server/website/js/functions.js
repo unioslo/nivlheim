@@ -24,6 +24,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 					// now, run the template
 					var output = Handlebars.templates[name](templateValues);
 					$(domElement).html(output);
+					showAndHideRestrictedParts();
 					deferredObj.resolve(templateValues);
 				} catch(err) {
 					showError(err, domElement, "fa-exclamation");
@@ -40,6 +41,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 		try {
 			var output = Handlebars.templates[name](templateValues);
 			$(domElement).html(output);
+			showAndHideRestrictedParts();
 			deferredObj.resolve(templateValues);
 		}
 		catch (err) {
@@ -48,6 +50,19 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 		}
 	}
 	return deferredObj.promise();
+}
+
+function showAndHideRestrictedParts() {
+	if (userinfo) {
+		if (userinfo.isAdmin) {
+			$(".requires-admin").removeClass("is-not-displayed");
+		} else {
+			$(".requires-admin").addClass("is-not-displayed");
+		}
+		$(".requires-auth").removeClass("is-not-displayed");
+	} else {
+		$(".requires-auth, .requires-admin").addClass("is-not-displayed");
+	}
 }
 
 function getAPIURLprefix() {

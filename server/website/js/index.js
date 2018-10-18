@@ -1,3 +1,5 @@
+var userinfo;
+
 $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
@@ -126,6 +128,7 @@ $(document).ready(function(){
 
 	// attach a login click handler, or show the name of the logged in user
 	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
+		userinfo = data;
 		if (data == null) {
 			// Not logged in
 			$("a#loginLink").click(function(){

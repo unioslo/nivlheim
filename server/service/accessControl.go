@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 )
 
 // AccessProfile holds information about which hosts the user is allowed access to,
@@ -21,11 +22,10 @@ func (ap *AccessProfile) IsAdmin() bool {
 	return ap.isAdmin
 }
 
-func GenerateAccessProfileForUser(username string) (*AccessProfile, error) {
+func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 	//TODO: Don't hardcode the url
 	resp, err := http.Get(
-		//"http://localhost/cgi-bin/brukerTilSiteAdmin.pl?username=" + url.QueryEscape(username)
-		"http://localhost:8080/access.json")
+		"http://localhost/cgi-bin/brukerTilSiteAdmin.pl?u=" + url.QueryEscape(userID))
 	if err != nil {
 		return nil, err
 	}
