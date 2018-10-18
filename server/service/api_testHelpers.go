@@ -15,6 +15,7 @@ type apiCall struct {
 	methodAndPath, body string
 	expectStatus        int
 	expectJSON          string
+	expectContent       string
 	accessProfile       *AccessProfile
 	runAsNotAuth        bool
 }
@@ -45,6 +46,7 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 			req.AddCookie(response.Cookies()[0])
 			// Set the access profile in the session
 			session.AccessProfile = tt.accessProfile
+			session.userinfo.IsAdmin = tt.accessProfile.IsAdmin()
 			// Because we're faking a session, we also need to fake the headers Origin and Host,
 			// otherwise we'll trip the CSRF protection
 			req.Header.Add("Origin", "http://www.acme.com/")
@@ -76,6 +78,14 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 					tt.methodAndPath,
 					rr.Body.String(),
 					tt.expectJSON)
+			}
+		}
+		if tt.expectContent != "" {
+			if !strings.Contains(rr.Body.String(), tt.expectContent) {
+				t.Errorf("%s\nGot result %s,\nexpected something containing %s",
+					tt.methodAndPath,
+					rr.Body.String(),
+					tt.expectContent)
 			}
 		}
 	}

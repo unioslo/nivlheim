@@ -250,6 +250,7 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 		return
 	}
 	var tx *sql.Tx
+	var hasCommitted bool
 	var err error
 	defer func() {
 		if r := recover(); r != nil {
@@ -263,6 +264,10 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Println(err)
+		} else if !hasCommitted {
+			if tx != nil {
+				tx.Rollback()
+			}
 		}
 	}()
 	tx, err = vars.db.Begin()
@@ -302,6 +307,7 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 	if err != nil {
 		return
 	}
+	hasCommitted = true
 	if rowcount == 0 {
 		http.Error(w, "Host not found", http.StatusNotFound) // 404
 	} else {
