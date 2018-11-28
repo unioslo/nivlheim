@@ -21,7 +21,7 @@ type apiMethodCustomFieldsItem struct {
 	db *sql.DB
 }
 
-func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	switch req.Method {
 	case httpGET:
 		// List all
@@ -48,6 +48,11 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 		returnJSON(w, req, data)
 
 	case httpPOST:
+		if !access.IsAdmin() {
+			http.Error(w, "This operation is only allowed for admins.", http.StatusForbidden)
+			return
+		}
+
 		// Create a new item. Check parameters
 		requiredParams := []string{"name", "filename", "regexp"}
 		missingParams := make([]string, 0)
@@ -86,7 +91,7 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 	}
 }
 
-func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	switch req.Method {
 	case httpGET:
 		// Return details for one item
@@ -127,6 +132,11 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 		returnJSON(w, req, result)
 
 	case httpDELETE:
+		if !access.IsAdmin() {
+			http.Error(w, "This operation is only allowed for admins.", http.StatusForbidden)
+			return
+		}
+
 		// Delete one item
 		match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
@@ -150,6 +160,11 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 		http.Error(w, "OK", http.StatusNoContent) // 204 No Content
 
 	case httpPUT:
+		if !access.IsAdmin() {
+			http.Error(w, "This operation is only allowed for admins.", http.StatusForbidden)
+			return
+		}
+
 		// Replace one item
 		match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {

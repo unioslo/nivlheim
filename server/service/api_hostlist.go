@@ -277,7 +277,11 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	if req.FormValue("offset") != "" {
 		var offset int
 		if offset, err = strconv.Atoi(req.FormValue("offset")); err == nil {
-			result = result[offset:]
+			if offset < len(result) {
+				result = result[offset:]
+			} else {
+				result = result[0:0]
+			}
 		} else {
 			http.Error(w, "Invalid offset value", http.StatusBadRequest)
 			return

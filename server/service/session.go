@@ -129,8 +129,13 @@ func randomStringID() string {
 
 // API call /api/vx/userinfo
 func apiGetUserInfo(w http.ResponseWriter, req *http.Request) {
+	if !authRequired {
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Write([]byte("{\"authDisabled\":true,\"isAdmin\":true}"))
+		return
+	}
 	sess := getSessionFromRequest(req)
-	if sess == nil {
+	if sess == nil || sess.userinfo.ID == "" {
 		var empty interface{}
 		returnJSON(w, req, empty)
 		return

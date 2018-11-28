@@ -202,9 +202,9 @@ rm -rf %{buildroot}
 %license LICENSE.txt
 %doc README.md
 %config %{_sysconfdir}/nivlheim/version
-%config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
+%config(noreplace) %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
-%config %{_sysconfdir}/nivlheim/server.conf
+%config(noreplace) %{_sysconfdir}/nivlheim/server.conf
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
 %dir /var/log/nivlheim

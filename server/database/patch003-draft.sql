@@ -8,7 +8,7 @@ CREATE TABLE apikeys(
 );
 
 CREATE TABLE apikey_ips(
-    keyid varchar(32) REFERENCES apikeys(keyid) ON DELETE CASCADE,
+    keyid varchar(32) REFERENCES apikeys(keyid) ON UPDATE CASCADE ON DELETE CASCADE,
     ipaddr inet
 );
 

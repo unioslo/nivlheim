@@ -23,9 +23,15 @@ func (ap *AccessProfile) IsAdmin() bool {
 }
 
 func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
-	//TODO: Don't hardcode the url
-	resp, err := http.Get(
-		"http://localhost/cgi-bin/brukerTilSiteAdmin.pl?u=" + url.QueryEscape(userID))
+	if authorizationPluginURL == "" {
+		// If no authorization plugin is defined,
+		// then by default, let everyone have admin rights.
+		ap := new(AccessProfile)
+		ap.isAdmin = true
+		ap.certs = make(map[string]bool)
+		return ap, nil
+	}
+	resp, err := http.Get(authorizationPluginURL + url.QueryEscape(userID))
 	if err != nil {
 		return nil, err
 	}
@@ -58,10 +64,10 @@ type httpHandlerWithAccessProfile interface {
 
 // wrapRequireAdmin adds a layer that requires that there is
 // an interactive user session and that the user has admin rights.
-// Connections from localhost are allowed regardless.
 func wrapRequireAdmin(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		if isLocal(req) {
+		// If authentication is not enabled in config, let the request through
+		if !authRequired {
 			h.ServeHTTP(w, req)
 			return
 		}
@@ -82,15 +88,13 @@ func wrapRequireAdmin(h http.Handler) http.Handler {
 
 // wrapRequireAuth adds a layer that requires that the user
 // has authenticated, either through Oauth2 or an API key.
-// Connections from localhost are allowed regardless.
 func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// Connections from localhost are allowed regardless
-		if isLocal(req) {
+		// If authentication is not enabled in config, let the request through
+		if !authRequired {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
 			return
 		}
-		// Enforce login
 		session := getSessionFromRequest(req)
 		if session == nil {
 			// The user isn't logged in

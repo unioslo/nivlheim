@@ -44,6 +44,8 @@ var oauth2AuthorizationEndpoint string
 var oauth2TokenEndpoint string
 var oauth2UserInfoEndpoint string
 var oauth2LogoutEndpoint string
+var authRequired bool
+var authorizationPluginURL string
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -200,6 +202,10 @@ func readConfigFile() {
 			oauth2UserInfoEndpoint = value
 		case "oauth2logoutendpoint":
 			oauth2LogoutEndpoint = value
+		case "authrequired":
+			authRequired = isTrueish(value)
+		case "authpluginurl":
+			authorizationPluginURL = value
 		}
 	}
 	if err = scanner.Err(); err != nil {

@@ -36,6 +36,10 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}))
 	api.Handle("/api/v0/searchpage",
 		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}))
+	api.Handle("/api/v0/settings/customfields",
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}))
+	api.Handle("/api/v0/settings/customfields/",
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}))
 
 	// API functions that are only available to administrators
 	api.Handle("/api/v0/awaitingApproval",
@@ -50,10 +54,6 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
 	api.Handle("/api/v0/settings",
 		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
-	api.Handle("/api/v0/settings/customfields",
-		wrapRequireAdmin(&apiMethodCustomFieldsCollection{db: theDB}))
-	api.Handle("/api/v0/settings/customfields/",
-		wrapRequireAdmin(&apiMethodCustomFieldsItem{db: theDB}))
 
 	// API functions that don't require authentication
 	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})

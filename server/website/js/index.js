@@ -130,29 +130,29 @@ $(document).ready(function(){
 	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
 		userinfo = data;
 		if (data == null) {
-			// Not logged in
-			$("a#loginLink").click(function(){
-				location.href = getAPIURLprefix()+"/api/oauth2/start"
-					+"?redirect="+encodeURIComponent(location.href);
-			});
-		} else {
+			// Not logged in. Redirect to login...
+			location.href = getAPIURLprefix()+"/api/oauth2/start"
+				+"?redirect="+encodeURIComponent(location.href);
+		} else if (data.name) {
 			// Logged in
 			$("a#loginLink").remove();
 			$("div#loggedInUser").removeClass("is-not-displayed")
 			$("div#loggedInUser span#fullname").text(data.name);
 			$("a#logoutLink").prop("href", getAPIURLprefix()+"/api/oauth2/logout");
+		} else if (data.authDisabled) {
+			// Authentication is not enabled
 		}
 	});
 
 	// create a shake effect
-    jQuery.fn.shake = function() {
-        this.each(function() {
-            $(this).css({
-                "position": "relative"
-            }).animate({left:20},30).animate({left:-20},30).animate({left:0},30);
-        });
-        return this;
-    }
+	jQuery.fn.shake = function() {
+		this.each(function() {
+			$(this).css({
+				"position": "relative"
+			}).animate({left:20},30).animate({left:-20},30).animate({left:0},30);
+		});
+		return this;
+	}
 });
 
 function showFrontPage() {

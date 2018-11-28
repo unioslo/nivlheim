@@ -32,11 +32,14 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		req.RemoteAddr = "123.123.123.123"
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		if tt.runAsNotAuth {
-			// If the request isn't coming from localhost, the auth wrappers will run as normally
-			req.RemoteAddr = "123.123.123.123"
+			// Enable auth, but don't supply any auth or session information.
+			authRequired = true
 		} else if tt.accessProfile != nil {
+			// Enable auth
+			authRequired = true
 			// Fake a session
 			trapResponse := httptest.NewRecorder()
 			req.RemoteAddr = "111.222.111.222"
@@ -52,9 +55,9 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 			req.Header.Add("Origin", "http://www.acme.com/")
 			req.Host = "www.acme.com"
 		} else {
-			// Coming from localhost will bypass authentication and authorization,
+			// Disable auth. This will bypass authentication and authorization,
 			// effectively running as admin. This is the default when testing API calls.
-			req.RemoteAddr = "127.0.0.1"
+			authRequired = false
 		}
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)

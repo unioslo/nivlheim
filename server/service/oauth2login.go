@@ -20,8 +20,16 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 	// If so, just redirect to whereever.
 	session := getSessionFromRequest(req)
 	if session != nil {
-		http.Redirect(w, req, redirectAfterLogin, http.StatusTemporaryRedirect)
-		return
+		if session.userinfo.ID == "" {
+			// If there's a session but the user isn't logged in,
+			// it might be a leftover from a failed login.
+			// Then delete that session and start over.
+			deleteSession(req)
+			session = nil
+		} else {
+			http.Redirect(w, req, redirectAfterLogin, http.StatusTemporaryRedirect)
+			return
+		}
 	}
 
 	// Assemble the redirect url

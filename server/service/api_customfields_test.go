@@ -78,9 +78,9 @@ func TestApiMethodCustomFields(t *testing.T) {
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v0/settings/customfields",
-		wrapRequireAdmin(&apiMethodCustomFieldsCollection{db: db}))
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: db}))
 	mux.Handle("/api/v0/settings/customfields/",
-		wrapRequireAdmin(&apiMethodCustomFieldsItem{db: db}))
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: db}))
 
 	testAPIcalls(t, mux, tests)
 }

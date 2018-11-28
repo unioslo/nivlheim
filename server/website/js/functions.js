@@ -53,15 +53,10 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 }
 
 function showAndHideRestrictedParts() {
-	if (userinfo) {
-		if (userinfo.isAdmin) {
-			$(".requires-admin").removeClass("is-not-displayed");
-		} else {
-			$(".requires-admin").addClass("is-not-displayed");
-		}
-		$(".requires-auth").removeClass("is-not-displayed");
+	if (userinfo && userinfo.isAdmin) {
+		$(".requires-admin").removeClass("is-not-displayed");
 	} else {
-		$(".requires-auth, .requires-admin").addClass("is-not-displayed");
+		$(".requires-admin").addClass("is-not-displayed");
 	}
 }
 
