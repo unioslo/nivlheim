@@ -2,15 +2,16 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"os"
-	"reflect"
 	"regexp"
 	"testing"
 )
 
+// GetDBconnForTesting returns a database handle that points to a
+// temporary tablespace that cleans up after the connection is closed.
+// The function runs all the SQL scripts to create tables etc.
 func getDBconnForTesting(t *testing.T) *sql.DB {
 	// Create a database connection
 	db, err := sql.Open("postgres", "sslmode=disable host=/var/run/postgresql")
@@ -74,23 +75,4 @@ func StripProceduresAndTriggers(script string) string {
 	script = re.ReplaceAllString(script, "")
 
 	return script
-}
-
-// IsEqualJSON returns true if the 2 supplied strings contain JSON data
-// that is semantically equal.
-func IsEqualJSON(s1, s2 string) (bool, error) {
-	var o1 interface{}
-	var o2 interface{}
-
-	var err error
-	err = json.Unmarshal([]byte(s1), &o1)
-	if err != nil {
-		return false, fmt.Errorf("Error unmarshalling string 1 :: %s", err.Error())
-	}
-	err = json.Unmarshal([]byte(s2), &o2)
-	if err != nil {
-		return false, fmt.Errorf("Error unmarshalling string 2 :: %s", err.Error())
-	}
-
-	return reflect.DeepEqual(o1, o2), nil
 }

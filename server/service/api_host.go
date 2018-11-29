@@ -13,18 +13,18 @@ type apiMethodHost struct {
 	db *sql.DB
 }
 
-func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	switch req.Method {
 	case httpGET:
-		(*vars).serveGET(w, req)
+		(*vars).serveGET(w, req, access)
 	case httpDELETE:
-		(*vars).serveDELETE(w, req)
+		(*vars).serveDELETE(w, req, access)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
 }
 
-func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// Get a list of names and IDs of all defined custom fields
 	customFields := make([]string, 0)
 	customFieldIDs := make(map[string]int)
@@ -93,6 +93,12 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	if !access.HasAccessTo(certfp.String) {
+		http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
+		return
+	}
+
 	res := make(map[string]interface{}, 0)
 	if fields["ipAddress"] {
 		res["ipAddress"] = jsonString(ipaddr)
@@ -236,7 +242,7 @@ func makeSupportList(db *sql.DB, serialNo string) ([]apiSupport, *httpError) {
 	return supportList, nil
 }
 
-func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	certfp := req.FormValue("certfp")
 	hostname := req.FormValue("hostname")
 	if certfp == "" && hostname == "" {
@@ -244,6 +250,7 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request)
 		return
 	}
 	var tx *sql.Tx
+	var hasCommitted bool
 	var err error
 	defer func() {
 		if r := recover(); r != nil {
@@ -257,6 +264,10 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request)
 			}
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			log.Println(err)
+		} else if !hasCommitted {
+			if tx != nil {
+				tx.Rollback()
+			}
 		}
 	}()
 	tx, err = vars.db.Begin()
@@ -276,6 +287,10 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request)
 		http.Error(w, err.Error(), http.StatusNotFound)
 		return
 	}
+	if !access.HasAccessTo(certfp) {
+		http.Error(w, "Access denied", http.StatusForbidden)
+		return
+	}
 	_, err = tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
 	if err != nil {
 		return
@@ -292,6 +307,7 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request)
 	if err != nil {
 		return
 	}
+	hasCommitted = true
 	if rowcount == 0 {
 		http.Error(w, "Host not found", http.StatusNotFound) // 404
 	} else {

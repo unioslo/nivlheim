@@ -24,6 +24,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 					// now, run the template
 					var output = Handlebars.templates[name](templateValues);
 					$(domElement).html(output);
+					showAndHideRestrictedParts();
 					deferredObj.resolve(templateValues);
 				} catch(err) {
 					showError(err, domElement, "fa-exclamation");
@@ -40,6 +41,7 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 		try {
 			var output = Handlebars.templates[name](templateValues);
 			$(domElement).html(output);
+			showAndHideRestrictedParts();
 			deferredObj.resolve(templateValues);
 		}
 		catch (err) {
@@ -48,6 +50,14 @@ function renderTemplate(name, templateValues, domElement, deferredObj) {
 		}
 	}
 	return deferredObj.promise();
+}
+
+function showAndHideRestrictedParts() {
+	if (userinfo && userinfo.isAdmin) {
+		$(".requires-admin").removeClass("is-not-displayed");
+	} else {
+		$(".requires-admin").addClass("is-not-displayed");
+	}
 }
 
 function getAPIURLprefix() {
@@ -163,6 +173,10 @@ function attachHandlersToForms() {
 function submitForm(event) {
 	// prevent the browser from loading the whole page
 	event.preventDefault();
+	// replace the submit button with a spinner
+	let b = $(event.target).find("input[type=submit]");
+	let oldSubmitButton = b.replaceWith(
+		'<a class="button is-loading" style="width:'+b.width()+'px">Loading</a>');
 	// Use the ACTION attribute from the FORM tag
 	let path = (new URL(this.action).pathname);
 	// use the METHOD or data-method attribute
@@ -170,12 +184,18 @@ function submitForm(event) {
 	// Serialize the form values
 	let data = $(this).serialize();
 	// Perform the HTTP request
-	AJAXwithRefresh(event.target, path, method, data);
+	AJAXwithRefresh(event.target, path, method, data)
+	.fail(function(){
+		// The form submission failed, so the page wasn't updated.
+		// Restore the submit button, then.
+		$(event.target).find("a.button.is-loading").replaceWith(oldSubmitButton);
+		$(event.target).find("input[type=submit]").shake();
+	});
 }
 
 function AJAXwithRefresh(domElement, urlPath, method, data) {
 	// Perform the HTTP request
-	$.ajax({
+	return $.ajax({
 		"url": getAPIURLprefix()+urlPath,
 		"method": method, // Using the METHOD attribute from the FORM tag
 		"data": data,
@@ -241,10 +261,16 @@ function editInPlace() {
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
 		'<button class="button cancel"><i class="fas fa-times color-deny"></i></button>');
 	// add click handlers to the buttons
-	$(container).find("button.submit").click(function(){
+	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let body = $(container).find("input").serialize();
-		AJAXwithRefresh(container, action, "PUT", body);
+		$(event.currentTarget).addClass("is-loading");
+		$(container).find("button.cancel").prop("disabled","disabled");
+		AJAXwithRefresh(container, action, "PUT", body)
+		.fail(function(){
+			$(event.currentTarget).removeClass("is-loading").shake();
+			$(container).find("button.cancel").prop("disabled",false);
+		});
 	});
 	$(container).find("button.cancel").click(function(){
 		refresh(container);

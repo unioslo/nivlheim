@@ -1,12 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"database/sql"
 	"log"
 	"os"
 	"os/signal"
 	"reflect"
 	"regexp"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -34,6 +36,17 @@ func RegisterJob(newjob Job) {
 var jobs []JobListElement
 var postgresSupportsOnConflict bool
 
+// Config (set in /etc/nivlheim/server.conf)
+var oauth2ClientID string
+var oauth2ClientSecret string
+var oauth2Scopes []string
+var oauth2AuthorizationEndpoint string
+var oauth2TokenEndpoint string
+var oauth2UserInfoEndpoint string
+var oauth2LogoutEndpoint string
+var authRequired bool
+var authorizationPluginURL string
+
 func main() {
 	log.SetFlags(0) // don't print a timestamp
 	devmode := len(os.Args) >= 2 && os.Args[1] == "--dev"
@@ -53,6 +66,9 @@ func main() {
 	if devmode {
 		log.Println("Running in development mode.")
 	}
+
+	// Read config file
+	readConfigFile()
 
 	// Connect to database
 	var dbConnectionString string
@@ -155,4 +171,45 @@ func triggerJob(job Job) {
 		}
 	}
 	panic("Trying to trigger an unregistered job?")
+}
+
+func readConfigFile() {
+	const configFileName = "/etc/nivlheim/server.conf"
+	file, err := os.Open(configFileName)
+	if err != nil {
+		log.Printf("Unable to read %s: %v", configFileName, err)
+		return
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	for scanner.Scan() {
+		keyAndValue := strings.Split(scanner.Text(), "=")
+		key, value := keyAndValue[0], keyAndValue[1]
+		key = strings.ToLower(strings.TrimSpace(key))
+		value = strings.TrimSpace(value)
+		switch key {
+		case "oauth2clientid":
+			oauth2ClientID = value
+		case "oauth2clientsecret":
+			oauth2ClientSecret = value
+		case "oauth2scopes":
+			oauth2Scopes = strings.Split(value, ",")
+		case "oauth2authorizationendpoint":
+			oauth2AuthorizationEndpoint = value
+		case "oauth2tokenendpoint":
+			oauth2TokenEndpoint = value
+		case "oauth2userinfoendpoint":
+			oauth2UserInfoEndpoint = value
+		case "oauth2logoutendpoint":
+			oauth2LogoutEndpoint = value
+		case "authrequired":
+			authRequired = isTrueish(value)
+		case "authpluginurl":
+			authorizationPluginURL = value
+		}
+	}
+	if err = scanner.Err(); err != nil {
+		log.Printf("Error while reading %s: %v", configFileName, err)
+	}
+	log.Printf("Read config file %s.", configFileName)
 }

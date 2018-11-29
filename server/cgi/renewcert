@@ -160,14 +160,15 @@ eval {
 	$new_fingerprint =~ s/://g;
 	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
 		."commonname,previous,first,cert) VALUES(now(),?,?,?,?,?)");
-	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert));
+	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert))
+		or die $DBI::errstr;
 	$sth->finish;
 
 	# Update the hostinfo and files tables
 	$dbh->do("UPDATE hostinfo SET certfp=? WHERE certfp=?", undef,
-		($new_fingerprint, $fingerprint));
+		($new_fingerprint, $fingerprint)) or die $DBI::errstr;
 	$dbh->do("UPDATE files SET certfp=? WHERE certfp=?", undef,
-		($new_fingerprint, $fingerprint));
+		($new_fingerprint, $fingerprint)) or die $DBI::errstr;
 	$dbh->commit;
 
 	# Generate a P12 file
@@ -199,6 +200,7 @@ eval {
 if ($@) {
 	$logger->error("Failed to create new cert for $hostname: $@");
 	print "Failed to create new certificate for $hostname:\n$@\n";
+	$dbh->rollback;
 }
 
 # Clean up temp files

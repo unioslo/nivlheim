@@ -1,17 +1,23 @@
 package main
 
 import (
+	"fmt"
 	"io"
 	"net/http"
 	"net/http/httptest"
 	"strings"
 	"testing"
+
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
 type apiCall struct {
 	methodAndPath, body string
 	expectStatus        int
 	expectJSON          string
+	expectContent       string
+	accessProfile       *AccessProfile
+	runAsNotAuth        bool
 }
 
 func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
@@ -26,17 +32,47 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		req.RemoteAddr = "123.123.123.123"
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+		if tt.runAsNotAuth {
+			// Enable auth, but don't supply any auth or session information.
+			authRequired = true
+		} else if tt.accessProfile != nil {
+			// Enable auth
+			authRequired = true
+			// Fake a session
+			trapResponse := httptest.NewRecorder()
+			req.RemoteAddr = "111.222.111.222"
+			session := newSession(trapResponse, req)
+			// Copy the cookie from the response to the request
+			response := trapResponse.Result()
+			req.AddCookie(response.Cookies()[0])
+			// Set the access profile in the session
+			session.AccessProfile = tt.accessProfile
+			session.userinfo.IsAdmin = tt.accessProfile.IsAdmin()
+			// Because we're faking a session, we also need to fake the headers Origin and Host,
+			// otherwise we'll trip the CSRF protection
+			req.Header.Add("Origin", "http://www.acme.com/")
+			req.Host = "www.acme.com"
+		} else {
+			// Disable auth. This will bypass authentication and authorization,
+			// effectively running as admin. This is the default when testing API calls.
+			authRequired = false
+		}
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
 		if status := rr.Code; status != tt.expectStatus {
-			t.Errorf("%s\nreturned status %v, expected %v.\n%s",
+			apstr := ""
+			if tt.accessProfile != nil {
+				apstr = fmt.Sprintf("\n%#v", tt.accessProfile)
+			}
+			t.Errorf("%s\nreturned status %v, expected %v.%s\n%s",
 				tt.methodAndPath, status, tt.expectStatus,
-				rr.Body.String())
+				apstr, rr.Body.String())
 			continue
 		}
 		if tt.expectJSON != "" {
-			isEqual, err := IsEqualJSON(rr.Body.String(), tt.expectJSON)
+			isEqual, err := utility.IsEqualJSON(rr.Body.String(), tt.expectJSON)
 			if err != nil {
 				t.Error(err)
 			}
@@ -45,6 +81,14 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 					tt.methodAndPath,
 					rr.Body.String(),
 					tt.expectJSON)
+			}
+		}
+		if tt.expectContent != "" {
+			if !strings.Contains(rr.Body.String(), tt.expectContent) {
+				t.Errorf("%s\nGot result %s,\nexpected something containing %s",
+					tt.methodAndPath,
+					rr.Body.String(),
+					tt.expectContent)
 			}
 		}
 	}

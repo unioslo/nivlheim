@@ -1,0 +1,164 @@
+
+CSRF-protection wrapper:
+Hvis det er POST, PUT, DELETE eller noe annet som endrer tilstand
+OG det finnes en session:
+Da skal det finnes en request header ("csrf-token") som skal ha en verdi
+som vi skal finne igjen i session (csrfTokens map[string]time.Time).
+Hvert token er single use, og har veldig kort utløpstid (noen få sekunder).
+? Hva skjer hvis noen prøver seg uten session? Vel, da er ikke bruker innlogget,
+  og requesten vil bli stoppet pga manglende autentisering/tilgang.
+  Med mindre man har en API-nøkkel, da vil det jo gå greit.
+? Hva hvis det er en GET? Ikke farlig.
+? Hvorfor kort utløpstid? Jo fordi tokenet hentes med ajax rett før det brukes.
+
+Alle steder hvor det gjøres jQuery.ajax må den først gjøre et jQuery.getJSON-kall
+som henter et CSRF-token, som så brukes rett etterpå.
+
+func apiGetCSRFToken(w http.ResponseWriter, req *http.Request) {
+	session := getSessionFromRequest(req)
+	if session == nil {
+		http.Error(w, "You're not logged in, can't give you a token.", http.StatusUnauthorized)
+		return
+	}
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	session.mutex.Lock()
+	defer session.mutex.Unlock()
+	token := randomStringID()
+	session.CSRFtokens[token] = time.Now()
+	fmt.Fprint(w, token)
+}
+
+func useCSRFToken(token string, session *Session) bool {
+	session.mutex.Lock()
+	defer session.mutex.Unlock()
+	when, ok := session.CSRFtokens[token]
+	if !ok {
+		// Invalid token
+		return false
+	}
+	// Single use
+	delete(session.CSRFtokens, token)
+	// Check expiry
+	if time.Since(when) > time.Second*5 {
+		// The token had expired
+		return false
+	}
+	return true
+}
+
+
+			// Safe http method?
+			if req.Method == httpGET || req.Method == "HEAD" ||
+				req.Method == "OPTIONS" {
+				// This request uses a method that is considered "safe",
+				// i.e. it won't change state on the server.
+				h.ServeHTTP(w, req)
+				return
+			}
+			// Is the user logged in (interactive session)?
+			session := getSessionFromRequest(req)
+			if session == nil {
+				// No session? No problem, then.
+				h.ServeHTTP(w, req)
+				return
+			}
+			token := req.Header.Get("X-CSRF-Token")
+			if useCSRFToken(token, session) {
+				// This was a valid token.
+				h.ServeHTTP(w, req)
+				return
+			}
+			http.Error(w, "CSRF token mismatch.", http.StatusBadRequest)
+			return
+
+
+
+function AJAXwithRefresh(domElement, urlPath, method, data) {
+	// First, set up the function that will perform the http request
+	//TODO remove	let f = function(token) {
+		// Perform the HTTP request
+		return $.ajax({
+			"url": getAPIURLprefix()+urlPath,
+			"method": method, // Using the METHOD attribute from the FORM tag
+			"data": data,
+			"processData": false, // Tell jQuery that the data is already encoded
+			//TODO remove	"headers": { "X-CSRF-Token": token }
+		})
+		.fail(function(jqxhr){
+			// Error. Display error messages, if any
+			let text = jqxhr.statusCode().responseText;
+			try {
+				// Error messages next to input fields
+				let obj = JSON.parse(text);
+				for (let prop in obj) {
+					if (!obj.hasOwnProperty(prop)) continue;
+					$(domElement).find("[data-error-for='"+prop+"']").html(obj[prop]);
+				}
+			} catch (e) {
+				// Generic error message
+				alert(text);
+			}
+		})
+		.done(function(data,textStatus,jqxhr){
+			// Success. Find the outer placeholder container
+			let container = $(domElement).parents("[data-api-url]");
+			if (container.length == 0) {
+				console.log("Couldn't find container to refresh.");
+				return;
+			}
+			// Make an API call to refresh the appropriate part of the page
+			APIcall(container.data("apiUrl"),
+				container.data("handlebarsTemplate"),
+				"#"+container.attr("id"))
+			.done(attachHandlersToForms);
+		});
+		//TODO remove	
+		/*
+	};
+	let deferredObj = $.Deferred();
+	if (method == "GET" || method == "HEAD" || "method" == "OPTIONS") {
+		// The http method is considered safe. No need for a token.
+		f().done(function(){ deferredObj.resolve(); });
+	} else {
+		// First, get a token. Then, use it in the following http request.
+		$.get(getAPIURLprefix()+"/api/v0/getCSRFtoken")
+		.fail(function(){ deferredObj.reject(); })
+		.done(function(data){ 
+			let token = data;
+			f(token)
+			.done(function(){ deferredObj.resolve(); })
+			.fail(function(){ deferredObj.reject(); });
+		});
+	}
+	return deferredObj.promise();
+	*/
+	return f();
+}
+
+			w.Header().Set("Access-Control-Allow-Headers", "x-csrf-token")
+
+	//TODO remove	api.HandleFunc("/api/v0/getCSRFtoken", apiGetCSRFToken)
+
+	//TODO remove	CSRFtokens         map[string]time.Time
+	//TODO remove	sPtr.CSRFtokens = make(map[string]time.Time, 0)
+
+
+
+
+
+		// TODO check for the presence of an API key (and absence of session cookie) here
+		// && !HasSessionCookie(req)
+
+		// Check for the presence of the http header "X-Requested-With: XMLHttpRequest".
+		// Its presence indicate that the request came from JavaScript on a web page
+		// from the *same* host.
+		// Without CORS (i.e. the consent of this server), it is not possible
+		// to add headers such as X-Requested-With to a cross domain XHR request.
+		// This also checks that the request wasn't POSTed from a regular HTML form,
+		// because in that situation you can't add custom http headers.
+		// Keep in mind that API calls from scripts won't have this header.
+		if req.Header.Get("X-Requested-With") == "XMLHttpRequest" {
+			h.ServeHTTP(w, req)
+		} else {
+			http.Error(w, "CSRF", http.StatusBadRequest)
+		}

@@ -35,7 +35,7 @@ type apiSearchPageResult struct {
 	Hits    []apiSearchPageHit `json:"hits"`
 }
 
-func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -89,7 +89,12 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	hitIDs := searchFiles(result.Query)
+	var hitIDs []int64
+	if access.IsAdmin() {
+		hitIDs = searchFiles(result.Query)
+	} else {
+		hitIDs = searchFilesWithFilter(result.Query, access)
+	}
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
 	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
@@ -114,6 +119,9 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if !access.HasAccessTo(certfp.String) {
+			continue
 		}
 		hit.FileID = fileID
 		hit.Filename = jsonString(filename)

@@ -9,8 +9,8 @@ CREATE TABLE customfields(
 );
 
 CREATE TABLE hostinfo_customfields(
-    certfp text not null REFERENCES hostinfo(certfp) ON DELETE CASCADE,
-    fieldid int not null REFERENCES customfields(fieldid) ON DELETE CASCADE,
+    certfp text not null REFERENCES hostinfo(certfp) ON UPDATE CASCADE ON DELETE CASCADE,
+    fieldid int not null REFERENCES customfields(fieldid) ON UPDATE CASCADE ON DELETE CASCADE,
     value text,
     UNIQUE(certfp, fieldid)
 );

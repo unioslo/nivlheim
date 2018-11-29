@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
 	"reflect"
 	"regexp"
 	"strconv"
@@ -22,27 +23,68 @@ const (
 	httpDELETE = "DELETE"
 )
 
-func runAPI(theDB *sql.DB, port int, devmode bool) {
+func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: theDB})
-	mux.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: theDB})
-	mux.Handle("/api/v0/file", &apiMethodFile{db: theDB})
-	mux.Handle("/api/v0/host", &apiMethodHost{db: theDB})
-	mux.Handle("/api/v0/hostlist", &apiMethodHostList{db: theDB, devmode: devmode})
-	mux.Handle("/api/v0/searchpage", &apiMethodSearchPage{db: theDB, devmode: devmode})
-	mux.Handle("/api/v0/settings/ipranges", &apiMethodIpRanges{db: theDB})
-	mux.Handle("/api/v0/settings/ipranges/", &apiMethodIpRanges{db: theDB})
-	mux.Handle("/api/v0/settings/", &apiMethodSettings{db: theDB})
-	mux.Handle("/api/v0/settings", &apiMethodSettings{db: theDB})
-	mux.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: theDB})
-	mux.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: theDB})
-	mux.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
-	mux.HandleFunc("/api/internal/triggerJob/", runJob)
-	mux.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
-	mux.HandleFunc("/api/internal/countFiles", countFiles)
-	mux.HandleFunc("/api/internal/mu", doNothing)
-	var h http.Handler = mux
+
+	// API functions
+	api := http.NewServeMux()
+	api.Handle("/api/v0/file",
+		wrapRequireAuth(&apiMethodFile{db: theDB}))
+	api.Handle("/api/v0/host",
+		wrapRequireAuth(&apiMethodHost{db: theDB}))
+	api.Handle("/api/v0/hostlist",
+		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}))
+	api.Handle("/api/v0/searchpage",
+		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}))
+	api.Handle("/api/v0/settings/customfields",
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}))
+	api.Handle("/api/v0/settings/customfields/",
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}))
+
+	// API functions that are only available to administrators
+	api.Handle("/api/v0/awaitingApproval",
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+	api.Handle("/api/v0/awaitingApproval/",
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+	api.Handle("/api/v0/settings/ipranges",
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+	api.Handle("/api/v0/settings/ipranges/",
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+	api.Handle("/api/v0/settings/",
+		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
+	api.Handle("/api/v0/settings",
+		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
+
+	// API functions that don't require authentication
+	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
+	api.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
+
+	// Add CSRF protection to all the api functions
+	mux.Handle("/api/v0/", wrapCSRFprotection(api))
+
+	// Oauth2-related endpoints
+	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
+	mux.HandleFunc("/api/oauth2/redirect", handleOauth2Redirect)
+	mux.HandleFunc("/api/oauth2/logout", oauth2Logout)
+
+	// internal API functions. Only allowed from localhost.
+	internal := http.NewServeMux()
+	internal.HandleFunc("/api/internal/triggerJob/", runJob)
+	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
+	internal.HandleFunc("/api/internal/countFiles", countFiles)
+	mux.Handle("/api/internal/", wrapOnlyAllowLocal(internal))
+
+	//
+	mux.HandleFunc("/api/v0/mu", doNothing)
+
+	return mux
+}
+
+func runAPI(theDB *sql.DB, port int, devmode bool) {
+	var h http.Handler = createAPImuxer(theDB, devmode)
 	if devmode {
+		// In development mode, log every request to stdout, and
+		// add CORS headers to responses to local requests.
 		h = wrapLog(wrapAllowLocalhostCORS(h))
 	}
 	log.Printf("Serving API requests on localhost:%d\n", port)
@@ -110,6 +152,112 @@ func wrapLog(h http.Handler) http.Handler {
 	})
 }
 
+// isLocal returns true if the http request originated from localhost.
+func isLocal(req *http.Request) bool {
+	// The X-Forwarded-For header can be set by the client,
+	// so just to be safe let's not trust any proxy connections.
+	if req.Header.Get("X-Forwarded-For") != "" {
+		return false
+	}
+	return strings.HasPrefix(req.RemoteAddr, "127.0.0.1")
+}
+
+func wrapOnlyAllowLocal(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		if !isLocal(req) {
+			http.Error(w, "Only local requests are allowed", http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, req)
+	})
+}
+
+func wrapCSRFprotection(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		// Requests from localhost are allowed regardless
+		if isLocal(req) {
+			h.ServeHTTP(w, req)
+			return
+		}
+
+		// First, find the hostname for this request.
+		// Apache httpd ProxyPass will add the X-Forwarded-Host header.
+		// It will contain more than one (comma-separated) value if the original
+		// request already contained a X-Forwarded-Host header.
+		var hostlist []string
+		fwdh := req.Header.Get("X-Forwarded-Host")
+		if fwdh != "" {
+			hostlist = strings.Split(fwdh, ",")
+		} else {
+			// If X-Forwarded-Host is absent, try using the regular host header
+			host := req.Host
+			// It may be of the form "host:port"
+			if i := strings.Index(host, ":"); i > -1 {
+				host = host[0:i]
+			}
+			hostlist = []string{host}
+		}
+
+		// If the http header "Origin" is present, check that it matches
+		// the host name in the request
+		origin := req.Header.Get("Origin")
+		if origin != "" {
+			u, err := url.Parse(origin)
+			if err != nil {
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			origin = u.Hostname()
+			found := false
+			for _, h := range hostlist {
+				if h == origin {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Origin is present and doesn't match the host
+				http.Error(w, "CSRF", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// If the http header "Referer" is present, check that it matches
+		// the host name in the request
+		referer := req.Header.Get("Referer")
+		if referer != "" {
+			u, err := url.Parse(referer)
+			if err != nil {
+				http.Error(w, "", http.StatusBadRequest)
+				return
+			}
+			referer = u.Hostname()
+			found := false
+			for _, h := range hostlist {
+				if h == referer {
+					found = true
+					break
+				}
+			}
+			if !found {
+				// Referer is present and doesn't match the host
+				http.Error(w, "CSRF", http.StatusBadRequest)
+				return
+			}
+		}
+
+		// If neither referer nor origin headers are present,
+		// the assumption is that this request doesn't come from a web browser.
+		// In that case, there shouldn't be any session cookie in the request either.
+		if req.Header.Get("Referer") == "" && req.Header.Get("Origin") == "" && HasSessionCookie(req) {
+			http.Error(w, "CSRF", http.StatusBadRequest)
+			return
+		}
+
+		h.ServeHTTP(w, req)
+	})
+}
+
 // Wrappers for sql nulltypes that encodes the values when marshalling JSON
 type jsonTime pq.NullTime
 type jsonString sql.NullString
@@ -133,6 +281,8 @@ type httpError struct {
 	code    int
 }
 
+// unpackFieldParam is a helper function to parse a comma-separated
+// "fields" parameter and verify that the given fields are valid.
 func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]bool, *httpError) {
 	if fieldParam == "" {
 		return nil, &httpError{
@@ -142,6 +292,9 @@ func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]boo
 	}
 	fields := make(map[string]bool)
 	for _, f := range strings.Split(fieldParam, ",") {
+		if len(f) == 0 {
+			continue
+		}
 		ok := false
 		for _, af := range allowedFields {
 			if strings.EqualFold(f, af) {
@@ -169,13 +322,15 @@ func contains(needle string, haystack []string) bool {
 	return false
 }
 
+// runJob sets the "trigger" flag on the Job struct in the jobs array,
+// but it doesn't actually execute the job. The main loop does that.
 func runJob(w http.ResponseWriter, req *http.Request) {
 	if req.Method != "POST" {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
 	}
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
@@ -195,9 +350,13 @@ func runJob(w http.ResponseWriter, req *http.Request) {
 	http.Error(w, "Job not found.", http.StatusNotFound)
 }
 
+// unsetCurrent is an internal API function that the CGI scripts use
+// to notify the system service/daemon that some file(s) have had
+// their "current" flag cleared, and can be removed from the
+// in-memory search cache.
 func unsetCurrent(w http.ResponseWriter, req *http.Request) {
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	for _, s := range strings.Split(req.FormValue("ids"), ",") {
@@ -209,21 +368,25 @@ func unsetCurrent(w http.ResponseWriter, req *http.Request) {
 	http.Error(w, "OK", http.StatusNoContent)
 }
 
+// countFiles is an internal API function that the CGI scripts use
+// to notify the system service/daemon that a number of files
+// have been processed, so we can produce an accurate count of
+// files-per-minute.
 func countFiles(w http.ResponseWriter, req *http.Request) {
-	if !strings.HasPrefix(req.RemoteAddr, "127.0.0.1:") {
-		http.Error(w, "", http.StatusForbidden)
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
 		return
 	}
 	i, err := strconv.Atoi(req.FormValue("n"))
 	if err != nil || i == 0 {
 		return
 	}
-	pfib.Add(float64(i))
+	pfib.Add(float64(i)) // pfib = parsed files interval buffer
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-	fmt.Fprintf(w, "無\n") // https://en.wikipedia.org/wiki/Mu_(negative)
+	fmt.Fprintf(w, "無\n\n") // https://en.wikipedia.org/wiki/Mu_(negative)
 }
 
 func isTrueish(s string) bool {

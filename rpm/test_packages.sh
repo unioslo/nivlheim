@@ -23,9 +23,6 @@ if ! sudo systemctl is-active --quiet nivlheim; then
 	exit 1
 fi
 
-# Show curl version
-curl --version
-
 # Verify that the API is available by direct connection
 if ! curl -sSfo /dev/null http://localhost:4040/api/v0/status; then
 	echo "The API is unavailable at port 4040."
@@ -48,7 +45,7 @@ done
 
 # Check that the API is available through the main web server
 if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
-	echo "The API is unavailable through httpd."
+	echo "The API is unavailable through https."
 	exit 1
 fi
 

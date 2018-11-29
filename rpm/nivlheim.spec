@@ -13,6 +13,8 @@ License:  GPLv3+
 URL:      https://github.com/usit-gd/nivlheim
 Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 Source1:  https://github.com/lib/pq/archive/master.tar.gz#/pq-master.tar.gz
+Source2:  https://github.com/golang/oauth2/archive/master.tar.gz#/oauth2-master.tar.gz
+Source3:  https://github.com/golang/net/archive/master.tar.gz#/net-master.tar.gz
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -91,6 +93,9 @@ Requires: perl(File::Temp)
 Requires: perl(JSON)
 Requires: perl(Log::Log4perl)
 Requires: perl(Log::Log4perl::Level)
+Requires: perl(Log::Dispatch)
+Requires: perl(Log::Dispatch::FileRotate)
+Requires: perl(Log::Dispatch::Syslog)
 Requires: perl(LWP::Simple)
 Requires: perl(MIME::Base64)
 Requires: perl(Net::CIDR)
@@ -107,23 +112,32 @@ This package contains the server components of Nivlheim.
 
 %prep
 %setup -q -T -b 1 -n pq-master
+%setup -q -T -b 2 -n oauth2-master
+%setup -q -T -b 3 -n net-master
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 
 %build
 # Compile web templates
 handlebars server/website/templates --min -f server/website/js/templates.js
 # Compile system service
-rm -rf gopath
-mkdir -p gopath/{src,bin}
 export GOPATH=`pwd`/gopath
+rm -rf $GOPATH
+mkdir -p $GOPATH/{src,bin}
 export GOBIN="$GOPATH/bin"
-mv server/service gopath/src/
-mkdir -p gopath/src/github.com/lib/
-mv ../pq-master gopath/src/github.com/lib/pq
-NONETWORK=1 NOPOSTGRES=1 go test -v service
-rm -f gopath/bin/*
+mkdir -p $GOPATH/src/github.com/usit-gd/nivlheim
+mv server $GOPATH/src/github.com/usit-gd/nivlheim
+mkdir -p $GOPATH/src/github.com/lib/
+mv ../pq-master $GOPATH/src/github.com/lib/pq
+mkdir -p $GOPATH/src/golang.org/x
+mv ../net-master $GOPATH/src/golang.org/x/net
+mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
+pushd $GOPATH/src/github.com/usit-gd/nivlheim/server/service
+NONETWORK=1 NOPOSTGRES=1 go test -v
+rm -f $GOPATH/bin/*
 # Fix for the error "No build ID note found in ..."
-go install -ldflags=-linkmode=external service
+go install -ldflags=-linkmode=external
+popd
+mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
 
 %install
 rm -rf %{buildroot}
@@ -136,11 +150,11 @@ mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/www/html
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
-mkdir -p %{buildroot}%{_sysconfdir}/logrotate.d
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
 install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim/
+install -p -m 0644 server/server.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0755 server/cgi/ping %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/cgi/ping2 %{buildroot}/var/www/cgi-bin/secure/ping
 install -p -m 0755 server/cgi/reqcert %{buildroot}/var/www/cgi-bin/
@@ -150,7 +164,6 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
-install -p -m 0644 server/logrotate.conf %{buildroot}%{_sysconfdir}/logrotate.d/%{name}-server
 install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
 rm -rf server/website/mockapi server/website/templates
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
@@ -189,9 +202,9 @@ rm -rf %{buildroot}
 %license LICENSE.txt
 %doc README.md
 %config %{_sysconfdir}/nivlheim/version
-%config %{_sysconfdir}/httpd/conf.d/nivlheim.conf
+%config(noreplace) %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
-%config %{_sysconfdir}/logrotate.d/%{name}-server
+%config(noreplace) %{_sysconfdir}/nivlheim/server.conf
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
 %dir /var/log/nivlheim
@@ -211,6 +224,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Aug  7 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.9.0-20180807
+- Added sources for Go package golang.org/x/oauth2 and its dependencies
+
 * Tue May  1 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.6.1-20180501
 - Replaced init.sql with a set of sql patch files and an install script
 

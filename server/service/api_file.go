@@ -12,12 +12,7 @@ type apiMethodFile struct {
 	db *sql.DB
 }
 
-func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	if req.Method != httpGET {
-		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
+func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	var fields map[string]bool
 	var hErr *httpError
 
@@ -93,6 +88,11 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		if !access.HasAccessTo(certfp.String) {
+			http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
+			return
+		}
+
 		res := make(map[string]interface{}, 0)
 		if fields["fileId"] {
 			res["fileId"] = fileID

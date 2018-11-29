@@ -1,3 +1,5 @@
+var userinfo;
+
 $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
@@ -19,10 +21,11 @@ $(document).ready(function(){
 		return Handlebars.Utils.escapeExpression(str);
 	});
 	Handlebars.registerHelper('formatNumber', function(number){
-		if (typeof number == "number")
+		if (typeof number == "number") {
+			if (Math.abs(number)>=999) return Math.round(number);
 			return number.toPrecision(3);
-		else
-			return "-";
+		}
+		return "-";
 	});
 	Handlebars.registerHelper('urlescape', function(s){
 		if (!s) return "";
@@ -104,6 +107,7 @@ $(document).ready(function(){
 
 	router.init('/');
 
+	// retrieve the version number from a static file and display it
 	$.get('/version.txt', function(data){
 		$("span#navbarVersion").text('Version ' + data);
 	});
@@ -118,9 +122,37 @@ $(document).ready(function(){
 		$("div.navbar-menu").removeClass('is-active');
 	});
 
-	// load more elements when scrolling
+	// attach a handler that will load more elements when scrolling
 	$(window).scroll(scrollHandler);
 	window.setInterval(scrollHandler,500);
+
+	// attach a login click handler, or show the name of the logged in user
+	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
+		userinfo = data;
+		if (data == null) {
+			// Not logged in. Redirect to login...
+			location.href = getAPIURLprefix()+"/api/oauth2/start"
+				+"?redirect="+encodeURIComponent(location.href);
+		} else if (data.name) {
+			// Logged in
+			$("a#loginLink").remove();
+			$("div#loggedInUser").removeClass("is-not-displayed")
+			$("div#loggedInUser span#fullname").text(data.name);
+			$("a#logoutLink").prop("href", getAPIURLprefix()+"/api/oauth2/logout");
+		} else if (data.authDisabled) {
+			// Authentication is not enabled
+		}
+	});
+
+	// create a shake effect
+	jQuery.fn.shake = function() {
+		this.each(function() {
+			$(this).css({
+				"position": "relative"
+			}).animate({left:20},30).animate({left:-20},30).animate({left:0},30);
+		});
+		return this;
+	}
 });
 
 function showFrontPage() {
@@ -190,8 +222,11 @@ function deleteHostByCert(certfp) {
 			if ($("input[name='sure']:checked").val()==1) {
 				restDeleteHost(certfp);
 			} else {
-				$("a#deleteButton").text("You must be sure you want to delete the machine");
+				$("a#deleteButton").shake();
 			}
+		});
+		$("a#cancelButton").click(function(){
+			history.back();
 		});
 	});
 }
@@ -217,6 +252,7 @@ function restDeleteHost(certfp) {
 		$("a#deleteButton").replaceWith('<a class="button">The machine has been deleted.</a>');
 		// Fade out the details
 		$("div#machinedetails").fadeOut(1500);
+		$("a#cancelButton").fadeOut(1500);
 	});
 }
 

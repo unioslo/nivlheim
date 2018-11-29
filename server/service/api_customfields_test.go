@@ -77,8 +77,10 @@ func TestApiMethodCustomFields(t *testing.T) {
 	defer db.Close()
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/settings/customfields", &apiMethodCustomFieldsCollection{db: db})
-	mux.Handle("/api/v0/settings/customfields/", &apiMethodCustomFieldsItem{db: db})
+	mux.Handle("/api/v0/settings/customfields",
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: db}))
+	mux.Handle("/api/v0/settings/customfields/",
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: db}))
 
 	testAPIcalls(t, mux, tests)
 }

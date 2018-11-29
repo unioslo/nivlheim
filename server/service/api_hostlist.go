@@ -34,7 +34,7 @@ var apiHostListStandardFields = []apiHostListStandardField{
 	{publicName: "clientVersion", columnName: "clientversion"},
 }
 
-func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	if req.Method != httpGET {
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 		return
@@ -185,6 +185,17 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		statement += fmt.Sprintf(" ORDER BY hostname")
 	}
 
+	/* LIMIT and OFFSET will work incorrectly if we have to filter the resultset
+	   afterwards. (Because of access control.)
+	   A workaround is to let Postgres return the entire dataset,
+	   and implement limit/offset in the Go code after filtering.
+
+		TODO: Perform tests to see if this makes the API function too slow,
+			particularly with custom fields.
+			A different approach could be to create a table in a temporary tablespace
+			and fill it with the access list, and JOIN against this table.
+			That way, LIMIT and OFFSET could be applied in the SQL statement.
+
 	// Append LIMIT and OFFSET
 	if req.FormValue("limit") != "" {
 		var limit int
@@ -204,6 +215,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			return
 		}
 	}
+	*/
 
 	if vars.devmode {
 		//	log.Println(statement)
@@ -233,13 +245,20 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		var hasAccessToThisRow = false
 		res := make(map[string]interface{}, len(fields))
 		var i = 0
 		for _, f := range apiHostListStandardFields {
+			if f.columnName == "certfp" {
+				hasAccessToThisRow = access.HasAccessTo(scanvars[i].String)
+			}
 			if fields[f.publicName] {
 				res[f.publicName] = jsonString(scanvars[i])
 			}
 			i++
+		}
+		if !hasAccessToThisRow {
+			continue
 		}
 		for _, f := range customFields {
 			if fields[f] {
@@ -253,6 +272,34 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+
+	// Limit, offset (see comment above)
+	if req.FormValue("offset") != "" {
+		var offset int
+		if offset, err = strconv.Atoi(req.FormValue("offset")); err == nil {
+			if offset < len(result) {
+				result = result[offset:]
+			} else {
+				result = result[0:0]
+			}
+		} else {
+			http.Error(w, "Invalid offset value", http.StatusBadRequest)
+			return
+		}
+	}
+	if req.FormValue("limit") != "" {
+		var limit int
+		if limit, err = strconv.Atoi(req.FormValue("limit")); err == nil {
+			if limit > len(result) {
+				limit = len(result)
+			}
+			result = result[0:limit]
+		} else {
+			http.Error(w, "Invalid limit value", http.StatusBadRequest)
+			return
+		}
+	}
+
 	returnJSON(w, req, result)
 }
 

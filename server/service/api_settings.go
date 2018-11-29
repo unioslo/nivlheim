@@ -65,13 +65,7 @@ func setSystemSetting(db *sql.DB, key SystemSetting, value string) error {
 	// Verify the value
 	switch key {
 	case DaysIfNotSeenThenArchive:
-		i, err := strconv.Atoi(value)
-		if i < 1 {
-			return errors.New(key.String() + " must be at least 1")
-		}
-		if err != nil {
-			return errors.New("Invalid value for " + key.String())
-		}
+		fallthrough
 	case DaysIfNotSeenThenDelete:
 		i, err := strconv.Atoi(value)
 		if i < 1 {
@@ -80,8 +74,8 @@ func setSystemSetting(db *sql.DB, key SystemSetting, value string) error {
 		if err != nil {
 			return errors.New("Invalid value for " + key.String())
 		}
-	default:
-		log.Panicf("No system setting with that id constant: %d", key)
+		//default:
+		//log.Panicf("No system setting with that id constant: %d", key)
 	}
 	// Store the value
 	res, err := db.Exec("UPDATE settings SET value=$2 WHERE key=$1", key.String(), value)
