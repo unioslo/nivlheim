@@ -52,6 +52,8 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
 	api.Handle("/api/v0/settings",
 		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
+	api.Handle("/api/v0/resetWaitingTimeForFailedTasks",
+		wrapRequireAdmin(&apiMethodResetWaitingTime{db: theDB}))
 
 	// API functions that don't require authentication
 	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
