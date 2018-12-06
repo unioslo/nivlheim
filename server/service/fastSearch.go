@@ -52,9 +52,14 @@ func loadContentForFastSearch(db *sql.DB) {
 	}
 	log.Printf("Finished loading file content for fast search")
 	fsReady = true
+	// trigger the job
+	triggerJob(compareSearchCacheJob{})
 }
 
 func addFileToFastSearch(fileID int64, certfp string, filename string, content string) {
+	if !fsReady {
+		return
+	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
 	fsContent[fileID] = content
@@ -64,6 +69,9 @@ func addFileToFastSearch(fileID int64, certfp string, filename string, content s
 }
 
 func removeFileFromFastSearch(fileID int64) {
+	if !fsReady {
+		return
+	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
 	delete(fsContent, fileID)
