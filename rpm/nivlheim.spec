@@ -191,7 +191,6 @@ rm -rf %{buildroot}
 %license LICENSE.txt
 %doc README.md
 %{_sbindir}/nivlheim_client
-%config %{_sysconfdir}/nivlheim/version
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
 %config %{_sysconfdir}/cron.d/nivlheim_client
 
