@@ -30,7 +30,7 @@ func loadContentForFastSearch(db *sql.DB) {
 	defer fsMutex.Unlock()
 	log.Printf("Starting to load file content for fast search")
 	rows, err := db.Query("SELECT fileid,filename,certfp,content FROM files " +
-		"WHERE current")
+		"WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
 	if err != nil {
 		log.Panic(err)
 	}
@@ -52,9 +52,14 @@ func loadContentForFastSearch(db *sql.DB) {
 	}
 	log.Printf("Finished loading file content for fast search")
 	fsReady = true
+	// trigger the job
+	triggerJob(compareSearchCacheJob{})
 }
 
 func addFileToFastSearch(fileID int64, certfp string, filename string, content string) {
+	if !fsReady {
+		return
+	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
 	fsContent[fileID] = content
@@ -64,6 +69,9 @@ func addFileToFastSearch(fileID int64, certfp string, filename string, content s
 }
 
 func removeFileFromFastSearch(fileID int64) {
+	if !fsReady {
+		return
+	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
 	delete(fsContent, fileID)
@@ -74,10 +82,19 @@ func removeFileFromFastSearch(fileID int64) {
 	delete(fsKey, fileID)
 }
 
+func numberOfFilesInFastSearch() int {
+	if !fsReady {
+		return -1
+	}
+	fsMutex.RLock()
+	defer fsMutex.RUnlock()
+	return len(fsKey)
+}
+
 func compareSearchCacheToDB(db *sql.DB) {
 	// read a list of "current" file IDs from the database
 	source := make(map[int64]bool, 10000)
-	rows, err := db.Query("SELECT fileid FROM files WHERE current")
+	rows, err := db.Query("SELECT fileid FROM files WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
 	if err != nil {
 		log.Panic(err)
 	}

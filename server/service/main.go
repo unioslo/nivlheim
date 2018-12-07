@@ -46,10 +46,11 @@ var oauth2UserInfoEndpoint string
 var oauth2LogoutEndpoint string
 var authRequired bool
 var authorizationPluginURL string
+var devmode bool
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
-	devmode := len(os.Args) >= 2 && os.Args[1] == "--dev"
+	devmode = len(os.Args) >= 2 && os.Args[1] == "--dev"
 
 	// handle ctrl-c (SIGINT) and SIGTERM
 	var quit bool
@@ -183,7 +184,7 @@ func readConfigFile() {
 	defer file.Close()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
-		keyAndValue := strings.Split(scanner.Text(), "=")
+		keyAndValue := strings.SplitN(scanner.Text(), "=", 2)
 		key, value := keyAndValue[0], keyAndValue[1]
 		key = strings.ToLower(strings.TrimSpace(key))
 		value = strings.TrimSpace(value)

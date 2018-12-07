@@ -1,5 +1,6 @@
 <h1 class="title is-4">Retention</h1>
 
+<p>
 Archive hosts if not heard from in this many days:
 <input type="text" size="3" name="DaysIfNotSeenThenArchive"
 	value="{{DaysIfNotSeenThenArchive}}" pattern="\d+" required
@@ -14,4 +15,14 @@ Delete archived data for hosts that have not been heard from in this many days:
 	onchange="restPut('/api/v0/settings',this.name,'value='+this.value)">
 <span data-error-for="DaysIfNotSeenThenDelete" class="has-text-danger"></span>
 <span data-saved-for="DaysIfNotSeenThenDelete" class="has-text-info"></span>
+<br>
+</p>
+
+<h1 class="title is-4">Tasks</h1>
+
+<a class="button is-primary"
+	onclick="restPut('/api/v0','resetWaitingTimeForFailedTasks','')">
+Reset the waiting time for all failed tasks</a>
+<span data-error-for="resetWaitingTimeForFailedTasks" class="has-text-danger"></span>
+<span data-saved-for="resetWaitingTimeForFailedTasks" class="has-text-info"></span>
 <br>

@@ -62,13 +62,7 @@ my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
-my $VERSION;
-if (open(my $F, "/etc/nivlheim/version")) {
-	chomp($VERSION = <$F>);
-	close($F);
-} else {
-	$VERSION = "unknown_version";
-}
+my $VERSION = '0.10.1';
 
 # Usage text
 my $USAGE = <<"END_USAGE";

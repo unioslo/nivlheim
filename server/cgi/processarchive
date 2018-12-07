@@ -42,7 +42,33 @@ if ($@) {
 	$logger = Log::Log4perl->get_logger("syslogger");
 }
 
+# Check parameters
+my %params = parse_query_string();
+unless (exists $params{'file'}) {
+	print "Status: 400\n\nMissing parameter: file\n";
+	$logger->debug("Missing parameter: file");
+	exit;
+}
+if ($params{'file'} =~ m![\\/]!) {
+	print "Status: 403\n\n";
+	$logger->debug("File path contains slashes; not allowed");
+	exit;
+}
+my $archivefile = $params{'file'};
+$archivefile = "$confdir/queue/$archivefile";
+unless (-f $archivefile) {
+	print "Status: 410\n\nCan't find the archive file.\n";
+	$logger->debug("Can't find the archive file");
+	exit;
+}
+unless (-r $archivefile) {
+	print "Status: 400\n\nUnable to read the archive file.\n";
+	$logger->debug("Unable to read the archive file");
+	exit;
+}
+
 # Connect to database
+$logger->debug("Connecting to database");
 my %attr = ("AutoCommit" => 0);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
@@ -53,25 +79,9 @@ if (!$dbh) {
 	exit 1;
 }
 
-# Check parameters
-my %params = parse_query_string();
-unless (exists $params{'file'}) {
-	print "Status: 400\n\nMissing parameter: file\n";
-	exit;
-}
-if ($params{'file'} =~ m![\\/]!) {
-	print "Status: 403\n\n";
-	exit;
-}
-my $archivefile = $params{'file'};
-$archivefile = "$confdir/queue/$archivefile";
-unless (-r $archivefile) {
-	print "Status: 410\n\nCan't find the archive file.\n";
-	exit;
-}
-
 # Unpack the archive
 eval{
+	$logger->debug("Create temp dir");
 	my $dir = tempdir( CLEANUP => 1 );
 	$logger->debug("Unpacking into $dir");
 	chdir($dir);
@@ -90,6 +100,7 @@ eval{
 	chmod(0755, "$dir/files", "$dir/commands");
 
 	# Text files from Windows are usually UTF-16, so let's convert those
+	$logger->debug("zip file, check files for UTF-16 and convert where applicable");
 	if ($archivefile =~ /\.zip$/) {
 		my $zip = Archive::Zip->new();
 		unless ($zip->read($archivefile) == AZ_OK) {
@@ -122,6 +133,7 @@ eval{
 	unlink("$dir/files/var/log/*");
 
 	# read the meta data file
+	$logger->debug("Read meta file");
 	my %meta = ();
 	open(my $F, "$archivefile.meta") || die "Unable to open metafile";
 	while (<$F>) {
@@ -132,6 +144,8 @@ eval{
 	close($F);
 
 	my $iso_received = uts_to_rfc3339($meta{'received'});
+
+	$logger->debug("Prepare database statements");
 
 	my $currentfiles = $dbh->selectall_hashref("SELECT fileid,filename FROM files "
 		."WHERE certfp=? AND current", "filename", undef, ($meta{certfp}));
@@ -255,16 +269,23 @@ eval{
 		if ($dbh->err) { die $dbh->errstr; }
 	}
 	find(\&callback1, $dir);
+	$logger->debug("Completed inserting new files into the database");
 
 	# clear the "current" flag for files that weren't in this package
+	$logger->debug("Clear the current flag for deleted files");
 	foreach (keys %{$currentfiles}) {
 		my $fileid = $currentfiles->{$_}->{'fileid'};
 		$sth_clearcurrent->execute(($fileid));
 		push @no_longer_current, $fileid;
 	}
 
+	$logger->debug("Commit database transaction");
+	$dbh->commit;
+	unlink($archivefile, "$archivefile.meta");
+
 	# Create a task that will call the API to signal that these files are
 	# no longer current, so they can be removed from the search cache.
+	$logger->debug("Call API 'unsetCurrent'");
 	if ($#no_longer_current>-1) {
 		get("http://localhost:4040/api/internal/unsetCurrent?ids="
 			. join(',', @no_longer_current));
@@ -272,12 +293,10 @@ eval{
 
 	# Report the number of unchanged files to the system service
 	# so they too are counted (for statistical purposes)
+	$logger->debug("Call API 'countFiles'");
 	if ($unchangedfilecount > 0) {
 		get("http://localhost:4040/api/internal/countFiles?n=".$unchangedfilecount);
 	}
-
-	$dbh->commit;
-	unlink($archivefile, "$archivefile.meta");
 };
 if ($@) {
 	$logger->error($@);
@@ -290,6 +309,8 @@ if ($@) {
 	print $@;
 	exit 1;
 };
+
+$logger->debug("Finished.");
 
 # Clean up
 $dbh->disconnect;

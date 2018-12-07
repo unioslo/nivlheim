@@ -153,3 +153,15 @@ func executeTask(db *sql.DB, task Task) {
 		" WHERE taskid=$5",
 		task.lasttry, task.delay, task.delay2, task.status, task.taskid)
 }
+
+type apiMethodResetWaitingTime struct {
+	db *sql.DB
+}
+
+func (vars *apiMethodResetWaitingTime) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	if req.Method != httpPOST && req.Method != httpPUT {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	vars.db.Exec("UPDATE tasks SET delay=0, delay2=0 WHERE lasttry IS NOT NULL AND delay>0")
+}
