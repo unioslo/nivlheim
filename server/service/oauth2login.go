@@ -33,11 +33,21 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Assemble the redirect url
-	var s = req.URL.Scheme
-	if s == "" {
-		s = "http"
+	var host = req.Host
+	fh, ok := req.Header["X-Forwarded-Host"]
+	if ok {
+		host = fh[0]
 	}
-	s += "://" + req.Host + "/api/oauth2/redirect"
+	// There's no way to detect if the original request used https,
+	// but the rpm sets up Apache httpd with SSL by default,
+	// so let's assume https unless running in development mode.
+	var s string
+	if devmode {
+		s = "http"
+	} else {
+		s = "https"
+	}
+	s += "://" + host + "/api/oauth2/redirect"
 
 	// Oauth2 configuration
 	conf := &oauth2.Config{

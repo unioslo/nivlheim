@@ -56,9 +56,14 @@ if ($params{'file'} =~ m![\\/]!) {
 }
 my $archivefile = $params{'file'};
 $archivefile = "$confdir/queue/$archivefile";
+unless (-f $archivefile) {
+	print "Status: 410\n\nCan't find the archive file.\n";
+	$logger->debug("Can't find the archive file");
+	exit;
+}
 unless (-r $archivefile) {
-	print "Status: 404\n\nCan't find the archive file.\n";
-	$logger->debug("Can't find/read the archive file");
+	print "Status: 400\n\nUnable to read the archive file.\n";
+	$logger->debug("Unable to read the archive file");
 	exit;
 }
 

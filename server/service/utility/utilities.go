@@ -1,6 +1,7 @@
 package utility
 
 import (
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"reflect"
@@ -49,4 +50,42 @@ func GetString(v interface{}, path string) string {
 		}
 	}
 	return fmt.Sprintf("%v", v)
+}
+
+func RunInTransaction(db *sql.DB, statements []string, args ...interface{}) error {
+	var tx *sql.Tx
+	var hasCommitted bool
+	var err error
+	defer func() {
+		if r := recover(); r != nil {
+			if tx != nil {
+				tx.Rollback()
+			}
+			panic(r)
+		} else if err != nil {
+			if tx != nil {
+				tx.Rollback()
+			}
+		} else if !hasCommitted {
+			if tx != nil {
+				tx.Rollback()
+			}
+		}
+	}()
+	tx, err = db.Begin()
+	if err != nil {
+		return err
+	}
+	for _, st := range statements {
+		_, err = tx.Exec(st, args...)
+		if err != nil {
+			return err
+		}
+	}
+	err = tx.Commit()
+	if err != nil {
+		return err
+	}
+	hasCommitted = true
+	return err
 }

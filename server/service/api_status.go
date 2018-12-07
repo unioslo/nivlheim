@@ -42,7 +42,11 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	vars.db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&status.NumOfMachines)
 
 	// NumOfFiles
-	vars.db.QueryRow("SELECT count(*) FROM files WHERE current").Scan(&status.NumOfFiles)
+	status.NumOfFiles = numberOfFilesInFastSearch()
+	if status.NumOfFiles == -1 {
+		// Slower method
+		vars.db.QueryRow("SELECT count(*) FROM files WHERE current").Scan(&status.NumOfFiles)
+	}
 
 	// ReportingPercentageLastHour
 	if status.NumOfMachines > 0 {

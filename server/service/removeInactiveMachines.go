@@ -4,6 +4,8 @@ import (
 	"database/sql"
 	"log"
 	"time"
+
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
 type removeInactiveMachinesJob struct{}
@@ -36,13 +38,25 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 		}
 		days := int(days64.Int64)
 		if days >= deleteDayLimit {
-			db.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
-			db.Exec("DELETE FROM files WHERE certfp=$1", certfp)
-			dcount++
+			err = utility.RunInTransaction(db, []string{
+				"DELETE FROM hostinfo WHERE certfp=$1",
+				"DELETE FROM files WHERE certfp=$1",
+			}, certfp)
+			if err != nil {
+				log.Print(err)
+			} else {
+				dcount++
+			}
 		} else if days >= archiveDayLimit {
-			db.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
-			db.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
-			acount++
+			err = utility.RunInTransaction(db, []string{
+				"UPDATE files SET current=false WHERE certfp=$1",
+				"DELETE FROM hostinfo WHERE certfp=$1",
+			}, certfp)
+			if err != nil {
+				log.Print(err)
+			} else {
+				acount++
+			}
 		}
 	}
 	if err != nil {

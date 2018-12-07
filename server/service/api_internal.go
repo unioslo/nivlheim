@@ -74,4 +74,7 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 func doNothing(w http.ResponseWriter, req *http.Request) {
 	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
 	fmt.Fprintf(w, "無\n\n") // https://en.wikipedia.org/wiki/Mu_(negative)
+	//for k, v := range req.Header {
+	//	fmt.Fprintln(w, k+" = "+strings.Join(v, ", "))
+	//}
 }

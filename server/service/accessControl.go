@@ -90,6 +90,11 @@ func wrapRequireAdmin(h http.Handler) http.Handler {
 // has authenticated, either through Oauth2 or an API key.
 func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		//TODO let local auth plugin through. handle this in a better way
+		if isLocal(req) {
+			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
+			return
+		}
 		// If authentication is not enabled in config, let the request through
 		if !authRequired {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
