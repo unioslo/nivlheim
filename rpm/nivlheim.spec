@@ -116,6 +116,10 @@ This package contains the server components of Nivlheim.
 %setup -q -T -b 3 -n net-master
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 
+# disable building of the debug package.
+# avoids the error debuginfo-without-sources from rpmlint
+%define debug_package %{nil}
+
 %build
 # Compile web templates
 handlebars server/website/templates --min -f server/website/js/templates.js
@@ -134,8 +138,10 @@ mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
 pushd $GOPATH/src/github.com/usit-gd/nivlheim/server/service
 NONETWORK=1 NOPOSTGRES=1 go test -v
 rm -f $GOPATH/bin/*
-# Fix for the error "No build ID note found in ..."
-go install -ldflags=-linkmode=external
+# The linkmode=external flag is a fix for the error "No build ID note found in ...".
+# The -w flag disables debug info generation, and -s omits the symbol table.
+# By using -w and -s we avoid the unstripped-binary-or-object warning from rpmlint
+go install -ldflags='-linkmode=external -w -s'
 popd
 mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
 
