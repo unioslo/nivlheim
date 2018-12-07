@@ -64,6 +64,7 @@ CREATE TABLE hostinfo(
 	lastseen timestamp with time zone,
 	os text,
 	os_edition text,
+	os_family text,
 	kernel text,
 	manufacturer text,
 	product text,

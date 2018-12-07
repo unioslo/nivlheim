@@ -53,7 +53,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 
 	// Make a complete list of allowed field names (standard + custom)
 	allowedFields := []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
-		"kernel", "manufacturer", "product", "serialNo", "certfp",
+		"osFamily", "kernel", "manufacturer", "product", "serialNo", "certfp",
 		"clientVersion", "files", "support"}
 	allowedFields = append(allowedFields, customFields...)
 
@@ -65,7 +65,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 
 	qparams := make([]interface{}, 0)
 	statement := "SELECT ipaddr, COALESCE(hostname,host(ipaddr)) as hostname, lastseen, os, os_edition, " +
-		"kernel, manufacturer, product, serialno, certfp, clientversion " +
+		"os_family, kernel, manufacturer, product, serialno, certfp, clientversion " +
 		"FROM hostinfo "
 	if req.FormValue("hostname") != "" {
 		statement += "WHERE hostname=$1"
@@ -79,11 +79,11 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 		return
 	}
 
-	var ipaddr, hostname, os, osEdition, kernel, manufacturer,
+	var ipaddr, hostname, os, osEdition, osFamily, kernel, manufacturer,
 		product, serialNo, certfp, clientversion sql.NullString
 	var lastseen pq.NullTime
 	err = vars.db.QueryRow(statement, qparams...).
-		Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition,
+		Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition, &osFamily,
 			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
 	if err == sql.ErrNoRows {
 		// No host found. Return a "not found" status instead
@@ -114,6 +114,9 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 	}
 	if fields["osEdition"] {
 		res["osEdition"] = jsonString(osEdition)
+	}
+	if fields["osFamily"] {
+		res["osFamily"] = jsonString(os)
 	}
 	if fields["kernel"] {
 		res["kernel"] = jsonString(kernel)

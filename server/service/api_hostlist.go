@@ -26,6 +26,7 @@ var apiHostListStandardFields = []apiHostListStandardField{
 	{publicName: "lastseen", columnName: "lastseen"},
 	{publicName: "os", columnName: "os"},
 	{publicName: "osEdition", columnName: "os_edition"},
+	{publicName: "osFamily", columnName: "os_family"},
 	{publicName: "kernel", columnName: "kernel"},
 	{publicName: "manufacturer", columnName: "manufacturer"},
 	{publicName: "product", columnName: "product"},
