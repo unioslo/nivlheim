@@ -236,7 +236,7 @@ func parseFile(database *sql.DB, fileId int64) {
 		return
 	}
 
-	if filename.String == "/bin/uname -a" {
+	if filename.String == "/bin/uname -a" || filename.String == "/usr/bin/uname -a" {
 		re := regexp.MustCompile(`(\S+) \S+ (\S+)`)
 		if m := re.FindStringSubmatch(content.String); m != nil {
 			os := m[1]
@@ -248,6 +248,9 @@ func parseFile(database *sql.DB, fileId int64) {
 				}
 				_, err = tx.Exec("UPDATE hostinfo SET os=$1, os_edition=null, os_family='FreeBSD', "+
 					"kernel=$2 WHERE certfp=$3", os, kernel, certfp.String)
+			} else if os == "Darwin" {
+				_, err = tx.Exec("UPDATE hostinfo SET os_edition=null, os_family='macOS', kernel=$1 "+
+					"WHERE certfp=$2", kernel, certfp.String)
 			} else {
 				_, err = tx.Exec("UPDATE hostinfo SET kernel=$1 "+
 					"WHERE certfp=$2", kernel, certfp.String)
@@ -284,6 +287,24 @@ func parseFile(database *sql.DB, fileId int64) {
 		}
 		_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2,serialno=$3"+
 			"WHERE certfp=$4", manufacturer, product, serial, certfp.String)
+		return
+	}
+
+	if filename.String == "/usr/sbin/system_profiler SPHardwareDataType" {
+		var product, serial sql.NullString
+		if m := regexp.MustCompile(`Model Name: (.*)`).
+			FindStringSubmatch(content.String); m != nil {
+			product.String = strings.TrimSpace(m[1])
+			product.String = strings.Title(strings.ToLower(product.String))
+			product.Valid = len(product.String) > 0
+		}
+		if m := regexp.MustCompile(`Serial Number (system): (\w+)`).
+			FindStringSubmatch(content.String); m != nil {
+			serial.String = m[1]
+			serial.Valid = len(serial.String) > 0
+		}
+		_, err = tx.Exec("UPDATE hostinfo SET manufacturer='Apple',product=$1,serialno=$2"+
+			"WHERE certfp=$3", product, serial, certfp.String)
 		return
 	}
 

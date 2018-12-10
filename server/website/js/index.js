@@ -179,7 +179,7 @@ function browseHostByCert(certfp) {
 		APIcall(
 			//"mockapi/browsehost.json",
 			"/api/v0/host?certfp="+encodeURIComponent(certfp)+
-			"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
+			"&fields=ipAddress,hostname,lastseen,os,osEdition,osFamily,"+
 			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
