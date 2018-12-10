@@ -39,17 +39,21 @@ func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 	if err != nil {
 		return nil, err
 	}
-	var array []string
-	err = json.Unmarshal(jsonbytes, &array)
+	type scriptResultType struct {
+		IsAdmin bool     `json:"isAdmin"`
+		Certs   []string `json:"certs"`
+	}
+	var scriptResult scriptResultType
+	err = json.Unmarshal(jsonbytes, &scriptResult)
 	if err != nil {
 		return nil, err
 	}
 	ap := new(AccessProfile)
 	ap.certs = make(map[string]bool)
-	for _, s := range array {
+	for _, s := range scriptResult.Certs {
 		ap.certs[s] = true
 	}
-	ap.isAdmin = false
+	ap.isAdmin = scriptResult.IsAdmin
 	//TODO might use this later:
 	// ap.created = time.Now()
 	// ap.key = username
