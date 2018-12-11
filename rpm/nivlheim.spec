@@ -15,6 +15,13 @@ Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.g
 Source1:  https://github.com/lib/pq/archive/master.tar.gz#/pq-master.tar.gz
 Source2:  https://github.com/golang/oauth2/archive/master.tar.gz#/oauth2-master.tar.gz
 Source3:  https://github.com/golang/net/archive/master.tar.gz#/net-master.tar.gz
+Source4:  https://github.com/jquery/jquery/archive/3.3.1.tar.gz
+Source5:  https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.12/handlebars.runtime.min.js
+Source6:  https://github.com/moment/moment/archive/2.22.2.tar.gz
+Source7:  https://github.com/jgthms/bulma/releases/download/0.7.2/bulma-0.7.2.zip
+Source8:  https://github.com/CodeYellowBV/tarantino/archive/v2.1.0.tar.gz
+Source9:  https://use.fontawesome.com/releases/v5.2.0/fontawesome-free-5.2.0-web.zip
+Source10: https://raw.githubusercontent.com/wycats/handlebars.js/master/LICENSE
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -114,6 +121,18 @@ This package contains the server components of Nivlheim.
 %setup -q -T -b 1 -n pq-master
 %setup -q -T -b 2 -n oauth2-master
 %setup -q -T -b 3 -n net-master
+%setup -q -T -b 4 -n jquery-3.3.1
+%setup -q -T -b 6 -n moment-2.22.2
+%setup -q -T -b 8 -n tarantino-2.1.0
+cd %{_builddir}
+rm -rf bulma-0.7.2 fontawesome-free-5.2.0-web
+unzip -q %{SOURCE7}
+unzip -q %{SOURCE9}
+mkdir -p fontawesome/css
+mv fontawesome-free-5.2.0-web/webfonts fontawesome/
+mv fontawesome-free-5.2.0-web/css/all.css fontawesome/css/
+mv fontawesome-free-5.2.0-web/LICENSE.txt fontawesome/
+chmod -R a+rX,g-w,o-w bulma-0.7.2 fontawesome
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 
 # disable building of the debug package.
@@ -153,7 +172,7 @@ mkdir -p %{buildroot}%{_sysconfdir}/httpd/conf.d
 mkdir -p %{buildroot}%{_localstatedir}/nivlheim
 mkdir -p %{buildroot}/var/www/nivlheim
 mkdir -p %{buildroot}/var/www/cgi-bin/secure
-mkdir -p %{buildroot}/var/www/html
+mkdir -p %{buildroot}/var/www/html/libs
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
@@ -171,8 +190,20 @@ install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
-rm -rf server/website/mockapi server/website/templates
+rm -rf server/website/mockapi server/website/templates server/website/libs
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
+install -p -m 0644 ../jquery-3.3.1/dist/jquery.min.js %{buildroot}%{_localstatedir}/www/html/libs/jquery-3.3.1.min.js
+install -p -m 0644 ../jquery-3.3.1/LICENSE.txt %{buildroot}%{_localstatedir}/www/html/libs/jquery-license.txt
+install -p -m 0644 %{SOURCE5} %{buildroot}%{_localstatedir}/www/html/libs/handlebars.min.js
+install -p -m 0644 %{SOURCE10} %{buildroot}%{_localstatedir}/www/html/libs/handlebars-license.txt
+install -p -m 0644 ../moment-2.22.2/min/moment.min.js %{buildroot}%{_localstatedir}/www/html/libs/
+install -p -m 0644 ../moment-2.22.2/LICENSE %{buildroot}%{_localstatedir}/www/html/libs/moment-license.txt
+install -p -m 0644 ../bulma-0.7.2/css/bulma.min.css %{buildroot}%{_localstatedir}/www/html/libs/
+install -p -m 0644 ../bulma-0.7.2/LICENSE %{buildroot}%{_localstatedir}/www/html/libs/bulma-license.txt
+install -p -m 0644 ../tarantino-2.1.0/build/tarantino.min.js %{buildroot}%{_localstatedir}/www/html/libs/
+install -p -m 0644 ../tarantino-2.1.0/LICENSE %{buildroot}%{_localstatedir}/www/html/libs/tarantino-license.txt
+cp -a ../fontawesome %{buildroot}%{_localstatedir}/www/html/libs
+chmod 755 %{buildroot}%{_localstatedir}/www/html/libs
 install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
 cp -a server/database/* %{buildroot}%{_localstatedir}/nivlheim/
 echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
@@ -229,6 +260,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Dec 11 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.11.0-20181211
+- Include 3rd party javascript and css libraries in the rpm file
+
 * Tue Aug  7 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.9.0-20180807
 - Added sources for Go package golang.org/x/oauth2 and its dependencies
 

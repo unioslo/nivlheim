@@ -35,18 +35,31 @@ export GIT_BRANCH=`echo $GIT_BRANCH | sed 's#.*/##'`
 echo "buildrpm: The git branch is $GIT_BRANCH"
 sed -i -e "s|%{getenv:GIT_BRANCH}|$GIT_BRANCH|g" $SPEC
 
-# Check the spec file for errors
-rpmlint -i -f "$SOURCEDIR/rpmlint.conf" $SPEC || exit 1
+# Check the spec file for errors.
+# rpmlint uses http HEAD requests to verify the source urls.
+# Some web servers are misconfigured and return 403 (forbidden) for HEAD, even though GET works.
+# Here we avoid false warnings by disabling networking.
+rpmlint -i -f "$SOURCEDIR/rpmlint.conf" -o "NetworkEnabled False" $SPEC || exit 1
 
-echo "buildrpm: Downloading source archive files"
+# Use spectool to download the source files
+echo "buildrpm: Downloading source files"
 cd $BUILDDIR/SOURCES
 spectool -gf $SPEC > /dev/null 2>&1
-if [[ $(ls -1 $BUILDDIR/SOURCES | wc -l) -ne $(grep Source $SPEC|grep tar.gz| wc -l) ]]; then
-	echo "buildrpm: Didn't manage to produce the source archive files."
+if [ "$2" != "" ]; then
+	# If we are about to replace the main source package with local files anyway,
+	# then put a placeholder file for the source file.
+	# This is useful in case you're working on a new branch that has not yet
+	# been pushed to Github, because in that case the download doesn't work.
+	touch $BUILDDIR/SOURCES/$GIT_BRANCH.tar.gz
+fi
+# Count the downloaded files to see if it worked. As an additional measure.
+if [[ $(ls -1 $BUILDDIR/SOURCES | wc -l) -ne $(grep Source $SPEC | grep http | wc -l) ]]; then
+	echo "buildrpm: Didn't manage to produce the source files."
 	rpmbuild --nobuild --nodeps $SPEC
 	exit 1
 fi
 
+# Replace the main source package with local files
 if [ "$2" != "" ]; then
 	cd $2
 	echo "buildrpm: Replacing with source from $(pwd)"

@@ -116,7 +116,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 		res["osEdition"] = jsonString(osEdition)
 	}
 	if fields["osFamily"] {
-		res["osFamily"] = jsonString(os)
+		res["osFamily"] = jsonString(osFamily)
 	}
 	if fields["kernel"] {
 		res["kernel"] = jsonString(kernel)
