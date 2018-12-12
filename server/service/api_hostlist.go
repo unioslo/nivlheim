@@ -77,7 +77,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	// Grouping changes the whole SQL statement and what's returned,
 	// so it is handled in a separate function
 	if req.FormValue("group") != "" {
-		performGroupQuery(w, req, vars.db, customFieldIDs, vars.devmode)
+		performGroupQuery(w, req, vars.db, customFieldIDs, vars.devmode, access)
 		return
 	}
 
@@ -305,7 +305,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 }
 
 func performGroupQuery(w http.ResponseWriter, req *http.Request,
-	db *sql.DB, customFieldIDs map[string]int, devmode bool) {
+	db *sql.DB, customFieldIDs map[string]int, devmode bool, access *AccessProfile) {
 	if req.FormValue("fields") != "" {
 		http.Error(w, "Can't combine group and fields parameters",
 			http.StatusUnprocessableEntity)
@@ -362,6 +362,11 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 
 	if len(where) > 0 {
 		statement += " WHERE " + where
+		if access != nil && !access.IsAdmin() {
+			statement += " AND certfp IN (" + access.GetSQLWHERE() + ")"
+		}
+	} else if access != nil && !access.IsAdmin() {
+		statement += " WHERE certfp IN (" + access.GetSQLWHERE() + ")"
 	}
 	statement += " GROUP BY " + colname
 

@@ -153,6 +153,20 @@ func TestApiMethodHostList(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"workstation\":2}",
 		},
+		// Test with an access profile that should prevent some hosts from being counted
+		{
+			methodAndPath: "GET /api/v0/hostlist?group=osEdition",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"workstation\":1}",
+			accessProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+		},
+		// Test with an access profile that should prevent some hosts from being counted
+		{
+			methodAndPath: "GET /api/v0/hostlist?group=osEdition&hostname=*baz*",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{}",
+			accessProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+		},
 	}
 
 	db := getDBconnForTesting(t)

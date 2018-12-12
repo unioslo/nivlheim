@@ -65,10 +65,14 @@ func countFiles(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	i, err := strconv.Atoi(req.FormValue("n"))
-	if err != nil || i == 0 {
+	if err != nil {
+		http.Error(w, "Invalid number: "+req.FormValue("n"), http.StatusBadRequest)
 		return
 	}
-	pfib.Add(float64(i)) // pfib = parsed files interval buffer
+	if i > 0 {
+		pfib.Add(float64(i)) // pfib = parsed files interval buffer
+	}
+	http.Error(w, "OK", http.StatusNoContent)
 }
 
 func doNothing(w http.ResponseWriter, req *http.Request) {

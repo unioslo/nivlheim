@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"strings"
 )
 
 // AccessProfile holds information about which hosts the user is allowed access to,
@@ -20,6 +21,22 @@ func (ap *AccessProfile) HasAccessTo(certfp string) bool {
 
 func (ap *AccessProfile) IsAdmin() bool {
 	return ap.isAdmin
+}
+
+func (ap *AccessProfile) GetSQLWHERE() string {
+	//TODO this is temporary (bad) solution; will be removed later. See issue #67
+	var sql strings.Builder
+	sql.WriteString("'")
+	frist := true
+	for k := range ap.certs {
+		if !frist {
+			sql.WriteString("','")
+		}
+		sql.WriteString(k)
+		frist = false
+	}
+	sql.WriteString("'")
+	return sql.String()
 }
 
 func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
