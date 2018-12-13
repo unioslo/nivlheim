@@ -111,8 +111,8 @@ func compareSearchCacheToDB(db *sql.DB) {
 		log.Panic(rows.Err())
 	}
 	// find entries in the cache that should have been removed
-	fsMutex.RLock()
-	defer fsMutex.RUnlock()
+	fsMutex.Lock()
+	defer fsMutex.Unlock()
 	var obsoleteCount int
 	for fileID := range fsKey {
 		if _, ok := source[fileID]; !ok {

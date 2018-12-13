@@ -118,7 +118,9 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		http.Error(w, "Error reading Userinfo from Oauth2 provider", http.StatusInternalServerError)
 		return
 	}
-	log.Printf("Oauth2: Userinfo: %s", string(body))
+	if devmode {
+		log.Printf("Oauth2: Userinfo: %s", string(body))
+	}
 
 	// Parse the JSON
 	var userinfo interface{}
