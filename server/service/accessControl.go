@@ -3,16 +3,22 @@ package main
 import (
 	"encoding/json"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 )
 
 // AccessProfile holds information about which hosts the user is allowed access to,
 // and whether the user has admin rights.
 type AccessProfile struct {
-	certs   map[string]bool
-	isAdmin bool
+	certs    map[string]bool
+	isAdmin  bool
+	ownerID  string
+	expiry   time.Time
+	readonly bool
+	ipranges []net.IPNet
 }
 
 func (ap *AccessProfile) HasAccessTo(certfp string) bool {
@@ -21,6 +27,26 @@ func (ap *AccessProfile) HasAccessTo(certfp string) bool {
 
 func (ap *AccessProfile) IsAdmin() bool {
 	return ap.isAdmin
+}
+
+func (ap *AccessProfile) HasExpired() bool {
+	return !ap.expiry.IsZero() && time.Until(ap.expiry) <= 0
+}
+
+func (ap *AccessProfile) IsReadonly() bool {
+	return ap.readonly
+}
+
+func (ap *AccessProfile) CanBeUsedFrom(ipaddr net.IP) bool {
+	if ap.ipranges == nil || len(ap.ipranges) == 0 {
+		return true
+	}
+	for _, r := range ap.ipranges {
+		if r.Contains(ipaddr) {
+			return true
+		}
+	}
+	return false
 }
 
 func (ap *AccessProfile) GetSQLWHERE() string {
@@ -71,9 +97,6 @@ func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 		ap.certs[s] = true
 	}
 	ap.isAdmin = scriptResult.IsAdmin
-	//TODO might use this later:
-	// ap.created = time.Now()
-	// ap.key = username
 	return ap, nil
 }
 
@@ -111,7 +134,10 @@ func wrapRequireAdmin(h http.Handler) http.Handler {
 // has authenticated, either through Oauth2 or an API key.
 func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		//TODO let local auth plugin through. handle this in a better way
+		//TODO let local auth plugin through. handle this in a better way.
+		//  When api keys become a thing, the system can generate a short-lived
+		//  api key on the fly and pass it to the auth plugin. That key wouldn't
+		//  even have to be saved to the database.
 		if isLocal(req) {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
 			return
@@ -121,18 +147,58 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
 			return
 		}
-		session := getSessionFromRequest(req)
-		if session == nil {
-			// The user isn't logged in
-			http.Error(w, "Not logged in", http.StatusUnauthorized)
+		var ap *AccessProfile
+		apikey := GetAPIKeyFromRequest(req)
+		if apikey != nil {
+			// An API key overrides any session (these aren't supposed to be used together anyway)
+			ap = GetAccessProfileForAPIkey(*apikey)
+		} else {
+			session := getSessionFromRequest(req)
+			if session == nil {
+				// The user isn't logged in
+				http.Error(w, "Not logged in", http.StatusUnauthorized)
+				return
+			}
+			if session.AccessProfile == nil {
+				// For some reason, the session is missing an access profile.
+				// This is probably due to an error during login, and the user should re-authenticate.
+				http.Error(w, "Not logged in", http.StatusUnauthorized)
+				return
+			}
+			ap = session.AccessProfile
+		}
+		if ap.IsReadonly() && req.Method != httpGET {
+			http.Error(w, "This key can only be used for GET requests", http.StatusForbidden)
 			return
 		}
-		if session.AccessProfile == nil {
-			// For some reason, the session is missing an access profile.
-			// This is probably due to an error during login, and the user should re-authenticate.
-			http.Error(w, "Not logged in", http.StatusUnauthorized)
+		if !ap.CanBeUsedFrom(getRealRemoteAddr(req)) {
+			http.Error(w, "This key can only be used from certain ip addresses", http.StatusForbidden)
 			return
 		}
-		h.ServeHTTP(w, req, session.AccessProfile)
+		if ap.HasExpired() {
+			http.Error(w, "This key has expired", http.StatusForbidden)
+			return
+		}
+		h.ServeHTTP(w, req, ap)
 	})
+}
+
+// getRealRemoteAddr takes into account that a local webserver may be used
+// as a proxy, in which case RemoteAddr becomes 127.0.0.1 and we have to
+// look at the X-Forwarded-For header instead.
+func getRealRemoteAddr(req *http.Request) net.IP {
+	var remoteAddr = strings.SplitN(req.RemoteAddr, ":", 2)[0] // host:port
+	ip := net.ParseIP(remoteAddr)
+	if !ip.IsLoopback() {
+		return ip
+	}
+	ff, ok := req.Header["X-Forwarded-For"]
+	if ok {
+		// The client can pass its own value for the X-Forwarded-For header,
+		// which will then be the first element of the array.
+		// But the last element of the array will always be the address
+		// that contacted the last proxy server, which is probably what we want.
+		return net.ParseIP(ff[len(ff)-1])
+	}
+	return ip // can only be loopback at this point
 }
