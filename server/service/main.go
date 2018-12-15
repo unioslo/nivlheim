@@ -8,6 +8,7 @@ import (
 	"os/signal"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -73,10 +74,13 @@ func main() {
 
 	// Connect to database
 	var dbConnectionString string
-	if devmode {
-		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+	if runtime.GOOS == "windows" {
+		dbConnectionString = "sslmode=disable host=127.0.0.1 port=5432"
 	} else {
-		dbConnectionString = "dbname=apache host=/var/run/postgresql"
+		dbConnectionString = "host=/var/run/postgresql"
+	}
+	if !devmode {
+		dbConnectionString += " dbname=apache"
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
@@ -105,7 +109,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchlevel int
-	const requirePatchLevel = 2
+	const requirePatchLevel = 3
 	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
 	if patchlevel != requirePatchLevel {
 		log.Printf("Error: Wrong database patch level. "+

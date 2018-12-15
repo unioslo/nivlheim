@@ -27,17 +27,17 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	// API functions
 	api := http.NewServeMux()
 	api.Handle("/api/v0/file",
-		wrapRequireAuth(&apiMethodFile{db: theDB}))
+		wrapRequireAuth(&apiMethodFile{db: theDB}, theDB))
 	api.Handle("/api/v0/host",
-		wrapRequireAuth(&apiMethodHost{db: theDB}))
+		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
 	api.Handle("/api/v0/hostlist",
-		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}))
+		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}, theDB))
 	api.Handle("/api/v0/searchpage",
-		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}))
+		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}, theDB))
 	api.Handle("/api/v0/settings/customfields",
-		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}))
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/customfields/",
-		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}))
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}, theDB))
 
 	// API functions that are only available to administrators
 	api.Handle("/api/v0/awaitingApproval",
@@ -279,6 +279,10 @@ func (ns jsonString) MarshalJSON() ([]byte, error) {
 type httpError struct {
 	message string
 	code    int
+}
+
+func (h httpError) Error() string {
+	return fmt.Sprintf("%d %s", h.code, h.message)
 }
 
 // unpackFieldParam is a helper function to parse a comma-separated

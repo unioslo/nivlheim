@@ -9,7 +9,7 @@ import (
 func TestIntervalBuffer(t *testing.T) {
 	b := NewIntervalBuffer(time.Minute)
 	for i := 500; i >= 0; i-- {
-		b.AddT(float64(i), time.Now().Add(-time.Duration(i)*time.Second))
+		b.AddT(float64(i), time.Now().Add(-time.Duration(i)*time.Second-(time.Second/2)))
 	}
 	f := b.Sum()
 	var e float64 = 1770

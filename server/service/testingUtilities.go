@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"os"
 	"regexp"
+	"runtime"
 	"testing"
 )
 
@@ -14,7 +15,13 @@ import (
 // The function runs all the SQL scripts to create tables etc.
 func getDBconnForTesting(t *testing.T) *sql.DB {
 	// Create a database connection
-	db, err := sql.Open("postgres", "sslmode=disable host=/var/run/postgresql")
+	var dataSource string
+	if runtime.GOOS == "windows" {
+		dataSource = "sslmode=disable host=127.0.0.1 port=5432"
+	} else {
+		dataSource = "sslmode=disable host=/var/run/postgresql"
+	}
+	db, err := sql.Open("postgres", dataSource)
 	if err != nil {
 		t.Fatal(err)
 	}

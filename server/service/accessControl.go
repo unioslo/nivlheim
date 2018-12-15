@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"encoding/json"
 	"io/ioutil"
 	"net"
@@ -132,7 +133,7 @@ func wrapRequireAdmin(h http.Handler) http.Handler {
 
 // wrapRequireAuth adds a layer that requires that the user
 // has authenticated, either through Oauth2 or an API key.
-func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
+func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		//TODO let local auth plugin through. handle this in a better way.
 		//  When api keys become a thing, the system can generate a short-lived
@@ -151,7 +152,13 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile) http.Handler {
 		apikey := GetAPIKeyFromRequest(req)
 		if apikey != nil {
 			// An API key overrides any session (these aren't supposed to be used together anyway)
-			ap = GetAccessProfileForAPIkey(*apikey)
+			var err error
+			ap, err = GetAccessProfileForAPIkey(*apikey, db, nil)
+			if err != nil {
+				http.Error(w, "Error while composing the ACL for the API key:\n"+err.Error(),
+					http.StatusInternalServerError)
+				return
+			}
 		} else {
 			session := getSessionFromRequest(req)
 			if session == nil {
