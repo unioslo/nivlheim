@@ -2,16 +2,17 @@ SET client_min_messages TO WARNING;
 DROP TABLE IF EXISTS apikeys,apikey_ips CASCADE;
 
 CREATE TABLE apikeys(
-	keyid varchar(32) PRIMARY KEY not null,
+	key varchar(32) PRIMARY KEY not null,
 	ownerid text not null,
 	comment text,
-	expiry timestamp with time zone,
+	created timestamp with time zone not null default now(),
+	expires timestamp with time zone,
 	readonly boolean not null default true,
-	hostlistparams text
+	filter text
 );
 
 CREATE TABLE apikey_ips(
-	keyid varchar(32) not null REFERENCES apikeys(keyid) ON UPDATE CASCADE ON DELETE CASCADE,
+	key varchar(32) not null REFERENCES apikeys(key) ON UPDATE CASCADE ON DELETE CASCADE,
 	iprange cidr not null
 );
 

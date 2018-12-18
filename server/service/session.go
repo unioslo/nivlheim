@@ -124,7 +124,7 @@ func deleteSession(req *http.Request) {
 func randomStringID() string {
 	b := make([]byte, 32)
 	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
+	return base64.RawURLEncoding.EncodeToString(b)[0:32]
 }
 
 // API call /api/vx/userinfo
@@ -163,6 +163,6 @@ func (job cleanupSessionsJob) Run(db *sql.DB) {
 		if time.Since(sPtr.lastUsed) > time.Duration(8)*time.Hour {
 			delete(sessions, id)
 		}
-		sPtr.mutex.Unlock()
+		sPtr.mutex.RUnlock()
 	}
 }

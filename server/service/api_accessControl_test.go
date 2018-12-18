@@ -16,13 +16,13 @@ func TestApiAccessControl(t *testing.T) {
 	adminAP := &AccessProfile{isAdmin: true}
 	userAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true}}
 	expiredAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
-		expiry: time.Now().Add(-time.Duration(1) * time.Minute)}
+		expires: time.Now().Add(-time.Duration(1) * time.Minute)}
 	readonlyAP := &AccessProfile{readonly: true, isAdmin: false, certs: map[string]bool{"1234": true}}
 	restrictedIPAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
 		ipranges: []net.IPNet{{IP: []byte{192, 168, 0, 1}, Mask: []byte{255, 255, 255, 0}}}}
 
 	tests := []apiCall{
-		//============= test that expiry time is enforced ====
+		//============= test that expiration date/time is enforced ====
 		{
 			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
 			accessProfile: expiredAP,

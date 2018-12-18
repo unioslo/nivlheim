@@ -1,6 +1,7 @@
 package main
 
 import (
+	"math/rand"
 	"net"
 	"net/http"
 	"os"
@@ -57,10 +58,10 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	defer db.Close()
 	// Setup some data for testing
 	setupStatements := []string{
-		"INSERT INTO apikeys(keyid,ownerid,expiry,readonly,hostlistparams) " +
+		"INSERT INTO apikeys(key,ownerid,expires,readonly,filter) " +
 			"VALUES('1000','foo',now()+interval '10 minutes',true,'')," +
 			"      ('1001','foo',now()+interval '10 minutes',false,'osEdition=server')",
-		"INSERT INTO apikey_ips(keyid,iprange) VALUES('1000','192.168.0.0/24')," +
+		"INSERT INTO apikey_ips(key,iprange) VALUES('1000','192.168.0.0/24')," +
 			"('1000','123.123.0.0/16'),('1001','50.50.50.64/26')",
 		"INSERT INTO hostinfo(certfp,hostname,os_edition) " +
 			"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','server')," +
@@ -82,25 +83,25 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	}
 	// Define some tests
 	type aTest struct {
-		keyid          string
+		key            string
 		expectAccessTo []string
 	}
 	tests := []aTest{
 		// The key 1000 doesn't have any particular restrictions on hosts
 		{
-			keyid:          "1000",
+			key:            "1000",
 			expectAccessTo: []string{"1111", "2222"},
 		},
 		// The key 1001 restricts to osEdition=server, should only give access to bar.baz.no
 		{
-			keyid:          "1001",
+			key:            "1001",
 			expectAccessTo: []string{"2222"},
 		},
 	}
 	// Run the tests
 	for testNum, theTest := range tests {
 		prevAP := fakeUserAP
-		ap, err := GetAccessProfileForAPIkey(APIkey{key: theTest.keyid}, db, &prevAP)
+		ap, err := GetAccessProfileForAPIkey(APIkey{key: theTest.key}, db, &prevAP)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -117,7 +118,7 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 			t.Errorf("\nTest %d: Got more access than I should have.", testNum+1)
 		}
 	}
-	// Test that it reads the correct readonly/ipranges/expiry from the database
+	// Test that it reads the correct readonly/ipranges/expires from the database
 	prevAP := fakeUserAP
 	ap, err := GetAccessProfileForAPIkey(APIkey{key: "1000"}, db, &prevAP)
 	if err != nil {
@@ -130,9 +131,9 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 		!testIPContains(ap.ipranges, "123.123.0.0/16") {
 		t.Errorf("Didn't load IP ranges correctly: %v", ap.ipranges)
 	}
-	if ap.expiry.IsZero() ||
-		time.Until(ap.expiry)-time.Duration(10)*time.Minute > time.Duration(10)*time.Second {
-		t.Errorf("Expire date/time seems off: %v", ap.expiry)
+	if ap.expires.IsZero() ||
+		time.Until(ap.expires)-time.Duration(10)*time.Minute > time.Duration(10)*time.Second {
+		t.Errorf("Expiration date/time seems off: %v", ap.expires)
 	}
 }
 
@@ -143,4 +144,75 @@ func testIPContains(s []net.IPNet, e string) bool {
 		}
 	}
 	return false
+}
+
+func TestKeyCRUD(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+	db := getDBconnForTesting(t)
+	defer db.Close()
+	rand.Seed(1)
+	tests := []apiCall{
+		// create a key with default values
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "",
+			expectStatus:  http.StatusCreated,
+		},
+	}
+	muxer := createAPImuxer(db, true)
+	testAPIcalls(t, muxer, tests)
+
+	// get the key id
+	var key string
+	err := db.QueryRow("SELECT key FROM apikeys LIMIT 1").Scan(&key)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	// make more tests
+	tests = []apiCall{
+		// read the key list
+		{
+			methodAndPath: "GET /api/v0/keys?fields=key,readonly",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"key\":\"" + key + "\",\"readonly\":true}]",
+		},
+		// update a key
+		{
+			methodAndPath: "PUT /api/v0/keys/" + key,
+			body:          "comment=foo&filter=hostname%3Da%2A&expires=2020-12-24T18:00:00%2B01:00&readonly=no",
+			expectStatus:  http.StatusNoContent,
+		},
+		// read one key
+		{
+			methodAndPath: "GET /api/v0/keys/" + key + "?fields=comment,filter,readonly,expires",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T18:00:00+01:00\"}",
+		},
+		// try to read a non-existent key
+		{
+			methodAndPath: "GET /api/v0/keys/123?fields=comment,filter,readonly,expires",
+			expectStatus:  http.StatusNotFound,
+		},
+		// delete the key
+		{
+			methodAndPath: "DELETE /api/v0/keys/" + key,
+			expectStatus:  http.StatusNoContent,
+		},
+		// delete the key again (should not work)
+		{
+			methodAndPath: "DELETE /api/v0/keys/" + key,
+			expectStatus:  http.StatusNotFound,
+		},
+		// list the keys (now empty)
+		{
+			methodAndPath: "GET /api/v0/keys?fields=key,readonly",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[]",
+		},
+	}
+	testAPIcalls(t, muxer, tests)
 }

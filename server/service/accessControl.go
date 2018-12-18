@@ -17,9 +17,13 @@ type AccessProfile struct {
 	certs    map[string]bool
 	isAdmin  bool
 	ownerID  string
-	expiry   time.Time
+	expires  time.Time
 	readonly bool
 	ipranges []net.IPNet
+}
+
+func (ap *AccessProfile) OwnerID() string {
+	return ap.ownerID
 }
 
 func (ap *AccessProfile) HasAccessTo(certfp string) bool {
@@ -31,7 +35,7 @@ func (ap *AccessProfile) IsAdmin() bool {
 }
 
 func (ap *AccessProfile) HasExpired() bool {
-	return !ap.expiry.IsZero() && time.Until(ap.expiry) <= 0
+	return !ap.expires.IsZero() && time.Until(ap.expires) <= 0
 }
 
 func (ap *AccessProfile) IsReadonly() bool {

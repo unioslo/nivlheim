@@ -2,149 +2,192 @@ package main
 
 import (
 	"database/sql"
-	"math/rand"
-	"net"
 	"net/http"
 	"strings"
-	"sync"
 	"time"
 
 	"github.com/lib/pq"
 )
 
-type APIkey struct {
-	key string
+type apiMethodKeys struct {
+	db *sql.DB
 }
 
-func (a *APIkey) String() string {
-	if a == nil {
-		return ""
+func (vars *apiMethodKeys) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	switch req.Method {
+	case httpGET:
+		(*vars).read(w, req, access)
+	case httpPOST:
+		(*vars).create(w, req, access)
+	case httpPUT:
+		(*vars).update(w, req, access)
+	case httpDELETE:
+		(*vars).delete(w, req, access)
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
-	return a.key
 }
 
-type apiKeyCacheElem struct {
-	ap      *AccessProfile
-	created time.Time
-}
-
-var apiKeyCacheMutex sync.RWMutex
-var apiKeyCache map[string]apiKeyCacheElem
-
-func init() {
-	apiKeyCache = make(map[string]apiKeyCacheElem, 0)
-}
-
-func GetAPIKeyFromRequest(req *http.Request) *APIkey {
-	auth := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
-	if len(auth) == 2 && strings.ToLower(auth[0]) == "apikey" {
-		return &APIkey{key: auth[1]}
+func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	// See which fields I'm supposed to return
+	fields, hErr := unpackFieldParam(req.FormValue("fields"), []string{
+		"key", "comment", "filter", "readonly", "expires", "ipranges"})
+	if hErr != nil {
+		http.Error(w, hErr.message, hErr.code)
+		return
 	}
-	return nil
-}
-
-func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessProfile) (*AccessProfile, error) {
-	const cacheTimeMinutes = 10
-
-	// 0. Check the cache
-	apiKeyCacheMutex.RLock()
-	c, ok := apiKeyCache[key.String()]
-	apiKeyCacheMutex.RUnlock()
-	if ok && time.Since(c.created) < time.Duration(cacheTimeMinutes)*time.Minute {
-		return c.ap, nil
+	if fields["ipranges"] {
+		// TODO implement
+		delete(fields, "ipranges")
 	}
-
-	// 1. Read the entry from the database table
-	var ownerid, hostlistparams sql.NullString
-	var expiry pq.NullTime
-	var readonly sql.NullBool
-	err := db.QueryRow("SELECT ownerid, expiry, readonly, hostlistparams "+
-		"FROM apikeys WHERE keyid=$1", key.String()).
-		Scan(&ownerid, &expiry, &readonly, &hostlistparams)
-	if err != nil {
-		if err != sql.ErrNoRows {
-			return nil, err
+	columns := make([]string, len(fields))
+	i := 0
+	for k := range fields {
+		columns[i] = k
+		i++
+	}
+	// read key with a specific id?
+	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
+		key := req.URL.Path[i+6:]
+		data, err := QueryList(vars.db, "SELECT "+strings.Join(columns, ",")+
+			" FROM apikeys WHERE ownerid=$1 AND key=$2", access.OwnerID(), key)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		} else if len(data) > 0 {
+			returnJSON(w, req, data[0])
+		} else {
+			http.Error(w, "Key not found", http.StatusNotFound)
 		}
-		return nil, nil // the key was not found, but this isn't an error
+		return
 	}
+	// if not, return a list
+	data, err := QueryList(vars.db, "SELECT "+strings.Join(columns, ",")+
+		" FROM apikeys WHERE ownerid=$1 ORDER BY created ASC", access.OwnerID())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	returnJSON(w, req, data)
+}
 
-	// 2. Call GenerateAccessProfileForUser on the ownerid to generate an accessprofile
-	var ap *AccessProfile
-	if existingUserAP != nil {
-		ap = existingUserAP
+func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	// Create a new item. There are no required parameters
+	newkey := randomStringID()
+	var comment, filter sql.NullString
+	var expires pq.NullTime
+	if req.FormValue("comment") != "" {
+		comment.String = req.FormValue("comment")
+		comment.Valid = true
+	}
+	if req.FormValue("filter") != "" {
+		filter.String = req.FormValue("filter")
+		filter.Valid = true
+	}
+	if req.FormValue("expires") != "" {
+		tm, err := time.Parse(time.RFC3339, req.FormValue("expires"))
+		if err != nil {
+			http.Error(w, "expires: "+err.Error(), http.StatusBadRequest)
+			return
+		}
+		expires.Time = tm
+		expires.Valid = true
+	}
+	if req.FormValue("ipranges") != "" {
+		//TODO implement
+	}
+	r := req.FormValue("readonly")
+	readonly := r == "" || isTrueish(r)
+	_, err := vars.db.Exec("INSERT INTO apikeys(key,ownerid,readonly,comment,filter,expires) "+
+		"VALUES($1,$2,$3,$4,$5,$6)",
+		newkey, access.OwnerID(), readonly, comment, filter, expires)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Return
+	w.Header().Set("Location", req.URL.RequestURI()+"/"+newkey)
+	http.Error(w, "", http.StatusCreated) // 201 Created
+}
+
+func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	// parse the key id
+	var key string
+	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
+		key = req.URL.Path[i+6:]
 	} else {
-		ap, err = GenerateAccessProfileForUser(ownerid.String)
+		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
+		return
+	}
+	// parse the rest of the parameters
+	var comment, filter sql.NullString
+	var expires pq.NullTime
+	if req.FormValue("comment") != "" {
+		comment.String = req.FormValue("comment")
+		comment.Valid = true
+	}
+	if req.FormValue("filter") != "" {
+		filter.String = req.FormValue("filter")
+		filter.Valid = true
+	}
+	if req.FormValue("expires") != "" {
+		tm, err := time.Parse(time.RFC3339, req.FormValue("expires"))
 		if err != nil {
-			return nil, err
+			http.Error(w, "expires: "+err.Error(), http.StatusBadRequest)
+			return
 		}
+		expires.Time = tm
+		expires.Valid = true
 	}
-
-	// 3. Call buildSQLwhere with the hostlist parameters,
-	//    and perform a query to get a list of certs. UNION the two lists.
-	if hostlistparams.Valid && strings.TrimSpace(hostlistparams.String) != "" {
-		newMap := make(map[string]bool, len(ap.certs))
-		where, args, httpErr := buildSQLWhere(hostlistparams.String, nil)
-		if httpErr != nil {
-			return nil, httpErr
-		}
-		rows, err := db.Query("SELECT certfp FROM hostinfo WHERE "+where, args...)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var certfp sql.NullString
-			err = rows.Scan(&certfp)
-			if err != nil {
-				return nil, err
-			}
-			if certfp.Valid && ap.certs[certfp.String] {
-				newMap[certfp.String] = true
-			}
-		}
-		rows.Close()
-		ap.certs = newMap
+	if req.FormValue("ipranges") != "" {
+		//TODO implement
 	}
-
-	// 4. Set the readonly flag, and the ip ranges, and the expiry date
-	ap.readonly = readonly.Bool
-	if expiry.Valid {
-		ap.expiry = expiry.Time
-	}
-	rows, err := db.Query("SELECT iprange FROM apikey_ips WHERE keyid=$1", key.String())
+	r := req.FormValue("readonly")
+	readonly := r == "" || isTrueish(r)
+	// Perform the update
+	res, err := vars.db.Exec("UPDATE apikeys SET readonly=$3,comment=$4,filter=$5,expires=$6 "+
+		"WHERE key=$1 AND ownerid=$2",
+		key, access.OwnerID(), readonly, comment, filter, expires)
 	if err != nil {
-		return nil, err
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	defer rows.Close()
-	ap.ipranges = make([]net.IPNet, 0)
-	for rows.Next() {
-		var r string
-		err = rows.Scan(&r)
-		if err != nil {
-			return nil, err
-		}
-		_, ipnet, err := net.ParseCIDR(r)
-		if err != nil {
-			return nil, err
-		}
-		ap.ipranges = append(ap.ipranges, *ipnet)
+	rows, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
 	}
-	rows.Close()
-
-	// 5. Cache the AccessProfile, so that subsequent calls to GetAccessProfileForAPIkey can quickly use it.
-	apiKeyCacheMutex.Lock()
-	defer apiKeyCacheMutex.Unlock()
-	apiKeyCache[key.String()] = apiKeyCacheElem{ap: ap, created: time.Now()}
-
-	// 6. Purge expired keys from the cache sometimes
-	if rand.Intn(100) == 0 {
-		// the mutex is already locked, so it's safe to modify the map
-		for id, c := range apiKeyCache {
-			if time.Since(c.created) > time.Duration(cacheTimeMinutes)*time.Minute {
-				delete(apiKeyCache, id)
-			}
-		}
+	// Return
+	if rows > 0 {
+		http.Error(w, "", http.StatusNoContent)
+	} else {
+		http.Error(w, "Key not found", http.StatusNotFound)
 	}
+}
 
-	return ap, nil
+func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	// parse the key id
+	var key string
+	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
+		key = req.URL.Path[i+6:]
+	} else {
+		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
+		return
+	}
+	// perform the query
+	res, err := vars.db.Exec("DELETE FROM apikeys WHERE key=$1 AND ownerid=$2", key, access.OwnerID())
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	rows, err := res.RowsAffected()
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// Return
+	if rows > 0 {
+		http.Error(w, "", http.StatusNoContent)
+	} else {
+		http.Error(w, "Key not found", http.StatusNotFound)
+	}
 }

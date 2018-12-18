@@ -251,11 +251,16 @@ function editInPlace() {
 	// for each text that should be converted to an input field
 	$(container).find("[data-name]").each(function(){
 		// in here, "this" is the element with the data-name attribute
-		let name = $(this).data("name");
-		let value = htmlEscape($(this).text());
-		$(this).replaceWith('<input class="input" type="text" '+
-			'name="'+name+'" value="'+value+'" '+
-			'style="width:'+($(this).width()+30)+'px">');
+		if ($(this).attr("type") == "checkbox") {
+			$(this).prop("disabled", false);
+ 		} else {
+			// text string
+			let name = $(this).data("name");
+			let value = htmlEscape($(this).text());
+			$(this).replaceWith('<input class="input" type="text" '+
+				'name="'+name+'" value="'+value+'" '+
+				'style="width:'+($(this).width()+30)+'px">');
+		}
 	});
 	// replace the "edit" button with two "accept" and "cancel" buttons
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
@@ -264,6 +269,7 @@ function editInPlace() {
 	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let body = $(container).find("input").serialize();
+		console.log(body);
 		$(event.currentTarget).addClass("is-loading");
 		$(container).find("button.cancel").prop("disabled","disabled");
 		AJAXwithRefresh(container, action, "PUT", body)

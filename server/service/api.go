@@ -38,6 +38,10 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/customfields/",
 		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}, theDB))
+	api.Handle("/api/v0/keys",
+		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
+	api.Handle("/api/v0/keys/",
+		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
 
 	// API functions that are only available to administrators
 	api.Handle("/api/v0/awaitingApproval",
@@ -328,7 +332,11 @@ func contains(needle string, haystack []string) bool {
 
 func isTrueish(s string) bool {
 	s = strings.ToLower(s)
-	return s == "1" || s == "t" || s == "true" || s == "yes" || s == "y"
+	return s == "1" || s == "t" || s == "true" || s == "yes" || s == "y" || s == "on"
+}
+
+func isFalseish(s string) bool {
+	return s != "" && !isTrueish(s)
 }
 
 // QueryList performs a database query and returns a slice of maps.

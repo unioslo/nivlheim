@@ -83,6 +83,7 @@ $(document).ready(function(){
 		'/search': searchPage,
 		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
+		'/keys': keysPage,
 		'/': showFrontPage
 	};
 
@@ -457,6 +458,13 @@ function iprangesPage() {
 	APIcall(//"mockapi/ipranges.json",
 		"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
 		"ipranges", "div#pageContent")
+	.done(function(){
+		attachHandlersToForms();
+	});
+}
+
+function keysPage() {
+	APIcall("/mockapi/keys.json", "keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
 	});
