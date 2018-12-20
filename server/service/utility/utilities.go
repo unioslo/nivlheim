@@ -7,6 +7,7 @@ import (
 	"reflect"
 	"strconv"
 	"strings"
+	"time"
 )
 
 // IsEqualJSON returns true if the 2 supplied strings contain JSON data
@@ -24,8 +25,40 @@ func IsEqualJSON(s1, s2 string) (bool, error) {
 	if err != nil {
 		return false, fmt.Errorf("Error unmarshalling string 2 :: %s", err.Error())
 	}
+	o1 = deepConvertRFC3339(o1)
+	o2 = deepConvertRFC3339(o2)
 
 	return reflect.DeepEqual(o1, o2), nil
+}
+
+func deepConvertRFC3339(o interface{}) interface{} {
+	// detect strings that are timestamps
+	s, ok := o.(string)
+	if ok {
+		t, err := time.Parse(time.RFC3339, s)
+		if err == nil {
+			// convert all timestamps to UTC so different timezones won't mess up the comparison
+			return t.UTC()
+		}
+		return s
+	}
+	// traverse maps
+	m, ok := o.(map[string]interface{})
+	if ok {
+		for key, value := range m {
+			m[key] = deepConvertRFC3339(value)
+		}
+		return m
+	}
+	// traverse slices
+	a, ok := o.([]interface{})
+	if ok {
+		for i, value := range a {
+			a[i] = deepConvertRFC3339(value)
+		}
+		return a
+	}
+	return o
 }
 
 // GetString lets you specify a path to the value that you want

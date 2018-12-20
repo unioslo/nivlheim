@@ -190,7 +190,7 @@ func TestKeyCRUD(t *testing.T) {
 		{
 			methodAndPath: "GET /api/v0/keys/" + key + "?fields=comment,filter,readonly,expires",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T18:00:00+01:00\"}",
+			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T19:00:00+02:00\"}",
 		},
 		// try to read a non-existent key
 		{
