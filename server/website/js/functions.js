@@ -75,10 +75,8 @@ function APIcall(url, templateName, domElement, transform) {
 	var deferredObj = $.Deferred();
 	$.getJSON(url, function(data){
 		try {
-			$(domElement).attr({
-				"data-api-url": origurl,
-				"data-handlebars-template": templateName
-			});
+			$(domElement).addClass("apiResultContainer");
+			$(domElement).data("apiUrl", origurl).data("handlebarsTemplate", templateName);
 			if (typeof transform == 'function') {
 				data = transform(data);
 			}
@@ -183,6 +181,10 @@ function submitForm(event) {
 	let method = this.dataset["method"] || this.method;
 	// Serialize the form values
 	let data = $(this).serialize();
+	// Hack to send value 0 for unchecked checkboxes
+	$(this).find("input:checkbox:not(:checked)").each(function(){
+		data += "&" + $(this).attr('name') + "=0";
+	});
 	// Perform the HTTP request
 	AJAXwithRefresh(event.target, path, method, data)
 	.fail(function(){
@@ -218,7 +220,7 @@ function AJAXwithRefresh(domElement, urlPath, method, data) {
 	})
 	.done(function(data,textStatus,jqxhr){
 		// Success. Find the outer placeholder container
-		let container = $(domElement).parents("[data-api-url]");
+		let container = $(domElement).parents(".apiResultContainer");
 		if (container.length == 0) {
 			console.log("Couldn't find container to refresh.");
 			return;
@@ -233,7 +235,7 @@ function AJAXwithRefresh(domElement, urlPath, method, data) {
 
 function refresh(domElement) {
 	// Find the outer placeholder container
-	let container = $(domElement).parents("[data-api-url]");
+	let container = $(domElement).parents(".apiResultContainer");
 	if (container.length == 0) {
 		console.log("Couldn't find the container to refresh.");
 		return;
@@ -242,6 +244,12 @@ function refresh(domElement) {
 	APIcall(container.data("apiUrl"), container.data("handlebarsTemplate"),
 		"#"+container.attr("id"))
 	.done(attachHandlersToForms);
+}
+
+function autoexpand(event) {
+	// event.target is the input element
+	event.target.style = "";
+	event.target.size = event.target.value.length;
 }
 
 function editInPlace() {
@@ -259,8 +267,8 @@ function editInPlace() {
 			let value = htmlEscape($(this).text());
 			$(this).replaceWith('<input class="input" type="text" '+
 				'name="'+name+'" value="'+value+'" '+
-				'style="width:'+($(this).width()+30)+'px">');
-		}
+				'style="width:'+($(this).width()+30)+'px" onkeyup="autoexpand(event)">');
+		} 
 	});
 	// replace the "edit" button with two "accept" and "cancel" buttons
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
@@ -269,7 +277,9 @@ function editInPlace() {
 	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let body = $(container).find("input").serialize();
-		console.log(body);
+		$(container).find("input:checkbox:not(:checked)").each(function(index){
+			body += "&" + $(this).attr('name') + "=0";
+		});
 		$(event.currentTarget).addClass("is-loading");
 		$(container).find("button.cancel").prop("disabled","disabled");
 		AJAXwithRefresh(container, action, "PUT", body)

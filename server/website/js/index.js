@@ -464,7 +464,7 @@ function iprangesPage() {
 }
 
 function keysPage() {
-	APIcall("/mockapi/keys.json", "keyspage", "div#pageContent")
+	APIcall("/api/v0/keys?fields=key,comment,filter,readonly,expires,ipranges", "keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
 	});

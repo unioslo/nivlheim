@@ -4,6 +4,8 @@
 		<div class="columns">
 			<div class="column">
 				<table class="table is-transparent is-hoverable">
+					{{#each .}}
+					{{#if @first}}
 					<tr>
 						<th>Key</th>
 						<th>Comment</th>
@@ -12,14 +14,14 @@
 						<th>Expires</th>
 						<th>ACL</th>
 					</tr>
-					{{#each apikeys}}
+					{{/if}}
 					<tr data-edit-action="/api/v0/keys/{{key}}">
-						<td>{{key}}</td>
+						<td><span class="all-copy">{{key}}</span></td>
 						<td><span data-name="comment">{{comment}}</span></td>
 						<td><span data-name="filter">{{filter}}</span></td>
 						<td>
 							<label class="checkbox">
-								<input type="checkbox" name="readonly" data-name="readonly"
+								<input type="checkbox" name="readonly" data-name="readonly" value="1"
 									{{#if readonly}}checked{{/if}} disabled>
 							</label>
 						</td>
@@ -42,26 +44,20 @@
 					</tr>
 					{{/each}}
 				</table>
+				<h1 class="title is-5">Generate a new key</h1>
 				<div>
+					<form action="/api/v0/keys" method="post">
 					<table>
-						<tr><th>Key</th><td>lasjkdlasjkd</td></tr>
 						<tr><th>Comment</th><td><input type="text" name="comment" size="80"></td></tr>
 						<tr><th>Filter</th><td><input type="text" name="filter" size="80"></td></tr>
-						<tr><td></td><td>
-							<div class="field is-grouped">
-								<p class="control">
-									<button class="button is-primary">
-										<i class="far fa-edit"></i> Save
-									</button>
-								</p>
-								<p class="control">
-									<button class="button">
-										<i class="fas fa-ban"></i> Cancel
-									</button>
-								</p>
-							</div>
+						<tr><th>Readonly</th><td>
+							<label class="checkbox">
+								<input type="checkbox" class="checkbox" name="readonly" value="1" checked>
+							</label>
 						</td></tr>
+						<tr><td></td><td><input type="submit" class="button is-primary" value="Save"></td></tr>
 					</table>
+					</form>
 				</div>
 			</div>
 		</div>
