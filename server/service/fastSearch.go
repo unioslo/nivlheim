@@ -6,6 +6,7 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -13,7 +14,7 @@ var fsMutex sync.RWMutex
 var fsContent map[int64]string
 var fsID map[string]int64
 var fsKey map[int64]string
-var fsReady bool
+var fsReady uint32
 
 func init() {
 	fsContent = make(map[int64]string)
@@ -22,7 +23,8 @@ func init() {
 }
 
 func isReadyForSearch() bool {
-	return fsReady
+	i := atomic.LoadUint32(&fsReady)
+	return i == 1
 }
 
 func loadContentForFastSearch(db *sql.DB) {
@@ -46,7 +48,7 @@ func loadContentForFastSearch(db *sql.DB) {
 		addFileToFastSearch(fileID, certfp.String, filename.String, content.String)
 	}
 	log.Printf("Finished loading file content for fast search")
-	fsReady = true
+	atomic.StoreUint32(&fsReady, 1)
 	// trigger the job
 	triggerJob(compareSearchCacheJob{})
 }
@@ -73,7 +75,7 @@ func removeFileFromFastSearch(fileID int64) {
 
 func numberOfFilesInFastSearch() int {
 	// Don't want to return a count if the cache isn't fully loaded yet, it would be misleading
-	if !fsReady {
+	if !isReadyForSearch() {
 		return -1
 	}
 	fsMutex.RLock()
@@ -82,6 +84,10 @@ func numberOfFilesInFastSearch() int {
 }
 
 func compareSearchCacheToDB(db *sql.DB) {
+	// No point in doing this until the cache has been initially populated
+	if !isReadyForSearch() {
+		return
+	}
 	// read a list of "current" file IDs from the database
 	source := make(map[int64]bool, 10000)
 	rows, err := db.Query("SELECT fileid FROM files WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
