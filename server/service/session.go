@@ -163,6 +163,6 @@ func (job cleanupSessionsJob) Run(db *sql.DB) {
 		if time.Since(sPtr.lastUsed) > time.Duration(8)*time.Hour {
 			delete(sessions, id)
 		}
-		sPtr.mutex.Unlock()
+		sPtr.mutex.RUnlock()
 	}
 }
