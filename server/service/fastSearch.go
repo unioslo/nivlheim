@@ -26,8 +26,6 @@ func isReadyForSearch() bool {
 }
 
 func loadContentForFastSearch(db *sql.DB) {
-	fsMutex.Lock()
-	defer fsMutex.Unlock()
 	log.Printf("Starting to load file content for fast search")
 	rows, err := db.Query("SELECT fileid,filename,certfp,content FROM files " +
 		"WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
@@ -45,10 +43,7 @@ func loadContentForFastSearch(db *sql.DB) {
 		if !certfp.Valid || !filename.Valid || !content.Valid {
 			continue
 		}
-		fsContent[fileID] = strings.ToLower(content.String)
-		key := certfp.String + ":" + filename.String
-		fsID[key] = fileID
-		fsKey[fileID] = key
+		addFileToFastSearch(fileID, certfp.String, filename.String, content.String)
 	}
 	log.Printf("Finished loading file content for fast search")
 	fsReady = true
@@ -57,21 +52,15 @@ func loadContentForFastSearch(db *sql.DB) {
 }
 
 func addFileToFastSearch(fileID int64, certfp string, filename string, content string) {
-	if !fsReady {
-		return
-	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
-	fsContent[fileID] = content
+	fsContent[fileID] = strings.ToLower(content)
 	key := certfp + ":" + filename
 	fsID[key] = fileID
 	fsKey[fileID] = key
 }
 
 func removeFileFromFastSearch(fileID int64) {
-	if !fsReady {
-		return
-	}
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
 	delete(fsContent, fileID)
@@ -83,6 +72,7 @@ func removeFileFromFastSearch(fileID int64) {
 }
 
 func numberOfFilesInFastSearch() int {
+	// Don't want to return a count if the cache isn't fully loaded yet, it would be misleading
 	if !fsReady {
 		return -1
 	}
@@ -111,28 +101,28 @@ func compareSearchCacheToDB(db *sql.DB) {
 		log.Panic(rows.Err())
 	}
 	// find entries in the cache that should have been removed
-	fsMutex.Lock()
-	defer fsMutex.Unlock()
-	var obsoleteCount int
+	obsolete := make([]int64, 0, 128)
+	fsMutex.RLock()
 	for fileID := range fsKey {
 		if _, ok := source[fileID]; !ok {
-			obsoleteCount++
-			// fix it by removing the obsolete entry
-			delete(fsContent, fileID)
-			key, ok := fsKey[fileID]
-			if ok {
-				delete(fsID, key)
-			}
-			delete(fsKey, fileID)
+			obsolete = append(obsolete, fileID)
 		}
 	}
-	if obsoleteCount > 0 {
-		log.Printf("The search cache had %d files that were obsolete", obsoleteCount)
+	fsMutex.RUnlock()
+	// fix it by removing the obsolete entries
+	for _, fileID := range obsolete {
+		removeFileFromFastSearch(fileID)
+	}
+	if len(obsolete) > 0 {
+		log.Printf("The search cache had %d files that were obsolete", len(obsolete))
 	}
 	// find missing entries
 	var missingCount int
 	for fileID := range source {
-		if _, ok := fsKey[fileID]; !ok {
+		fsMutex.RLock()
+		_, ok := fsKey[fileID]
+		fsMutex.RUnlock()
+		if !ok {
 			missingCount++
 			// fix it by loading the missing entry
 			var filename, certfp, content sql.NullString
@@ -147,10 +137,7 @@ func compareSearchCacheToDB(db *sql.DB) {
 			if !certfp.Valid || !filename.Valid || !content.Valid {
 				continue
 			}
-			fsContent[fileID] = strings.ToLower(content.String)
-			key := certfp.String + ":" + filename.String
-			fsID[key] = fileID
-			fsKey[fileID] = key
+			addFileToFastSearch(fileID, certfp.String, filename.String, content.String)
 		}
 	}
 	if missingCount > 0 {
@@ -166,7 +153,6 @@ func (a hitList) Less(i, j int) bool { return a[i] > a[j] } // reverse sort
 
 func searchFiles(searchString string) []int64 {
 	fsMutex.RLock()
-	defer fsMutex.RUnlock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
 	for id, content := range fsContent {
@@ -174,6 +160,7 @@ func searchFiles(searchString string) []int64 {
 			hits = append(hits, id)
 		}
 	}
+	fsMutex.RUnlock()
 	// The result list must be in the same order every time for pagination to work.
 	// The hits are reverse sorted so the newest files will show first.
 	sort.Sort(hits)
@@ -182,7 +169,6 @@ func searchFiles(searchString string) []int64 {
 
 func searchFilesWithFilter(searchString string, ap *AccessProfile) []int64 {
 	fsMutex.RLock()
-	defer fsMutex.RUnlock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
 	for key, id := range fsID {
@@ -196,6 +182,7 @@ func searchFilesWithFilter(searchString string, ap *AccessProfile) []int64 {
 			}
 		}
 	}
+	fsMutex.RUnlock()
 	// The result list must be in the same order every time for pagination to work.
 	// The hits are reverse sorted so the newest files will show first.
 	sort.Sort(hits)
