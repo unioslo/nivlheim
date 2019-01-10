@@ -38,7 +38,7 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 		}
 		days := int(days64.Int64)
 		if days >= deleteDayLimit {
-			err = utility.RunInTransaction(db, []string{
+			err = utility.RunStatementsInTransaction(db, []string{
 				"DELETE FROM hostinfo WHERE certfp=$1",
 				"DELETE FROM files WHERE certfp=$1",
 			}, certfp)
@@ -48,7 +48,7 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 				dcount++
 			}
 		} else if days >= archiveDayLimit {
-			err = utility.RunInTransaction(db, []string{
+			err = utility.RunStatementsInTransaction(db, []string{
 				"UPDATE files SET current=false WHERE certfp=$1",
 				"DELETE FROM hostinfo WHERE certfp=$1",
 			}, certfp)

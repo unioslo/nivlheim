@@ -52,40 +52,38 @@ func GetString(v interface{}, path string) string {
 	return fmt.Sprintf("%v", v)
 }
 
-func RunInTransaction(db *sql.DB, statements []string, args ...interface{}) error {
-	var tx *sql.Tx
-	var hasCommitted bool
-	var err error
+// RunInTransaction runs the given function inside a database transaction.
+// Does rollback if the function returns an error or panics.
+// Otherwise, does commit.
+func RunInTransaction(db *sql.DB, txFunc func(*sql.Tx) error) (err error) {
+	tx, err := db.Begin()
+	if err != nil {
+		return err
+	}
 	defer func() {
-		if r := recover(); r != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-			panic(r)
+		if p := recover(); p != nil {
+			tx.Rollback()
+			panic(p) // re-throw panic after Rollback
 		} else if err != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-		} else if !hasCommitted {
-			if tx != nil {
-				tx.Rollback()
-			}
+			tx.Rollback() // err is non-nil; don't change it
+		} else {
+			err = tx.Commit() // err is nil; if Commit returns error update err
 		}
 	}()
-	tx, err = db.Begin()
-	if err != nil {
-		return err
-	}
-	for _, st := range statements {
-		_, err = tx.Exec(st, args...)
-		if err != nil {
-			return err
-		}
-	}
-	err = tx.Commit()
-	if err != nil {
-		return err
-	}
-	hasCommitted = true
+	err = txFunc(tx)
 	return err
+}
+
+// RunStatementsInTransaction runs all the given statements inside a database transaction.
+// If a statement fails, the transaction is rolled back.
+// That way either all of them take effect or none of them do.
+func RunStatementsInTransaction(db *sql.DB, statements []string, args ...interface{}) error {
+	return RunInTransaction(db, func(tx *sql.Tx) error {
+		for _, st := range statements {
+			if _, err := tx.Exec(st, args...); err != nil {
+				return err
+			}
+		}
+		return nil
+	})
 }
