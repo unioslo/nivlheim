@@ -101,7 +101,7 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 // returnJSON marshals the given object and writes it as the response,
 // and also sets the proper Content-Type header.
 // Remember to return after calling this function.
-func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
+func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}, statusOptional ...int) {
 	bytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -109,6 +109,9 @@ func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
 		return
 	}
 	bytes = append(bytes, 0xA) // end with a line feed, because I'm a nice person
+	if len(statusOptional) > 0 {
+		w.WriteHeader(statusOptional[0])
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(bytes)
 }
@@ -368,6 +371,13 @@ func QueryList(db *sql.DB, statement string, args ...interface{}) ([]map[string]
 			return nil, err
 		}
 
+		// Convert byte array types to strings
+		for i := range columns {
+			if b, ok := columns[i].([]byte); ok {
+				columns[i] = string(b)
+			}
+		}
+
 		// Create our map, and retrieve the value for each column from the pointers slice,
 		// storing it in the map with the name of the column as the key.
 		m := make(map[string]interface{})
@@ -398,6 +408,9 @@ func QueryColumn(db *sql.DB, statement string, args ...interface{}) ([]interface
 		var v interface{}
 		if err := rows.Scan(&v); err != nil {
 			return nil, err
+		}
+		if b, ok := v.([]byte); ok {
+			v = string(b)
 		}
 		result = append(result, v)
 	}

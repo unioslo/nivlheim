@@ -197,6 +197,24 @@ func TestKeyCRUD(t *testing.T) {
 			methodAndPath: "GET /api/v0/keys/123?fields=comment,filter,readonly,expires",
 			expectStatus:  http.StatusNotFound,
 		},
+		// update the key with some ip ranges. Also tests that short date format is allowed.
+		{
+			methodAndPath: "PUT /api/v0/keys/" + key,
+			body:          "ipranges=192.168.1.0/24,172.16.0.0/20&comment=gep&expires=2019-12-13",
+			expectStatus:  http.StatusNoContent,
+		},
+		// try to update a non-existent key
+		{
+			methodAndPath: "PUT /api/v0/keys/nonexistent",
+			body:          "comment=foo",
+			expectStatus:  http.StatusNotFound,
+		},
+		// read the key, verify the ip ranges
+		{
+			methodAndPath: "GET /api/v0/keys/" + key + "?fields=ipranges,comment",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"ipranges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"],\"comment\":\"gep\"}",
+		},
 		// delete the key
 		{
 			methodAndPath: "DELETE /api/v0/keys/" + key,
@@ -212,6 +230,30 @@ func TestKeyCRUD(t *testing.T) {
 			methodAndPath: "GET /api/v0/keys?fields=key,readonly",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[]",
+		},
+		// create a new key with some ip ranges
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "ipranges=192.168.1.0/24,172.16.0.0/20",
+			expectStatus:  http.StatusCreated,
+		},
+		// read it back
+		{
+			methodAndPath: "GET /api/v0/keys?fields=ipranges",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"ipranges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"]}]",
+		},
+		// create a new key with invalid ip ranges
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "ipranges=192.168.1.3/24",
+			expectStatus:  http.StatusBadRequest,
+		},
+		// create a new key with invalid ip ranges
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "ipranges=192.168.345.765/32",
+			expectStatus:  http.StatusBadRequest,
 		},
 	}
 	testAPIcalls(t, muxer, tests)
