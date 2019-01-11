@@ -2,12 +2,14 @@ package main
 
 import (
 	"database/sql"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
 type handleDNSchangesJob struct{}
@@ -52,50 +54,34 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 		log.Panic(err)
 	}
 	rows.Close()
-
-	var tx *sql.Tx
-	defer func() {
-		if r := recover(); r != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-			panic(r)
-		} else if err != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-			log.Println(err)
-		}
-	}()
 	for _, m := range list {
-		tx, err := db.Begin()
-		if err != nil {
-			log.Panic(err)
-		}
-		var hostname string
-		hostname, err = nameMachine(tx, m.ipaddr.String, m.osHostname.String,
-			m.certfp.String, m.lastseen.Time)
-		if err != nil {
-			log.Panic(err)
-		}
-		if hostname == "" {
-			tx.Rollback()
-			continue
-		}
-		_, err = tx.Exec("DELETE FROM hostinfo WHERE hostname=$1 AND certfp!=$2",
-			hostname, m.certfp.String)
-		if err != nil {
-			log.Panic(err)
-		}
-		_, err = tx.Exec("UPDATE hostinfo SET hostname=$1, dnsttl=now()+interval'1h' "+
-			"WHERE certfp=$2", hostname, m.certfp.String)
-		if err != nil {
-			log.Printf("Trying to set hostname=\"%s\" for cert %s",
+		err = utility.RunInTransaction(db, func(tx *sql.Tx) error {
+			var hostname string
+			hostname, err = nameMachine(tx, m.ipaddr.String, m.osHostname.String,
+				m.certfp.String, m.lastseen.Time)
+			if err != nil {
+				log.Panic(err)
+			}
+			if hostname == "" {
+				return errors.New("Failed to name " + m.osHostname.String + " (" + m.ipaddr.String + ")")
+			}
+			_, err = tx.Exec("DELETE FROM hostinfo WHERE hostname=$1 AND certfp!=$2",
 				hostname, m.certfp.String)
-			log.Panic(err)
+			if err != nil {
+				log.Panic(err)
+			}
+			_, err = tx.Exec("UPDATE hostinfo SET hostname=$1, dnsttl=now()+interval'1h' "+
+				"WHERE certfp=$2", hostname, m.certfp.String)
+			if err != nil {
+				log.Printf("Trying to set hostname=\"%s\" for cert %s",
+					hostname, m.certfp.String)
+				log.Panic(err)
+			}
+			return nil
+		})
+		if err != nil {
+			log.Print(err)
 		}
-		tx.Commit()
-		tx = nil
 	}
 }
 

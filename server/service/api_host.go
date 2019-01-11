@@ -2,11 +2,11 @@ package main
 
 import (
 	"database/sql"
-	"log"
 	"net/http"
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
 type apiMethodHost struct {
@@ -252,68 +252,44 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 		http.Error(w, "Missing a hostname or certfp parameter", http.StatusUnprocessableEntity)
 		return
 	}
-	var tx *sql.Tx
-	var hasCommitted bool
-	var err error
-	defer func() {
-		if r := recover(); r != nil {
-			if tx != nil {
-				tx.Rollback()
+	err := utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
+		if certfp == "" {
+			var nullstr sql.NullString
+			err := tx.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
+				hostname).Scan(&nullstr)
+			if err != nil {
+				return err
 			}
-			panic(r)
-		} else if err != nil {
-			if tx != nil {
-				tx.Rollback()
-			}
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Println(err)
-		} else if !hasCommitted {
-			if tx != nil {
-				tx.Rollback()
-			}
+			certfp = nullstr.String
 		}
-	}()
-	tx, err = vars.db.Begin()
-	if err != nil {
-		return
-	}
-	if certfp == "" {
-		var nullstr sql.NullString
-		err = tx.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
-			hostname).Scan(&nullstr)
+		if certfp == "" {
+			http.Error(w, "Hostname or certificate not found", http.StatusNotFound)
+			return nil
+		}
+		if !access.HasAccessTo(certfp) {
+			http.Error(w, "Access denied", http.StatusForbidden)
+			return nil
+		}
+		_, err := tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
 		if err != nil {
-			return
+			return err
 		}
-		certfp = nullstr.String
-	}
-	if certfp == "" {
-		http.Error(w, err.Error(), http.StatusNotFound)
-		return
-	}
-	if !access.HasAccessTo(certfp) {
-		http.Error(w, "Access denied", http.StatusForbidden)
-		return
-	}
-	_, err = tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
+		res, err := tx.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
+		if err != nil {
+			return err
+		}
+		rowcount, err := res.RowsAffected()
+		if err != nil {
+			return err
+		}
+		if rowcount == 0 {
+			http.Error(w, "Host not found", http.StatusNotFound) // 404
+		} else {
+			http.Error(w, "", http.StatusNoContent) // 204 OK
+		}
+		return nil
+	})
 	if err != nil {
-		return
-	}
-	res, err := tx.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
-	if err != nil {
-		return
-	}
-	rowcount, err := res.RowsAffected()
-	if err != nil {
-		return
-	}
-	err = tx.Commit()
-	if err != nil {
-		return
-	}
-	hasCommitted = true
-	if rowcount == 0 {
-		http.Error(w, "Host not found", http.StatusNotFound) // 404
-	} else {
-		http.Error(w, "", http.StatusNoContent) // 204 OK
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
 }
