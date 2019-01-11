@@ -259,8 +259,11 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 	if req.FormValue("ipranges") != "" {
 		// split the iprange list on any combination of commas and all types of whitespace
 		ar := regexp.MustCompile("[\\s\\,]+").Split(req.FormValue("ipranges"), -1)
-		params.ipranges = make([]net.IPNet, len(ar))
-		for i, s := range ar {
+		params.ipranges = make([]net.IPNet, 0, len(ar))
+		for _, s := range ar {
+			if len(s) == 0 {
+				continue
+			}
 			// try to parse each entry
 			ip, ipnet, err := net.ParseCIDR(s)
 			if err != nil {
@@ -271,7 +274,7 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 				paramErrors["ipranges"] = fmt.Sprintf("The ip address can't have bits set "+
 					"to the right side of the netmask. Try %v\"}", ipnet.IP)
 			}
-			params.ipranges[i] = *ipnet
+			params.ipranges = append(params.ipranges, *ipnet)
 		}
 	}
 	r := req.FormValue("readonly")
