@@ -4,7 +4,11 @@ $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
 		let t = moment(s);
-		let str = t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
+		let format = 'D MMM Y HH:mm';
+		if (Math.abs(t.diff(new Date(), 'days')) > 30) {
+			format = 'D MMM Y'; // omit the time of day
+		}
+		let str = t.fromNow() + ' (' + t.format(format) + ')';
 		str = Handlebars.Utils.escapeExpression(str);
 		if (t.isAfter(moment().subtract(1,'days'))) {
 			return str;
@@ -84,6 +88,7 @@ $(document).ready(function(){
 		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
 		'/keys': keysPage,
+		'/keys/:keyid': keyEditPage,
 		'/': showFrontPage
 	};
 
@@ -105,6 +110,7 @@ $(document).ready(function(){
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 	router.param('page', /(\d+)/);
+	router.param('keyid', /([0-9A-Fa-f\\-_]{32})/);
 
 	router.init('/');
 
@@ -464,7 +470,21 @@ function iprangesPage() {
 }
 
 function keysPage() {
-	APIcall("/api/v0/keys?fields=key,comment,filter,readonly,expires,ipranges", "keyspage", "div#pageContent")
+	APIcall("/api/v0/keys?fields=key,comment,filter,readonly,expires,ipranges",
+		"keyspage", "div#pageContent")
+	.done(function(){
+		attachHandlersToForms();
+	});
+}
+
+function keyEditPage(keyid) {
+	APIcall("/api/v0/keys/"+keyid+"?fields=key,comment,filter,readonly,expires,ipranges", 
+		"keyeditpage", "div#pageContent", function(obj){
+			// Only show the expiry date, not the whole timestamp
+			if (obj["expires"] && obj["expires"].length>10)
+				obj["expires"] = obj["expires"].substr(0,10);
+			return obj;
+		})
 	.done(function(){
 		attachHandlersToForms();
 	});

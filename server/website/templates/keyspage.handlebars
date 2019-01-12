@@ -13,15 +13,16 @@
 						<th>Readonly</th>
 						<th>Expires</th>
 						<th>ACL</th>
+						<th colspan="2"><!-- edit and delete buttons --></th>
 					</tr>
 					{{/if}}
 					<tr data-edit-action="/api/v0/keys/{{key}}">
-						<td><span class="all-copy">{{key}}</span></td>
-						<td><span data-name="comment">{{comment}}</span></td>
-						<td><span data-name="filter">{{filter}}</span></td>
+						<td><span data-name="name" class="all-copy">{{key}}</span></td>
+						<td>{{comment}}</td>
+						<td>{{filter}}</td>
 						<td>
 							<label class="checkbox">
-								<input type="checkbox" name="readonly" data-name="readonly" value="1"
+								<input type="checkbox" name="readonly" value="1"
 									{{#if readonly}}checked{{/if}} disabled>
 							</label>
 						</td>
@@ -32,9 +33,9 @@
 							{{/each}}
 						</td>
 						<td>
-							<button class="button editbutton">
+							<a class="button" href="/#/keys/{{key}}">
 								<i class="far fa-edit"></i>
-							</button>
+							</a>
 						</td>
 						<td>
 							<button class="button deletebutton">
@@ -44,21 +45,62 @@
 					</tr>
 					{{/each}}
 				</table>
-				<h1 class="title is-5">Generate a new key</h1>
-				<div>
-					<form action="/api/v0/keys" method="post">
-					<table>
-						<tr><th>Comment</th><td><input type="text" name="comment" size="80"></td></tr>
-						<tr><th>Filter</th><td><input type="text" name="filter" size="80"></td></tr>
-						<tr><th>Readonly</th><td>
-							<label class="checkbox">
-								<input type="checkbox" class="checkbox" name="readonly" value="1" checked>
+			</div>
+		</div>
+		<div class="columns">
+			<div class="column is-narrow">
+				<h1 class="title is-5" id="formtitle">Generate a new key</h1>
+				<form action="/api/v0/keys" method="post" id="keyform">
+					<div class="field">
+						<label class="label">Comment or description</label>
+						<div class="control">
+							<input class="input" name="comment" size="60"
+								type="text" placeholder="Comment...">
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Can the key be used to modify data?</label>
+						<div class="control">
+							<label class="radio">
+								<input type="radio" name="readonly" value="1" checked>
+								Read only
 							</label>
-						</td></tr>
-						<tr><td></td><td><input type="submit" class="button is-primary" value="Save"></td></tr>
-					</table>
-					</form>
-				</div>
+							<label class="radio">
+								<input type="radio" name="readonly" value="0">
+								Can modify data
+							</label>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Restrict which hosts the key applies to</label>
+						<div class="control">
+							<input class="input" type="text" name="filter" size="60"
+								placeholder="hostname=*.acme.com">
+							<span data-error-for="filter" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Expiry date</label>
+						<div class="control">
+							<input class="input" type="text" name="expires" size="20" 
+									placeholder="YYYY-MM-DD" pattern="\d\d\d\d-[01]\d-[0-3]\d">
+							<span data-error-for="expires" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Whitelist the ip ranges the key can be used from</label>
+						<div class="control">
+							<textarea name="ipranges" class="textarea" placeholder="172.16.0.0/20
+123.134.145.0/24"></textarea>
+							<span data-error-for="ipranges" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<div class="control">
+							<input type="submit" class="button is-primary" value="Save">
+						</div>
+					</div>
+				</form>
 			</div>
 		</div>
 	</div>

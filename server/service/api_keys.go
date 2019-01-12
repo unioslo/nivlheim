@@ -240,6 +240,10 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 	if req.FormValue("filter") != "" {
 		params.filter.String = req.FormValue("filter")
 		params.filter.Valid = true
+		_, _, err := buildSQLWhere(req.FormValue("filter"), nil)
+		if err != nil {
+			paramErrors["filter"] = err.message
+		}
 	}
 	if req.FormValue("expires") != "" {
 		// First, try the full RFC3339 format
@@ -248,7 +252,7 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 			// Plan B: try just YYYY-MM-DD
 			tm, err = time.Parse("2006-01-02", req.FormValue("expires"))
 			if err != nil {
-				paramErrors["expires"] = "Unable to parse the time as either RFC3339 or yyyy-mm-dd"
+				paramErrors["expires"] = "Unable to parse the time as RFC3339 or yyyy-mm-dd"
 			}
 		}
 		if !tm.IsZero() {
