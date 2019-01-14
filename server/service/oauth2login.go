@@ -69,7 +69,7 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 	// State is a token to protect the user from CSRF attacks.
 	// You must always provide a non-empty string and validate that it
 	// matches the the state query parameter on your redirect callback.
-	session.Oauth2State = randomStringID()
+	session.Oauth2State = utility.RandomStringID()
 
 	// Redirect user to consent page to ask for permission
 	// for the scopes specified above in the config.

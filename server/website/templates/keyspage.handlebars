@@ -16,7 +16,7 @@
 						<th colspan="2"><!-- edit and delete buttons --></th>
 					</tr>
 					{{/if}}
-					<tr data-edit-action="/api/v0/keys/{{key}}">
+					<tr data-edit-action="/api/v0/keys/{{keyID}}">
 						<td><span data-name="name" class="all-copy">{{key}}</span></td>
 						<td>{{comment}}</td>
 						<td>{{filter}}</td>
@@ -28,12 +28,12 @@
 						</td>
 						<td>{{formatDateTime expires}}</td>
 						<td>
-							{{#each ipranges}}
+							{{#each ipRanges}}
 							{{this}}
 							{{/each}}
 						</td>
 						<td>
-							<a class="button" href="/#/keys/{{key}}">
+							<a class="button" href="/#/keys/{{keyID}}">
 								<i class="far fa-edit"></i>
 							</a>
 						</td>
@@ -90,9 +90,9 @@
 					<div class="field">
 						<label class="label">Whitelist the ip ranges the key can be used from</label>
 						<div class="control">
-							<textarea name="ipranges" class="textarea" placeholder="172.16.0.0/20
+							<textarea name="ipRanges" class="textarea" placeholder="172.16.0.0/20
 123.134.145.0/24"></textarea>
-							<span data-error-for="ipranges" class="has-text-danger"></span>
+							<span data-error-for="ipRanges" class="has-text-danger"></span>
 						</div>
 					</div>
 					<div class="field">
@@ -101,6 +101,23 @@
 						</div>
 					</div>
 				</form>
+			</div>
+			<div class="column is-narrow">
+				<nav class="level">
+					<div class="level-left">
+						<div class="level-item">
+							<i class="fa fa-info-circle fa-2x"></i>
+						</div>
+						<div class="level-item">
+							<h3 class="title is-5">How to use</h3>
+						</div>
+					</div>
+				</nav>
+				Use the <i>Authorization</i> http header:
+				<div class="code">
+				curl -H "Authorization: APIKEY your-api-key-here" \<br>
+				"http://nivlheim.example.com/api/v1/..."
+				</div>
 			</div>
 		</div>
 	</div>

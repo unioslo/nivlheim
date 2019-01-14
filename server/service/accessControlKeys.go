@@ -55,12 +55,13 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	}
 
 	// 1. Read the entry from the database table
+	var keyID int
 	var ownerid, filter sql.NullString
 	var expires pq.NullTime
 	var readonly sql.NullBool
-	err := db.QueryRow("SELECT ownerid, expires, readonly, filter "+
+	err := db.QueryRow("SELECT keyid, ownerid, expires, readonly, filter "+
 		"FROM apikeys WHERE key=$1", key.String()).
-		Scan(&ownerid, &expires, &readonly, &filter)
+		Scan(&keyID, &ownerid, &expires, &readonly, &filter)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
@@ -111,7 +112,7 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	if expires.Valid {
 		ap.expires = expires.Time
 	}
-	rows, err := db.Query("SELECT iprange FROM apikey_ips WHERE key=$1", key.String())
+	rows, err := db.Query("SELECT iprange FROM apikey_ips WHERE keyID=$1", keyID)
 	if err != nil {
 		return nil, err
 	}

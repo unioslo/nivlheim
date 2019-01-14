@@ -4,7 +4,7 @@
 		<div class="columns">
 			<div class="column is-narrow">
             	<h1 class="title is-5" id="formtitle">Modify key</h1>
-				<form action="/api/v0/keys/{{key}}" data-method="put" data-proceedto="/#/keys">
+				<form action="/api/v0/keys/{{keyID}}" data-method="put" data-proceedto="/#/keys">
 					<div class="field">
 						<label class="label">Key</label>
 						<span data-name="name" class="all-copy">{{key}}</span>
@@ -49,13 +49,10 @@
 					<div class="field">
 						<label class="label">Whitelist the ip ranges the key can be used from</label>
 						<div class="control">
-							<textarea name="ipranges" class="textarea" placeholder="172.16.0.0/20
-123.134.145.0/24">
-{{#each ipranges}}
-{{this}}
-{{/each}}
-							</textarea>
-							<span data-error-for="ipranges" class="has-text-danger"></span>
+							<textarea name="ipRanges" class="textarea" placeholder="172.16.0.0/20
+123.134.145.0/24">{{#each ipRanges}}{{this}}
+{{/each}}</textarea>
+							<span data-error-for="ipRanges" class="has-text-danger"></span>
 						</div>
 					</div>
 					<div class="field">

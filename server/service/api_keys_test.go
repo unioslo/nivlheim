@@ -61,8 +61,10 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 		"INSERT INTO apikeys(key,ownerid,expires,readonly,filter) " +
 			"VALUES('1000','foo',now()+interval '10 minutes',true,'')," +
 			"      ('1001','foo',now()+interval '10 minutes',false,'osEdition=server')",
-		"INSERT INTO apikey_ips(key,iprange) VALUES('1000','192.168.0.0/24')," +
-			"('1000','123.123.0.0/16'),('1001','50.50.50.64/26')",
+		"INSERT INTO apikey_ips(keyid,iprange) VALUES " +
+			"((SELECT keyid FROM apikeys WHERE key='1000'),'192.168.0.0/24')," +
+			"((SELECT keyid FROM apikeys WHERE key='1000'),'123.123.0.0/16')," +
+			"((SELECT keyid FROM apikeys WHERE key='1001'),'50.50.50.64/26')",
 		"INSERT INTO hostinfo(certfp,hostname,os_edition) " +
 			"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','server')," +
 			"      ('3333','nobody.example.com','server')",
@@ -166,8 +168,8 @@ func TestKeyCRUD(t *testing.T) {
 	testAPIcalls(t, muxer, tests)
 
 	// get the key id
-	var key string
-	err := db.QueryRow("SELECT key FROM apikeys LIMIT 1").Scan(&key)
+	var keyID string
+	err := db.QueryRow("SELECT keyid FROM apikeys LIMIT 1").Scan(&keyID)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -176,19 +178,19 @@ func TestKeyCRUD(t *testing.T) {
 	tests = []apiCall{
 		// read the key list
 		{
-			methodAndPath: "GET /api/v0/keys?fields=key,readonly",
+			methodAndPath: "GET /api/v0/keys?fields=keyID,readonly",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "[{\"key\":\"" + key + "\",\"readonly\":true}]",
+			expectJSON:    "[{\"keyID\":" + keyID + ",\"readonly\":true}]",
 		},
 		// update a key
 		{
-			methodAndPath: "PUT /api/v0/keys/" + key,
+			methodAndPath: "PUT /api/v0/keys/" + keyID,
 			body:          "comment=foo&filter=hostname%3Da%2A&expires=2020-12-24T18:00:00%2B01:00&readonly=no",
 			expectStatus:  http.StatusNoContent,
 		},
 		// read one key
 		{
-			methodAndPath: "GET /api/v0/keys/" + key + "?fields=comment,filter,readonly,expires",
+			methodAndPath: "GET /api/v0/keys/" + keyID + "?fields=comment,filter,readonly,expires",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T19:00:00+02:00\"}",
 		},
@@ -199,30 +201,30 @@ func TestKeyCRUD(t *testing.T) {
 		},
 		// update the key with some ip ranges. Also tests that short date format is allowed.
 		{
-			methodAndPath: "PUT /api/v0/keys/" + key,
+			methodAndPath: "PUT /api/v0/keys/" + keyID,
 			body:          "ipranges=192.168.1.0/24,172.16.0.0/20&comment=gep&expires=2019-12-13",
 			expectStatus:  http.StatusNoContent,
 		},
 		// try to update a non-existent key
 		{
-			methodAndPath: "PUT /api/v0/keys/nonexistent",
+			methodAndPath: "PUT /api/v0/keys/817198372",
 			body:          "comment=foo",
 			expectStatus:  http.StatusNotFound,
 		},
 		// read the key, verify the ip ranges
 		{
-			methodAndPath: "GET /api/v0/keys/" + key + "?fields=ipranges,comment",
+			methodAndPath: "GET /api/v0/keys/" + keyID + "?fields=ipranges,comment",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"ipranges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"],\"comment\":\"gep\"}",
+			expectJSON:    "{\"ipRanges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"],\"comment\":\"gep\"}",
 		},
 		// delete the key
 		{
-			methodAndPath: "DELETE /api/v0/keys/" + key,
+			methodAndPath: "DELETE /api/v0/keys/" + keyID,
 			expectStatus:  http.StatusNoContent,
 		},
 		// delete the key again (should not work)
 		{
-			methodAndPath: "DELETE /api/v0/keys/" + key,
+			methodAndPath: "DELETE /api/v0/keys/" + keyID,
 			expectStatus:  http.StatusNotFound,
 		},
 		// list the keys (now empty)
@@ -234,27 +236,101 @@ func TestKeyCRUD(t *testing.T) {
 		// create a new key with some ip ranges
 		{
 			methodAndPath: "POST /api/v0/keys",
-			body:          "ipranges=192.168.1.0/24,172.16.0.0/20",
+			body:          "ipRanges=192.168.1.0/24,172.16.0.0/20",
 			expectStatus:  http.StatusCreated,
 		},
 		// read it back
 		{
 			methodAndPath: "GET /api/v0/keys?fields=ipranges",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "[{\"ipranges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"]}]",
+			expectJSON:    "[{\"ipRanges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"]}]",
 		},
-		// create a new key with invalid ip ranges
+		// create a new key with an invalid ip range (bits set to the right of the netmask)
 		{
 			methodAndPath: "POST /api/v0/keys",
-			body:          "ipranges=192.168.1.3/24",
+			body:          "ipRanges=192.168.1.3/24",
 			expectStatus:  http.StatusBadRequest,
 		},
 		// create a new key with invalid ip ranges
 		{
 			methodAndPath: "POST /api/v0/keys",
-			body:          "ipranges=192.168.345.765/32",
+			body:          "ipRanges=192.168.345.765/32",
+			expectStatus:  http.StatusBadRequest,
+		},
+		// post garbage
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "%#)(/¤&)(#/¤&()#¤",
 			expectStatus:  http.StatusBadRequest,
 		},
 	}
+	testAPIcalls(t, muxer, tests)
+}
+
+func TestAccessToEditingAPIkeys(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+	db := getDBconnForTesting(t)
+	defer db.Close()
+
+	firstUser := AccessProfile{isAdmin: false, ownerID: "firstUser"}
+	secondUser := AccessProfile{isAdmin: false, ownerID: "secondUser"}
+
+	tests := []apiCall{
+		// create two keys for two different users
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "comment=first",
+			expectStatus:  http.StatusCreated,
+			accessProfile: &firstUser,
+		},
+		{
+			methodAndPath: "POST /api/v0/keys",
+			body:          "comment=second",
+			expectStatus:  http.StatusCreated,
+			accessProfile: &secondUser,
+		},
+		// read the key list, verify that you only see your own keys
+		{
+			methodAndPath: "GET /api/v0/keys?fields=comment",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"comment\":\"first\"}]",
+			accessProfile: &firstUser,
+		},
+		{
+			methodAndPath: "GET /api/v0/keys?fields=comment",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "[{\"comment\":\"second\"}]",
+			accessProfile: &secondUser,
+		},
+		// if you're unauthorized, you shouldn't see any of them
+		{
+			methodAndPath: "GET /api/v0/keys?fields=comment",
+			expectStatus:  http.StatusUnauthorized,
+			runAsNotAuth:  true,
+		},
+		// try to read a key you don't own
+		{
+			methodAndPath: "GET /api/v0/keys/1?fields=comment",
+			expectStatus:  http.StatusForbidden,
+			accessProfile: &secondUser,
+		},
+		// try to modify a key you don't own
+		{
+			methodAndPath: "PUT /api/v0/keys/1",
+			body:          "comment=ha-ha",
+			expectStatus:  http.StatusForbidden,
+			accessProfile: &secondUser,
+		},
+		// try to delete a key you don't own
+		{
+			methodAndPath: "DELETE /api/v0/keys/1",
+			expectStatus:  http.StatusForbidden,
+			accessProfile: &secondUser,
+		},
+	}
+	muxer := createAPImuxer(db, true)
 	testAPIcalls(t, muxer, tests)
 }

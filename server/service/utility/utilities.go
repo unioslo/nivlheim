@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"math/rand"
 	"reflect"
 	"strconv"
 	"strings"
@@ -119,4 +120,16 @@ func RunStatementsInTransaction(db *sql.DB, statements []string, args ...interfa
 		}
 		return nil
 	})
+}
+
+// RandomStringID returns a string of 32 characters,
+// Each character is from the set [A-Za-z0-9].
+func RandomStringID() string {
+	const charset = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789"
+	var b strings.Builder
+	for i := 0; i < 32; i++ {
+		j := rand.Intn(len(charset))
+		b.WriteString(charset[j : j+1])
+	}
+	return b.String()
 }

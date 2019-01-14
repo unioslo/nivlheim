@@ -28,6 +28,15 @@ div.filecontent {
 	background-color: rgba(0,0,0,0.1);
 }
 
+div.code {
+	font-family: monospace;
+	background-color: rgba(0,0,0,0.1);
+	padding-left: 3em;
+	padding-right: 3em;
+	padding-top: 0.5em;
+	padding-bottom: 0.5em;
+}
+
 div.filecontent del {
 	background-color: rgba(255,0,0,0.3);
 	text-decoration: line-through;
@@ -56,6 +65,10 @@ a.pagination-next, a.pagination-previous, a.pagination-link {
 
 span.pagination-ellipsis {
 	color: #555;
+}
+
+span.nobreak {
+	white-space: nowrap;
 }
 
 .is-not-displayed {

@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"reflect"
@@ -52,6 +53,8 @@ var devmode bool
 func main() {
 	log.SetFlags(0) // don't print a timestamp
 	devmode = len(os.Args) >= 2 && os.Args[1] == "--dev"
+	// in Go, the default random generator produces a deterministic sequence of values unless seeded
+	rand.Seed(time.Now().UnixNano())
 
 	// handle ctrl-c (SIGINT) and SIGTERM
 	var quit bool

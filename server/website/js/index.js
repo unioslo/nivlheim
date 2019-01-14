@@ -5,13 +5,14 @@ $(document).ready(function(){
 		if (!s) return "";
 		let t = moment(s);
 		let format = 'D MMM Y HH:mm';
-		if (Math.abs(t.diff(new Date(), 'days')) > 30) {
+		if (Math.abs(t.diff(new Date(), 'days')) > 7) {
 			format = 'D MMM Y'; // omit the time of day
 		}
-		let str = t.fromNow() + ' (' + t.format(format) + ')';
-		str = Handlebars.Utils.escapeExpression(str);
+		let str = '<span class="nobreak">'+t.fromNow()+'</span> '
+				+ '<span class="nobreak">(' + t.format(format) + ')</span>';
+		//str = Handlebars.Utils.escapeExpression(str);
 		if (t.isAfter(moment().subtract(1,'days'))) {
-			return str;
+			return new Handlebars.SafeString(str);
 		} else {
 			return new Handlebars.SafeString(
 				'<span class="underline-warning">'+str+'</span>');
@@ -88,7 +89,7 @@ $(document).ready(function(){
 		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
 		'/keys': keysPage,
-		'/keys/:keyid': keyEditPage,
+		'/keys/:keyId': keyEditPage,
 		'/': showFrontPage
 	};
 
@@ -110,7 +111,7 @@ $(document).ready(function(){
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 	router.param('page', /(\d+)/);
-	router.param('keyid', /([0-9A-Fa-f\\-_]{32})/);
+	router.param('keyId', /(\\d+)/);
 
 	router.init('/');
 
@@ -470,7 +471,7 @@ function iprangesPage() {
 }
 
 function keysPage() {
-	APIcall("/api/v0/keys?fields=key,comment,filter,readonly,expires,ipranges",
+	APIcall("/api/v0/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
 		"keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
@@ -478,7 +479,7 @@ function keysPage() {
 }
 
 function keyEditPage(keyid) {
-	APIcall("/api/v0/keys/"+keyid+"?fields=key,comment,filter,readonly,expires,ipranges", 
+	APIcall("/api/v0/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
 		"keyeditpage", "div#pageContent", function(obj){
 			// Only show the expiry date, not the whole timestamp
 			if (obj["expires"] && obj["expires"].length>10)

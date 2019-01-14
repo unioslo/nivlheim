@@ -3,11 +3,12 @@ package main
 import (
 	"bytes"
 	"database/sql"
-	"errors"
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -37,7 +38,7 @@ func (vars *apiMethodKeys) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// See which fields I'm supposed to return
 	fields, hErr := unpackFieldParam(req.FormValue("fields"), []string{
-		"key", "comment", "filter", "readonly", "expires", "ipranges"})
+		"keyID", "key", "comment", "filter", "readonly", "expires", "ipRanges"})
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
@@ -45,32 +46,46 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 	columns := make([]string, len(fields))
 	i := 0
 	for k := range fields {
-		if k == "ipranges" {
-			// ipranges isn't a column, but we'll need the "key" column in the SQL
+		if k == "ipRanges" {
+			// ipranges isn't a column, but we'll need the "keyid" column in the SQL
 			// to be able to select ipranges belonging to that key
-			k = "key"
+			k = "keyid"
 		}
 		columns[i] = k
 		i++
 	}
 	// read key with a specific id?
 	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
-		key := req.URL.Path[i+6:]
-		data, err := QueryList(vars.db, "SELECT "+strings.Join(columns, ",")+
-			" FROM apikeys WHERE ownerid=$1 AND key=$2", access.OwnerID(), key)
+		keyID, err := strconv.Atoi(req.URL.Path[i+6:])
+		if err != nil {
+			http.Error(w, "Invalid Key ID: "+req.URL.Path[i+6:], http.StatusBadRequest)
+			return
+		}
+		data, err := QueryList(vars.db, "SELECT ownerid,"+strings.Join(columns, ",")+
+			" FROM apikeys WHERE keyid=$1", keyID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 		} else if len(data) > 0 {
-			if fields["ipranges"] {
-				data[0]["ipranges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE key=$1", key)
+			if data[0]["ownerid"] != access.OwnerID() {
+				http.Error(w, "This isn't your key.", http.StatusForbidden)
+				return
+			}
+			delete(data[0], "ownerid")
+			if fields["ipRanges"] {
+				data[0]["ipRanges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE keyid=$1", keyID)
 				if err != nil {
 					http.Error(w, err.Error(), http.StatusInternalServerError)
 					return
 				}
-				// Remove the key column if they didn't ask for it
-				if !fields["key"] {
-					delete(data[0], "key")
+				// Remove the keyid column if they didn't ask for it
+				if !fields["keyID"] {
+					delete(data[0], "keyid")
 				}
+			}
+			// keyID should be returned with a camelCase name
+			if val, ok := data[0]["keyid"]; ok {
+				data[0]["keyID"] = val
+				delete(data[0], "keyid")
 			}
 			returnJSON(w, req, data[0])
 		} else {
@@ -85,20 +100,26 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if fields["ipranges"] {
+	if fields["ipRanges"] {
 		for i := range data {
-			data[i]["ipranges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE key=$1",
-				data[i]["key"])
+			data[i]["ipRanges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE keyid=$1",
+				data[i]["keyid"])
 			if err != nil {
 				http.Error(w, err.Error(), http.StatusInternalServerError)
 				return
 			}
 		}
 	}
-	// Remove the key column if they didn't ask for it
-	if !fields["key"] {
-		for i := range data {
-			delete(data[i], "key")
+	for i := range data {
+		if val, ok := data[0]["keyid"]; ok {
+			// Remove the keyID column if they didn't ask for it
+			if !fields["keyID"] {
+				delete(data[i], "keyid")
+			} else {
+				// keyID should be returned with a camelCase name
+				data[i]["keyID"] = val
+				delete(data[i], "keyid")
+			}
 		}
 	}
 	returnJSON(w, req, data)
@@ -113,25 +134,25 @@ type apiKeyParams struct {
 
 func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// Parse the parameters
-	p, err := vars.parseParameters(w, req)
-	if err != nil {
+	p := vars.parseParameters(w, req)
+	if p == nil {
 		return
 	}
-	// Create a new key ID
-	newkey := randomStringID()
+	var newKeyID int
 	// Start a transaction
-	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
+	err := utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		// Insert the new key
-		_, err = tx.Exec("INSERT INTO apikeys(key,ownerid,readonly,comment,filter,expires) "+
-			"VALUES($1,$2,$3,$4,$5,$6)",
-			newkey, access.OwnerID(), p.readonly, p.comment, p.filter, p.expires)
+		err := tx.QueryRow("INSERT INTO apikeys(key,ownerid,readonly,comment,filter,expires) "+
+			"VALUES($1,$2,$3,$4,$5,$6) RETURNING keyid",
+			utility.RandomStringID(), access.OwnerID(), p.readonly,
+			p.comment, p.filter, p.expires).Scan(&newKeyID)
 		if err != nil {
 			return err
 		}
 		// Insert the ip ranges
 		for _, r := range p.ipranges {
-			_, err = tx.Exec("INSERT INTO apikey_ips(key,iprange) VALUES($1,$2)",
-				newkey, r.String())
+			_, err = tx.Exec("INSERT INTO apikey_ips(keyid,iprange) VALUES($1,$2)",
+				newKeyID, r.String())
 			if err != nil {
 				return err
 			}
@@ -142,31 +163,46 @@ func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, acce
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Location", req.URL.RequestURI()+"/"+newkey)
+	w.Header().Set("Location", req.URL.RequestURI()+"/"+strconv.Itoa(newKeyID))
 	http.Error(w, "", http.StatusCreated) // 201 Created
 }
 
 func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
-	// parse the key id
-	var key string
+	// parse the key id from the URL
+	var keyID int
+	var err error
 	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
-		key = req.URL.Path[i+6:]
+		keyID, err = strconv.Atoi(req.URL.Path[i+6:])
+		if err != nil {
+			http.Error(w, "Invalid Key ID: "+req.URL.Path[i+6:], http.StatusBadRequest)
+			return
+		}
 	} else {
 		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
 		return
 	}
 	// parse the rest of the parameters
-	p, err := vars.parseParameters(w, req)
-	if err != nil {
+	p := vars.parseParameters(w, req)
+	if p == nil {
+		return
+	}
+	// Do you own the key?
+	var ownerID sql.NullString
+	err = vars.db.QueryRow("SELECT ownerid FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err != sql.ErrNoRows && ownerID.String != access.OwnerID() {
+		http.Error(w, "This isn't your key.", http.StatusForbidden)
 		return
 	}
 	// Start a transaction
 	var rows int64
 	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		// Perform the update
-		res, err := tx.Exec("UPDATE apikeys SET readonly=$3,comment=$4,filter=$5,expires=$6 "+
-			"WHERE key=$1 AND ownerid=$2",
-			key, access.OwnerID(), p.readonly, p.comment, p.filter, p.expires)
+		res, err := tx.Exec("UPDATE apikeys SET readonly=$1,comment=$2,filter=$3,expires=$4 "+
+			"WHERE keyid=$5", p.readonly, p.comment, p.filter, p.expires, keyID)
 		if err != nil {
 			return err
 		}
@@ -175,12 +211,12 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 			return err
 		}
 		// Update the ip ranges
-		_, err = tx.Exec("DELETE FROM apikey_ips WHERE key=$1", key)
+		_, err = tx.Exec("DELETE FROM apikey_ips WHERE keyid=$1", keyID)
 		if err != nil {
 			return err
 		}
 		for _, r := range p.ipranges {
-			_, err = tx.Exec("INSERT INTO apikey_ips(key,iprange) VALUES($1,$2)", key, r.String())
+			_, err = tx.Exec("INSERT INTO apikey_ips(keyid,iprange) VALUES($1,$2)", keyID, r.String())
 			if err != nil {
 				return err
 			}
@@ -201,15 +237,32 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 
 func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// parse the key id from the URL
-	var key string
+	var keyID int
+	var err error
 	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
-		key = req.URL.Path[i+6:]
+		keyID, err = strconv.Atoi(req.URL.Path[i+6:])
+		if err != nil {
+			http.Error(w, "Invalid Key ID: "+req.URL.Path[i+6:], http.StatusBadRequest)
+			return
+		}
 	} else {
 		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
 		return
 	}
+	// Do you own the key?
+	var ownerID sql.NullString
+	err = vars.db.QueryRow("SELECT ownerid FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID)
+	if err != nil && err != sql.ErrNoRows {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if err != sql.ErrNoRows && ownerID.String != access.OwnerID() {
+		http.Error(w, "This isn't your key.", http.StatusForbidden)
+		return
+	}
 	// perform the query
-	res, err := vars.db.Exec("DELETE FROM apikeys WHERE key=$1 AND ownerid=$2", key, access.OwnerID())
+	res, err := vars.db.Exec("DELETE FROM apikeys WHERE keyid=$1 AND ownerid=$2",
+		keyID, access.OwnerID())
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -227,30 +280,48 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 	}
 }
 
-func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Request) (*apiKeyParams, error) {
+func formValue(form url.Values, caseInsensitiveKey string) string {
+	for k, v := range form {
+		if strings.EqualFold(k, caseInsensitiveKey) {
+			return v[0]
+		}
+	}
+	return ""
+}
+
+func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Request) *apiKeyParams {
 	// Parse parameter values
 	// If one or more parameters have invalid values, will send an http response
 	// with a JSON object with error messages.
 	var params apiKeyParams
 	paramErrors := make(map[string]string, 0)
-	if req.FormValue("comment") != "" {
-		params.comment.String = req.FormValue("comment")
+	err := req.ParseForm()
+	if err != nil && req.ContentLength > 0 {
+		http.Error(w, fmt.Sprintf("Unable to parse the form data: %s", err.Error()),
+			http.StatusBadRequest)
+		return nil
+	}
+	comment := formValue(req.PostForm, "comment")
+	if comment != "" {
+		params.comment.String = comment
 		params.comment.Valid = true
 	}
-	if req.FormValue("filter") != "" {
-		params.filter.String = req.FormValue("filter")
+	filter := formValue(req.PostForm, "filter")
+	if filter != "" {
+		params.filter.String = filter
 		params.filter.Valid = true
-		_, _, err := buildSQLWhere(req.FormValue("filter"), nil)
+		_, _, err := buildSQLWhere(filter, nil)
 		if err != nil {
 			paramErrors["filter"] = err.message
 		}
 	}
-	if req.FormValue("expires") != "" {
+	expires := formValue(req.PostForm, "expires")
+	if expires != "" {
 		// First, try the full RFC3339 format
-		tm, err := time.Parse(time.RFC3339, req.FormValue("expires"))
+		tm, err := time.Parse(time.RFC3339, expires)
 		if err != nil {
 			// Plan B: try just YYYY-MM-DD
-			tm, err = time.Parse("2006-01-02", req.FormValue("expires"))
+			tm, err = time.Parse("2006-01-02", expires)
 			if err != nil {
 				paramErrors["expires"] = "Unable to parse the time as RFC3339 or yyyy-mm-dd"
 			}
@@ -260,9 +331,10 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 			params.expires.Valid = true
 		}
 	}
-	if req.FormValue("ipranges") != "" {
+	ipranges := formValue(req.PostForm, "ipRanges")
+	if ipranges != "" {
 		// split the iprange list on any combination of commas and all types of whitespace
-		ar := regexp.MustCompile("[\\s\\,]+").Split(req.FormValue("ipranges"), -1)
+		ar := regexp.MustCompile("[\\s\\,]+").Split(ipranges, -1)
 		params.ipranges = make([]net.IPNet, 0, len(ar))
 		for _, s := range ar {
 			if len(s) == 0 {
@@ -271,21 +343,21 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 			// try to parse each entry
 			ip, ipnet, err := net.ParseCIDR(s)
 			if err != nil {
-				paramErrors["ipranges"] = "\"" + s + "\" is incorrect, should be CIDR format"
+				paramErrors["ipRanges"] = "\"" + s + "\" is incorrect, should be CIDR format"
 				continue
 			}
 			if !bytes.Equal(ip.To16(), ipnet.IP.To16()) {
-				paramErrors["ipranges"] = fmt.Sprintf("The ip address can't have bits set "+
+				paramErrors["ipRanges"] = fmt.Sprintf("The ip address can't have bits set "+
 					"to the right side of the netmask. Try %v\"}", ipnet.IP)
 			}
 			params.ipranges = append(params.ipranges, *ipnet)
 		}
 	}
-	r := req.FormValue("readonly")
+	r := formValue(req.PostForm, "readonly")
 	params.readonly = r == "" || isTrueish(r)
 	if len(paramErrors) > 0 {
 		returnJSON(w, req, paramErrors, http.StatusBadRequest)
-		return nil, errors.New("")
+		return nil
 	}
-	return &params, nil
+	return &params
 }
