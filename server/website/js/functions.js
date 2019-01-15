@@ -75,10 +75,8 @@ function APIcall(url, templateName, domElement, transform) {
 	var deferredObj = $.Deferred();
 	$.getJSON(url, function(data){
 		try {
-			$(domElement).attr({
-				"data-api-url": origurl,
-				"data-handlebars-template": templateName
-			});
+			$(domElement).addClass("apiResultContainer");
+			$(domElement).data("apiUrl", origurl).data("handlebarsTemplate", templateName);
 			if (typeof transform == 'function') {
 				data = transform(data);
 			}
@@ -168,6 +166,7 @@ function attachHandlersToForms() {
 	$("form").submit(submitForm);
 	$(".editbutton").click(editInPlace);
 	$(".deletebutton").click(askDeleteAndRefresh);
+	$(".backbutton").click(function(){ window.history.back(); }); 
 }
 
 function submitForm(event) {
@@ -177,23 +176,29 @@ function submitForm(event) {
 	let b = $(event.target).find("input[type=submit]");
 	let oldSubmitButton = b.replaceWith(
 		'<a class="button is-loading" style="width:'+b.width()+'px">Loading</a>');
-	// Use the ACTION attribute from the FORM tag
-	let path = (new URL(this.action).pathname);
-	// use the METHOD or data-method attribute
-	let method = this.dataset["method"] || this.method;
+	// Use the ACTION or data-action attribute from the FORM tag
+	let path = $(this).data("action") || new URL(this.action).pathname;
+	// use the METHOD or data-method attribute from the FORM tag
+	let method = $(this).data("method") || this.method;
 	// Serialize the form values
 	let data = $(this).serialize();
-	// Perform the HTTP request
-	AJAXwithRefresh(event.target, path, method, data)
-	.fail(function(){
+	// Hack to send value 0 for unchecked checkboxes
+	$(this).find("input:checkbox:not(:checked)").each(function(){
+		data += "&" + $(this).attr('name') + "=0";
+	});
+	// Set up a failure handler function
+	let failureHandler = function(){
 		// The form submission failed, so the page wasn't updated.
 		// Restore the submit button, then.
 		$(event.target).find("a.button.is-loading").replaceWith(oldSubmitButton);
 		$(event.target).find("input[type=submit]").shake();
-	});
+	};
+	// Perform the HTTP request
+	let nextUrl = $(this).data("proceedto");
+	AJAXwithRefresh(event.target, path, method, data, nextUrl).fail(failureHandler);
 }
 
-function AJAXwithRefresh(domElement, urlPath, method, data) {
+function AJAXwithRefresh(domElement, urlPath, method, data, proceedTo) {
 	// Perform the HTTP request
 	return $.ajax({
 		"url": getAPIURLprefix()+urlPath,
@@ -217,23 +222,31 @@ function AJAXwithRefresh(domElement, urlPath, method, data) {
 		}
 	})
 	.done(function(data,textStatus,jqxhr){
-		// Success. Find the outer placeholder container
-		let container = $(domElement).parents("[data-api-url]");
-		if (container.length == 0) {
-			console.log("Couldn't find container to refresh.");
-			return;
+		// Success.
+		// What to do now?
+		if (proceedTo) {
+			// Redirect to the given url/path
+			window.location = proceedTo;
+		} else {
+			// Refresh part of the page.
+			// Find the outer placeholder container
+			let container = $(domElement).parents(".apiResultContainer");
+			if (container.length == 0) {
+				console.log("Couldn't find container to refresh.");
+				return;
+			}
+			// Make an API call to refresh the appropriate part of the page
+			APIcall(container.data("apiUrl"),
+				container.data("handlebarsTemplate"),
+				"#"+container.attr("id"))
+			.done(attachHandlersToForms);
 		}
-		// Make an API call to refresh the appropriate part of the page
-		APIcall(container.data("apiUrl"),
-			container.data("handlebarsTemplate"),
-			"#"+container.attr("id"))
-		.done(attachHandlersToForms);
 	});
 }
 
 function refresh(domElement) {
 	// Find the outer placeholder container
-	let container = $(domElement).parents("[data-api-url]");
+	let container = $(domElement).parents(".apiResultContainer");
 	if (container.length == 0) {
 		console.log("Couldn't find the container to refresh.");
 		return;
@@ -244,6 +257,12 @@ function refresh(domElement) {
 	.done(attachHandlersToForms);
 }
 
+function autoexpand(event) {
+	// event.target is the input element
+	event.target.style = "";
+	event.target.size = event.target.value.length;
+}
+
 function editInPlace() {
 	// this = the button that was clicked
 	let button = this;
@@ -251,11 +270,16 @@ function editInPlace() {
 	// for each text that should be converted to an input field
 	$(container).find("[data-name]").each(function(){
 		// in here, "this" is the element with the data-name attribute
-		let name = $(this).data("name");
-		let value = htmlEscape($(this).text());
-		$(this).replaceWith('<input class="input" type="text" '+
-			'name="'+name+'" value="'+value+'" '+
-			'style="width:'+($(this).width()+30)+'px">');
+		if ($(this).attr("type") == "checkbox") {
+			$(this).prop("disabled", false);
+ 		} else {
+			// text string
+			let name = $(this).data("name");
+			let value = htmlEscape($(this).text());
+			$(this).replaceWith('<input class="input" type="text" '+
+				'name="'+name+'" value="'+value+'" '+
+				'style="width:'+($(this).width()+30)+'px" onkeyup="autoexpand(event)">');
+		} 
 	});
 	// replace the "edit" button with two "accept" and "cancel" buttons
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
@@ -264,6 +288,9 @@ function editInPlace() {
 	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let body = $(container).find("input").serialize();
+		$(container).find("input:checkbox:not(:checked)").each(function(index){
+			body += "&" + $(this).attr('name') + "=0";
+		});
 		$(event.currentTarget).addClass("is-loading");
 		$(container).find("button.cancel").prop("disabled","disabled");
 		AJAXwithRefresh(container, action, "PUT", body)

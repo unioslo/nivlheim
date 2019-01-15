@@ -2,7 +2,6 @@ package main
 
 import (
 	"database/sql"
-	"errors"
 	"fmt"
 	"log"
 	"net"
@@ -63,7 +62,7 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 				log.Panic(err)
 			}
 			if hostname == "" {
-				return errors.New("Failed to name " + m.osHostname.String + " (" + m.ipaddr.String + ")")
+				return nil
 			}
 			_, err = tx.Exec("DELETE FROM hostinfo WHERE hostname=$1 AND certfp!=$2",
 				hostname, m.certfp.String)

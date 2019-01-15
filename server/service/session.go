@@ -1,13 +1,12 @@
 package main
 
 import (
-	"crypto/rand"
 	"database/sql"
-	"encoding/base64"
 	"net/http"
 	"sync"
 	"time"
 
+	"github.com/usit-gd/nivlheim/server/service/utility"
 	"golang.org/x/oauth2"
 )
 
@@ -80,7 +79,7 @@ func HasSessionCookie(req *http.Request) bool {
 // It returns the new Session object.
 func newSession(w http.ResponseWriter, req *http.Request) *Session {
 	// Create a new random session ID
-	newID := randomStringID()
+	newID := utility.RandomStringID()
 	// Set a cookie with the session ID
 	cookie := http.Cookie{
 		Name:     sessionCookieName,
@@ -119,12 +118,6 @@ func deleteSession(req *http.Request) {
 		}
 		delete(sessions, cookie.Value)
 	}
-}
-
-func randomStringID() string {
-	b := make([]byte, 32)
-	rand.Read(b)
-	return base64.RawURLEncoding.EncodeToString(b)
 }
 
 // API call /api/vx/userinfo

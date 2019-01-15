@@ -4,10 +4,12 @@ import (
 	"bufio"
 	"database/sql"
 	"log"
+	"math/rand"
 	"os"
 	"os/signal"
 	"reflect"
 	"regexp"
+	"runtime"
 	"strings"
 	"syscall"
 	"time"
@@ -51,6 +53,8 @@ var devmode bool
 func main() {
 	log.SetFlags(0) // don't print a timestamp
 	devmode = len(os.Args) >= 2 && os.Args[1] == "--dev"
+	// in Go, the default random generator produces a deterministic sequence of values unless seeded
+	rand.Seed(time.Now().UnixNano())
 
 	// handle ctrl-c (SIGINT) and SIGTERM
 	var quit bool
@@ -73,10 +77,13 @@ func main() {
 
 	// Connect to database
 	var dbConnectionString string
-	if devmode {
-		dbConnectionString = "sslmode=disable host=/var/run/postgresql"
+	if runtime.GOOS == "windows" {
+		dbConnectionString = "sslmode=disable host=127.0.0.1 port=5432"
 	} else {
-		dbConnectionString = "dbname=apache host=/var/run/postgresql"
+		dbConnectionString = "host=/var/run/postgresql"
+	}
+	if !devmode {
+		dbConnectionString += " dbname=apache"
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
@@ -105,7 +112,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchlevel int
-	const requirePatchLevel = 2
+	const requirePatchLevel = 3
 	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
 	if patchlevel != requirePatchLevel {
 		log.Printf("Error: Wrong database patch level. "+

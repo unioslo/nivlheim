@@ -1,8 +1,10 @@
 package main
 
 import (
+	"net"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestApiAccessControl(t *testing.T) {
@@ -13,8 +15,35 @@ func TestApiAccessControl(t *testing.T) {
 
 	adminAP := &AccessProfile{isAdmin: true}
 	userAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true}}
+	expiredAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
+		expires: time.Now().Add(-time.Duration(1) * time.Minute)}
+	readonlyAP := &AccessProfile{readonly: true, isAdmin: false, certs: map[string]bool{"1234": true}}
+	restrictedIPAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
+		ipranges: []net.IPNet{{IP: []byte{192, 168, 0, 1}, Mask: []byte{255, 255, 255, 0}}}}
 
 	tests := []apiCall{
+		//============= test that expiration date/time is enforced ====
+		{
+			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			accessProfile: expiredAP,
+			expectStatus:  403,
+			expectContent: "This key has expired",
+		},
+		//============= test that readonly is enforced =======
+		{
+			// delete as user with access
+			methodAndPath: "DELETE /api/v0/host?hostname=foo.acme.com",
+			accessProfile: readonlyAP,
+			expectStatus:  403,
+			expectContent: "This key can only be used for GET requests",
+		},
+		//============= test that ip restrictions are enforced ===
+		{
+			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			accessProfile: restrictedIPAP,
+			expectStatus:  403,
+			expectContent: "This key can only be used from certain ip addresses",
+		},
 		//========= hostlist api =========
 		{
 			// Unauthorized users should get an error

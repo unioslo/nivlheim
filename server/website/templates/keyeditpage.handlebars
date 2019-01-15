@@ -1,0 +1,68 @@
+<section class="section">
+	<div class="container">
+		<h1 class="title is-4">API keys</h1>
+		<div class="columns">
+			<div class="column is-narrow">
+            	<h1 class="title is-5" id="formtitle">Modify key</h1>
+				<form action="/api/v0/keys/{{keyID}}" data-method="put" data-proceedto="/#/keys">
+					<div class="field">
+						<label class="label">Key</label>
+						<span data-name="name" class="all-copy">{{key}}</span>
+					</div>
+					<div class="field">
+						<label class="label">Comment or description</label>
+						<div class="control">
+							<input class="input" name="comment" size="60" type="text"
+								value="{{comment}}" placeholder="Comment...">
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Can the key be used to modify data?</label>
+						<div class="control">
+							<label class="radio">
+								<input type="radio" name="readonly" value="1" {{#if readonly}}checked{{/if}}>
+								Read only
+							</label>
+							<label class="radio">
+								<input type="radio" name="readonly" value="0" {{#unless readonly}}checked{{/unless}}>
+								Can modify data
+							</label>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Restrict which hosts the key applies to</label>
+						<div class="control">
+							<input class="input" type="text" name="filter" size="60"
+								value="{{filter}}" placeholder="hostname=*.acme.com">
+							<span data-error-for="filter" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Expiry date</label>
+						<div class="control">
+							<input class="input" type="text" name="expires" size="20" 
+								value="{{expires}}"
+								placeholder="YYYY-MM-DD" pattern="\d\d\d\d-[01]\d-[0-3]\d">
+							<span data-error-for="expires" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Whitelist the ip ranges the key can be used from</label>
+						<div class="control">
+							<textarea name="ipRanges" class="textarea" placeholder="172.16.0.0/20
+123.134.145.0/24">{{#each ipRanges}}{{this}}
+{{/each}}</textarea>
+							<span data-error-for="ipRanges" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<div class="control">
+							<input type="submit" class="button is-primary" value="Save">
+							<a class="button backbutton">Cancel</a>
+						</div>
+					</div>
+				</form>
+			</div>
+		</div>
+	</div>
+</section>

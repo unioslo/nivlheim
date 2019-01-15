@@ -4,10 +4,15 @@ $(document).ready(function(){
 	Handlebars.registerHelper('formatDateTime', function(s){
 		if (!s) return "";
 		let t = moment(s);
-		let str = t.fromNow() + ' (' + t.format('D MMM Y HH:mm') + ')';
-		str = Handlebars.Utils.escapeExpression(str);
+		let format = 'D MMM Y HH:mm';
+		if (Math.abs(t.diff(new Date(), 'days')) > 7) {
+			format = 'D MMM Y'; // omit the time of day
+		}
+		let str = '<span class="nobreak">'+t.fromNow()+'</span> '
+				+ '<span class="nobreak">(' + t.format(format) + ')</span>';
+		//str = Handlebars.Utils.escapeExpression(str);
 		if (t.isAfter(moment().subtract(1,'days'))) {
-			return str;
+			return new Handlebars.SafeString(str);
 		} else {
 			return new Handlebars.SafeString(
 				'<span class="underline-warning">'+str+'</span>');
@@ -83,6 +88,8 @@ $(document).ready(function(){
 		'/search': searchPage,
 		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
+		'/keys': keysPage,
+		'/keys/:keyId': keyEditPage,
 		'/': showFrontPage
 	};
 
@@ -104,6 +111,7 @@ $(document).ready(function(){
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);
 	router.param('page', /(\d+)/);
+	router.param('keyId', /(\\d+)/);
 
 	router.init('/');
 
@@ -457,6 +465,27 @@ function iprangesPage() {
 	APIcall(//"mockapi/ipranges.json",
 		"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
 		"ipranges", "div#pageContent")
+	.done(function(){
+		attachHandlersToForms();
+	});
+}
+
+function keysPage() {
+	APIcall("/api/v0/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
+		"keyspage", "div#pageContent")
+	.done(function(){
+		attachHandlersToForms();
+	});
+}
+
+function keyEditPage(keyid) {
+	APIcall("/api/v0/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
+		"keyeditpage", "div#pageContent", function(obj){
+			// Only show the expiry date, not the whole timestamp
+			if (obj["expires"] && obj["expires"].length>10)
+				obj["expires"] = obj["expires"].substr(0,10);
+			return obj;
+		})
 	.done(function(){
 		attachHandlersToForms();
 	});

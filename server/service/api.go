@@ -27,17 +27,21 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	// API functions
 	api := http.NewServeMux()
 	api.Handle("/api/v0/file",
-		wrapRequireAuth(&apiMethodFile{db: theDB}))
+		wrapRequireAuth(&apiMethodFile{db: theDB}, theDB))
 	api.Handle("/api/v0/host",
-		wrapRequireAuth(&apiMethodHost{db: theDB}))
+		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
 	api.Handle("/api/v0/hostlist",
-		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}))
+		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}, theDB))
 	api.Handle("/api/v0/searchpage",
-		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}))
+		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}, theDB))
 	api.Handle("/api/v0/settings/customfields",
-		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}))
+		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/customfields/",
-		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}))
+		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}, theDB))
+	api.Handle("/api/v0/keys",
+		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
+	api.Handle("/api/v0/keys/",
+		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
 
 	// API functions that are only available to administrators
 	api.Handle("/api/v0/awaitingApproval",
@@ -97,7 +101,7 @@ func runAPI(theDB *sql.DB, port int, devmode bool) {
 // returnJSON marshals the given object and writes it as the response,
 // and also sets the proper Content-Type header.
 // Remember to return after calling this function.
-func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
+func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}, statusOptional ...int) {
 	bytes, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -105,6 +109,9 @@ func returnJSON(w http.ResponseWriter, req *http.Request, data interface{}) {
 		return
 	}
 	bytes = append(bytes, 0xA) // end with a line feed, because I'm a nice person
+	if len(statusOptional) > 0 {
+		w.WriteHeader(statusOptional[0])
+	}
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write(bytes)
 }
@@ -281,6 +288,10 @@ type httpError struct {
 	code    int
 }
 
+func (h httpError) Error() string {
+	return fmt.Sprintf("%d %s", h.code, h.message)
+}
+
 // unpackFieldParam is a helper function to parse a comma-separated
 // "fields" parameter and verify that the given fields are valid.
 func unpackFieldParam(fieldParam string, allowedFields []string) (map[string]bool, *httpError) {
@@ -324,7 +335,11 @@ func contains(needle string, haystack []string) bool {
 
 func isTrueish(s string) bool {
 	s = strings.ToLower(s)
-	return s == "1" || s == "t" || s == "true" || s == "yes" || s == "y"
+	return s == "1" || s == "t" || s == "true" || s == "yes" || s == "y" || s == "on"
+}
+
+func isFalseish(s string) bool {
+	return s != "" && !isTrueish(s)
 }
 
 // QueryList performs a database query and returns a slice of maps.
@@ -354,6 +369,13 @@ func QueryList(db *sql.DB, statement string, args ...interface{}) ([]map[string]
 		// Scan the result into the column pointers...
 		if err := rows.Scan(columnPointers...); err != nil {
 			return nil, err
+		}
+
+		// Convert byte array types to strings
+		for i := range columns {
+			if b, ok := columns[i].([]byte); ok {
+				columns[i] = string(b)
+			}
 		}
 
 		// Create our map, and retrieve the value for each column from the pointers slice,
@@ -386,6 +408,9 @@ func QueryColumn(db *sql.DB, statement string, args ...interface{}) ([]interface
 		var v interface{}
 		if err := rows.Scan(&v); err != nil {
 			return nil, err
+		}
+		if b, ok := v.([]byte); ok {
+			v = string(b)
 		}
 		result = append(result, v)
 	}

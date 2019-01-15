@@ -446,7 +446,7 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 			}
 		}
 
-		if !contains(name, allowedFields) {
+		if allowedFields != nil && !contains(name, allowedFields) {
 			return "", nil, &httpError{
 				message: "Unsupported field name: " + name,
 				code:    http.StatusUnprocessableEntity,
