@@ -210,7 +210,7 @@ echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
 echo %{version} > %{buildroot}%{_localstatedir}/www/html/version.txt
 # add the version number to js and css urls to ensure browsers will reload
 sed -i 's/src="\(.\+.js\)"/src="\1?%{version}"/g' %{buildroot}%{_localstatedir}/www/html/index.html
-sed -i 's/href="\(.\+.js\)"/href="\1?%{version}"/g' %{buildroot}%{_localstatedir}/www/html/index.html
+sed -i 's/href="\(.\+.css\)"/href="\1?%{version}"/g' %{buildroot}%{_localstatedir}/www/html/index.html
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
