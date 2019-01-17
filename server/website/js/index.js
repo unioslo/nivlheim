@@ -113,13 +113,6 @@ $(document).ready(function(){
 	router.param('page', /(\d+)/);
 	router.param('keyId', /(\\d+)/);
 
-	router.init('/');
-
-	// retrieve the version number from a static file and display it
-	$.get('/version.txt', function(data){
-		$("span#navbarVersion").text('Version ' + data);
-	});
-
 	// handle the "burger" menu icon that appears on narrow screens
 	$("div.navbar-burger").click(function(){
 		$(this).toggleClass('is-active');
@@ -134,13 +127,14 @@ $(document).ready(function(){
 	$(window).scroll(scrollHandler);
 	window.setInterval(scrollHandler,500);
 
-	// attach a login click handler, or show the name of the logged in user
+	// show the name of the logged in user, or redirect to login
 	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
 		userinfo = data;
 		if (data == null) {
 			// Not logged in. Redirect to login...
 			location.href = getAPIURLprefix()+"/api/oauth2/start"
 				+"?redirect="+encodeURIComponent(location.href);
+			return
 		} else if (data.name) {
 			// Logged in
 			$("a#loginLink").remove();
@@ -150,6 +144,12 @@ $(document).ready(function(){
 		} else if (data.authDisabled) {
 			// Authentication is not enabled
 		}
+		// At this point, authentication is definitely taken care of.
+		router.init('/'); // Initialize the router (Tarantino) and go to the front page
+		// retrieve the version number from a static file and display it
+		$.get('/version.txt', function(data){
+			$("span#navbarVersion").text('Version ' + data);
+		});
 	});
 
 	// create a shake effect
