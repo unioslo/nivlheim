@@ -28,9 +28,7 @@
 						</td>
 						<td>{{formatDateTime expires}}</td>
 						<td>
-							{{#each ipRanges}}
-							{{this}}
-							{{/each}}
+							{{#each ipRanges}}{{this}}<br>{{/each}}
 						</td>
 						<td>
 							<a class="button" href="/#/keys/{{keyID}}">
@@ -115,8 +113,8 @@
 				</nav>
 				Use the <i>Authorization</i> http header:
 				<div class="code">
-				curl -H "Authorization: APIKEY your-api-key-here" \<br>
-				"http://nivlheim.example.com/api/v1/..."
+				curl -sSH "Authorization: APIKEY your-api-key-here" \<br>
+				"<span id="apiPrefix">http://nivlheim.example.com/api/v1/</span>..."
 				</div>
 			</div>
 		</div>

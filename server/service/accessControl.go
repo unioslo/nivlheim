@@ -43,8 +43,8 @@ func (ap *AccessProfile) IsReadonly() bool {
 }
 
 func (ap *AccessProfile) CanBeUsedFrom(ipaddr net.IP) bool {
-	if ap.ipranges == nil || len(ap.ipranges) == 0 {
-		return true
+	if ap.ipranges == nil {
+		return false
 	}
 	for _, r := range ap.ipranges {
 		if r.Contains(ipaddr) {
@@ -52,6 +52,11 @@ func (ap *AccessProfile) CanBeUsedFrom(ipaddr net.IP) bool {
 		}
 	}
 	return false
+}
+
+func (ap *AccessProfile) AllowAllIPs() {
+	ap.ipranges = make([]net.IPNet, 1)
+	ap.ipranges[0] = net.IPNet{IP: net.IPv4(0, 0, 0, 0), Mask: net.CIDRMask(0, 128)}
 }
 
 func (ap *AccessProfile) GetSQLWHERE() string {
@@ -97,6 +102,7 @@ func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 		return nil, err
 	}
 	ap := new(AccessProfile)
+	ap.ownerID = userID
 	ap.certs = make(map[string]bool)
 	for _, s := range scriptResult.Certs {
 		ap.certs[s] = true
@@ -143,6 +149,7 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 		//  When api keys become a thing, the system can generate a short-lived
 		//  api key on the fly and pass it to the auth plugin. That key wouldn't
 		//  even have to be saved to the database.
+		//  See issue #74: https://github.com/usit-gd/nivlheim/issues/74
 		if isLocal(req) {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
 			return
@@ -154,13 +161,30 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 		}
 		var ap *AccessProfile
 		apikey := GetAPIKeyFromRequest(req)
-		if apikey != nil {
+		if apikey != "" {
 			// An API key overrides any session (these aren't supposed to be used together anyway)
 			var err error
-			ap, err = GetAccessProfileForAPIkey(*apikey, db, nil)
+			ap, err = GetAccessProfileForAPIkey(apikey, db, nil)
 			if err != nil {
 				http.Error(w, "Error while composing the ACL for the API key:\n"+err.Error(),
 					http.StatusInternalServerError)
+				return
+			}
+			if ap == nil {
+				http.Error(w, "No APIkey found with that ID.", http.StatusUnauthorized)
+				return
+			}
+			// API keys can be restricted further
+			if ap.HasExpired() {
+				http.Error(w, "This key has expired", http.StatusForbidden)
+				return
+			}
+			if !ap.CanBeUsedFrom(getRealRemoteAddr(req)) {
+				http.Error(w, "This key can only be used from certain ip addresses", http.StatusForbidden)
+				return
+			}
+			if ap.IsReadonly() && req.Method != httpGET {
+				http.Error(w, "This key can only be used for GET requests", http.StatusForbidden)
 				return
 			}
 		} else {
@@ -171,24 +195,12 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 				return
 			}
 			if session.AccessProfile == nil {
-				// For some reason, the session is missing an access profile.
-				// This is probably due to an error during login, and the user should re-authenticate.
+				// If the session is missing an access profile, it is probably due to
+				// an error during login, and the user should re-authenticate.
 				http.Error(w, "Not logged in", http.StatusUnauthorized)
 				return
 			}
 			ap = session.AccessProfile
-		}
-		if ap.IsReadonly() && req.Method != httpGET {
-			http.Error(w, "This key can only be used for GET requests", http.StatusForbidden)
-			return
-		}
-		if !ap.CanBeUsedFrom(getRealRemoteAddr(req)) {
-			http.Error(w, "This key can only be used from certain ip addresses", http.StatusForbidden)
-			return
-		}
-		if ap.HasExpired() {
-			http.Error(w, "This key has expired", http.StatusForbidden)
-			return
 		}
 		h.ServeHTTP(w, req, ap)
 	})

@@ -475,6 +475,8 @@ function keysPage() {
 		"keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
+		let j = window.location.href.indexOf("/", 10);
+		$("span#apiPrefix").text(window.location.href.substr(0,j)+"/api/v0/");
 	});
 }
 

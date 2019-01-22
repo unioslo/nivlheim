@@ -43,7 +43,7 @@ func TestGetAPIKeyFromRequest(t *testing.T) {
 			req.Header.Add("Authorization", kt.header)
 		}
 		key := GetAPIKeyFromRequest(req)
-		if key.String() != kt.expectedKey {
+		if string(key) != kt.expectedKey {
 			t.Errorf("%s\nExpected API key %s, got %v", kt.header, kt.expectedKey, key)
 		}
 	}
@@ -103,7 +103,7 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	// Run the tests
 	for testNum, theTest := range tests {
 		prevAP := fakeUserAP
-		ap, err := GetAccessProfileForAPIkey(APIkey{key: theTest.key}, db, &prevAP)
+		ap, err := GetAccessProfileForAPIkey(APIkey(theTest.key), db, &prevAP)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -122,7 +122,7 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	}
 	// Test that it reads the correct readonly/ipranges/expires from the database
 	prevAP := fakeUserAP
-	ap, err := GetAccessProfileForAPIkey(APIkey{key: "1000"}, db, &prevAP)
+	ap, err := GetAccessProfileForAPIkey(APIkey("1000"), db, &prevAP)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -136,6 +136,11 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	if ap.expires.IsZero() ||
 		time.Until(ap.expires)-time.Duration(10)*time.Minute > time.Duration(10)*time.Second {
 		t.Errorf("Expiration date/time seems off: %v", ap.expires)
+	}
+	// Test what happens if the provided API key doesn't exist in the database
+	ap, err = GetAccessProfileForAPIkey(APIkey("nonexistent"), db, nil)
+	if ap != nil || err != nil {
+		t.Errorf("Tried to GetAccessProfileForAPIkey for non-existent key, got %v %v", ap, err)
 	}
 }
 
@@ -276,7 +281,9 @@ func TestAccessToEditingAPIkeys(t *testing.T) {
 	defer db.Close()
 
 	firstUser := AccessProfile{isAdmin: false, ownerID: "firstUser"}
+	firstUser.AllowAllIPs()
 	secondUser := AccessProfile{isAdmin: false, ownerID: "secondUser"}
+	secondUser.AllowAllIPs()
 
 	tests := []apiCall{
 		// create two keys for two different users

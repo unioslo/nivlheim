@@ -135,6 +135,8 @@ for IMAGE in "${IMAGES[@]}"; do
 				-C "~/$(basename $T) || echo 'FAIL'" >> "$LOGFILE" 2>&1
 		done
 
+		(./test_apikeys.sh $USER $IP || echo "FAIL") >> "$LOGFILE" 2>&1
+
 		if grep -s "FAIL" "$LOGFILE"; then
 			echo $(grep -c "FAIL" "$LOGFILE") "FAIL(s)"
 			if [[ $FAILFAST -eq 1 ]]; then

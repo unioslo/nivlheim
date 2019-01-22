@@ -10,18 +10,10 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"github.com/usit-gd/nivlheim/server/service/utility"
 )
 
-type APIkey struct {
-	key string
-}
-
-func (a *APIkey) String() string {
-	if a == nil {
-		return ""
-	}
-	return a.key
-}
+type APIkey string
 
 type apiKeyCacheElem struct {
 	ap      *AccessProfile
@@ -35,12 +27,20 @@ func init() {
 	apiKeyCache = make(map[string]apiKeyCacheElem, 0)
 }
 
-func GetAPIKeyFromRequest(req *http.Request) *APIkey {
+func GetAPIKeyFromRequest(req *http.Request) APIkey {
 	auth := strings.SplitN(req.Header.Get("Authorization"), " ", 2)
 	if len(auth) == 2 && strings.ToLower(auth[0]) == "apikey" {
-		return &APIkey{key: auth[1]}
+		return APIkey(auth[1])
 	}
-	return nil
+	return ""
+}
+
+func GenerateTemporaryAPIKey(ap *AccessProfile) APIkey {
+	apiKeyCacheMutex.Lock()
+	defer apiKeyCacheMutex.Unlock()
+	key := utility.RandomStringID()
+	apiKeyCache[key] = apiKeyCacheElem{ap: ap, created: time.Now()}
+	return APIkey(key)
 }
 
 func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessProfile) (*AccessProfile, error) {
@@ -48,7 +48,7 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 
 	// 0. Check the cache
 	apiKeyCacheMutex.RLock()
-	c, ok := apiKeyCache[key.String()]
+	c, ok := apiKeyCache[string(key)]
 	apiKeyCacheMutex.RUnlock()
 	if ok && time.Since(c.created) < time.Duration(cacheTimeMinutes)*time.Minute {
 		return c.ap, nil
@@ -60,13 +60,13 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	var expires pq.NullTime
 	var readonly sql.NullBool
 	err := db.QueryRow("SELECT keyid, ownerid, expires, readonly, filter "+
-		"FROM apikeys WHERE key=$1", key.String()).
+		"FROM apikeys WHERE key=$1", string(key)).
 		Scan(&keyID, &ownerid, &expires, &readonly, &filter)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
 		}
-		return nil, nil // the key was not found, but this isn't an error
+		return nil, nil // No key was found, but this isn't an error
 	}
 
 	// 2. Call GenerateAccessProfileForUser on the ownerid to generate an accessprofile
@@ -135,7 +135,7 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	// 5. Cache the AccessProfile, so that subsequent calls to GetAccessProfileForAPIkey can quickly use it.
 	apiKeyCacheMutex.Lock()
 	defer apiKeyCacheMutex.Unlock()
-	apiKeyCache[key.String()] = apiKeyCacheElem{ap: ap, created: time.Now()}
+	apiKeyCache[string(key)] = apiKeyCacheElem{ap: ap, created: time.Now()}
 
 	// 6. Purge expired keys from the cache sometimes
 	if rand.Intn(100) == 0 {
@@ -148,4 +148,10 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	}
 
 	return ap, nil
+}
+
+func invalidateCacheForKey(key string) {
+	apiKeyCacheMutex.Lock()
+	defer apiKeyCacheMutex.Unlock()
+	delete(apiKeyCache, key)
 }

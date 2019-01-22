@@ -88,6 +88,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 	if err == sql.ErrNoRows {
 		// No host found. Return a "not found" status instead
 		http.Error(w, "Host not found.", http.StatusNotFound)
+		return
 	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -257,6 +258,10 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 			var nullstr sql.NullString
 			err := tx.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
 				hostname).Scan(&nullstr)
+			if err == sql.ErrNoRows {
+				http.Error(w, "Hostname or certificate not found", http.StatusNotFound) // 404
+				return nil
+			}
 			if err != nil {
 				return err
 			}
