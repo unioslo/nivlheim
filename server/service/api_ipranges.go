@@ -112,7 +112,7 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 		// Insert
 		_, err := vars.db.Exec("INSERT INTO ipranges(iprange,comment,use_dns) "+
 			"VALUES($1,$2,$3)", iprange, req.FormValue("comment"),
-			req.FormValue("useDns") != "")
+			isTrueish(req.FormValue("useDns")))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

@@ -29,7 +29,7 @@ server=localhost
 ```
 sudo /usr/sbin/nivlheim_client
 ```
-3. Open the web admin interface in a browser, and you should see that there's a new machine waiting to be approved. Click "approve".
+3. Open the web admin interface in a browser, go to "Settings", and you should see that there's a new machine waiting to be approved. Click "approve".
 
 4. Run the client one more time:
 ```

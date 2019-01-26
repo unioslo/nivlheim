@@ -49,7 +49,7 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 		if k == "ipRanges" {
 			// ipranges isn't a column, but we'll need the "keyid" column in the SQL
 			// to be able to select ipranges belonging to that key
-			k = "keyid"
+			k = "keyID"
 		}
 		columns[i] = k
 		i++
@@ -111,7 +111,7 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 		}
 	}
 	for i := range data {
-		if val, ok := data[0]["keyid"]; ok {
+		if val, ok := data[i]["keyid"]; ok {
 			// Remove the keyID column if they didn't ask for it
 			if !fields["keyID"] {
 				delete(data[i], "keyid")
@@ -187,8 +187,8 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 	// Do you own the key?
-	var ownerID sql.NullString
-	err = vars.db.QueryRow("SELECT ownerid FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID)
+	var ownerID, key sql.NullString
+	err = vars.db.QueryRow("SELECT ownerid,key FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID, &key)
 	if err != nil && err != sql.ErrNoRows {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -227,6 +227,7 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	invalidateCacheForKey(key.String)
 	// Return
 	if rows > 0 {
 		http.Error(w, "", http.StatusNoContent)
@@ -250,8 +251,8 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 	// Do you own the key?
-	var ownerID sql.NullString
-	err = vars.db.QueryRow("SELECT ownerid FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID)
+	var ownerID, key sql.NullString
+	err = vars.db.QueryRow("SELECT ownerid, key FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID, &key)
 	if err != nil && err != sql.ErrNoRows {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -272,6 +273,7 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	invalidateCacheForKey(key.String)
 	// Return
 	if rows > 0 {
 		http.Error(w, "", http.StatusNoContent)

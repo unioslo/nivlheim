@@ -17,7 +17,9 @@ func TestApiAccessControl(t *testing.T) {
 	userAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true}}
 	expiredAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
 		expires: time.Now().Add(-time.Duration(1) * time.Minute)}
+	expiredAP.AllowAllIPs()
 	readonlyAP := &AccessProfile{readonly: true, isAdmin: false, certs: map[string]bool{"1234": true}}
+	readonlyAP.AllowAllIPs()
 	restrictedIPAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
 		ipranges: []net.IPNet{{IP: []byte{192, 168, 0, 1}, Mask: []byte{255, 255, 255, 0}}}}
 
@@ -44,6 +46,13 @@ func TestApiAccessControl(t *testing.T) {
 			expectStatus:  403,
 			expectContent: "This key can only be used from certain ip addresses",
 		},
+		{
+			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			remoteAddr:    "192.168.0.25",
+			accessProfile: restrictedIPAP,
+			expectStatus:  200,
+			expectJSON:    "{\"hostname\":\"foo.acme.com\"}",
+		},
 		//========= hostlist api =========
 		{
 			// Unauthorized users should get an error
@@ -53,37 +62,37 @@ func TestApiAccessControl(t *testing.T) {
 		},
 		{
 			// Admin should see all hosts
-			methodAndPath: "GET /api/v0/hostlist?fields=hostname&sort=hostname",
-			expectStatus:  200,
-			accessProfile: adminAP,
-			expectJSON:    "[{\"hostname\":\"bar.acme.com\"},{\"hostname\":\"foo.acme.com\"}]",
+			methodAndPath:  "GET /api/v0/hostlist?fields=hostname&sort=hostname",
+			expectStatus:   200,
+			sessionProfile: adminAP,
+			expectJSON:     "[{\"hostname\":\"bar.acme.com\"},{\"hostname\":\"foo.acme.com\"}]",
 		},
 		{
 			// The user should only see the hosts they have access to
-			methodAndPath: "GET /api/v0/hostlist?fields=hostname",
-			expectStatus:  200,
-			accessProfile: userAP,
-			expectJSON:    "[{\"hostname\":\"foo.acme.com\"}]",
+			methodAndPath:  "GET /api/v0/hostlist?fields=hostname",
+			expectStatus:   200,
+			sessionProfile: userAP,
+			expectJSON:     "[{\"hostname\":\"foo.acme.com\"}]",
 		},
 		//============= file api ==============
 		{
 			// User requests details for a file they have access to
-			methodAndPath: "GET /api/v0/file?hostname=foo.acme.com&filename=roadrunner&fields=content",
-			accessProfile: userAP,
-			expectStatus:  200,
-			expectJSON:    "{\"content\":\"beep,beep\"}",
+			methodAndPath:  "GET /api/v0/file?hostname=foo.acme.com&filename=roadrunner&fields=content",
+			sessionProfile: userAP,
+			expectStatus:   200,
+			expectJSON:     "{\"content\":\"beep,beep\"}",
 		},
 		{
 			// User requests details for a file they DON'T have access to
-			methodAndPath: "GET /api/v0/file?hostname=bar.acme.com&filename=coyote&fields=content",
-			accessProfile: userAP,
-			expectStatus:  403,
+			methodAndPath:  "GET /api/v0/file?hostname=bar.acme.com&filename=coyote&fields=content",
+			sessionProfile: userAP,
+			expectStatus:   403,
 		},
 		{
 			// Admin requests details for a file
-			methodAndPath: "GET /api/v0/file?hostname=bar.acme.com&filename=coyote&fields=content",
-			accessProfile: adminAP,
-			expectStatus:  200,
+			methodAndPath:  "GET /api/v0/file?hostname=bar.acme.com&filename=coyote&fields=content",
+			sessionProfile: adminAP,
+			expectStatus:   200,
 		},
 		{
 			// Unauthorized request for a file
@@ -100,31 +109,31 @@ func TestApiAccessControl(t *testing.T) {
 		},
 		{
 			// admin should get 2 hits
-			methodAndPath: "GET /api/v0/searchpage?q=ep",
-			accessProfile: adminAP,
-			expectStatus:  200,
-			expectContent: "\"numberOfHits\": 2,",
+			methodAndPath:  "GET /api/v0/searchpage?q=ep",
+			sessionProfile: adminAP,
+			expectStatus:   200,
+			expectContent:  "\"numberOfHits\": 2,",
 		},
 		{
 			// the regular user should get only 1 hit
-			methodAndPath: "GET /api/v0/searchpage?q=ep",
-			accessProfile: userAP,
-			expectStatus:  200,
-			expectContent: "\"numberOfHits\": 1,",
+			methodAndPath:  "GET /api/v0/searchpage?q=ep",
+			sessionProfile: userAP,
+			expectStatus:   200,
+			expectContent:  "\"numberOfHits\": 1,",
 		},
 		//======== host api =========
 		{
 			// User requests details for a host they have access to
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
-			accessProfile: userAP,
-			expectStatus:  200,
-			expectJSON:    "{\"hostname\":\"foo.acme.com\"}",
+			methodAndPath:  "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			sessionProfile: userAP,
+			expectStatus:   200,
+			expectJSON:     "{\"hostname\":\"foo.acme.com\"}",
 		},
 		{
 			// User requests details for a host they DON'T have access to
-			methodAndPath: "GET /api/v0/host?hostname=bar.acme.com&fields=hostname",
-			accessProfile: userAP,
-			expectStatus:  403,
+			methodAndPath:  "GET /api/v0/host?hostname=bar.acme.com&fields=hostname",
+			sessionProfile: userAP,
+			expectStatus:   403,
 		},
 		{
 			// Unauthorized
@@ -134,10 +143,10 @@ func TestApiAccessControl(t *testing.T) {
 		},
 		{
 			// admin
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
-			accessProfile: adminAP,
-			expectStatus:  200,
-			expectJSON:    "{\"hostname\":\"foo.acme.com\"}",
+			methodAndPath:  "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			sessionProfile: adminAP,
+			expectStatus:   200,
+			expectJSON:     "{\"hostname\":\"foo.acme.com\"}",
 		},
 		{
 			// delete as unauthorized
@@ -147,21 +156,21 @@ func TestApiAccessControl(t *testing.T) {
 		},
 		{
 			// delete as user without access
-			methodAndPath: "DELETE /api/v0/host?hostname=bar.acme.com",
-			accessProfile: userAP,
-			expectStatus:  403,
+			methodAndPath:  "DELETE /api/v0/host?hostname=bar.acme.com",
+			sessionProfile: userAP,
+			expectStatus:   403,
 		},
 		{
 			// delete as user with access
-			methodAndPath: "DELETE /api/v0/host?hostname=foo.acme.com",
-			accessProfile: userAP,
-			expectStatus:  204,
+			methodAndPath:  "DELETE /api/v0/host?hostname=foo.acme.com",
+			sessionProfile: userAP,
+			expectStatus:   204,
 		},
 		{
 			// delete as admin
-			methodAndPath: "DELETE /api/v0/host?hostname=bar.acme.com",
-			accessProfile: adminAP,
-			expectStatus:  204,
+			methodAndPath:  "DELETE /api/v0/host?hostname=bar.acme.com",
+			sessionProfile: adminAP,
+			expectStatus:   204,
 		},
 		//============= awaitingApproval api ============
 		{
@@ -170,14 +179,14 @@ func TestApiAccessControl(t *testing.T) {
 			expectStatus:  401,
 		},
 		{
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=ipAddress",
-			accessProfile: userAP,
-			expectStatus:  403,
+			methodAndPath:  "GET /api/v0/awaitingApproval?fields=ipAddress",
+			sessionProfile: userAP,
+			expectStatus:   403,
 		},
 		{
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=ipAddress",
-			accessProfile: adminAP,
-			expectStatus:  200,
+			methodAndPath:  "GET /api/v0/awaitingApproval?fields=ipAddress",
+			sessionProfile: adminAP,
+			expectStatus:   200,
 		},
 	}
 

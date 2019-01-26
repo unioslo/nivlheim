@@ -90,6 +90,11 @@ function APIcall(url, templateName, domElement, transform) {
 	.fail(function(jqxhr, textStatus){
 		if (jqxhr.status == 404)
 			showError("404 Not Found", domElement, "fa-unlink");
+		else if (jqxhr.status == 401) {
+			// Unauthorized. Redirect to login
+			location.href = getAPIURLprefix()+"/api/oauth2/start"
+				+"?redirect="+encodeURIComponent(location.href);
+		}
 		else
 			showError(jqxhr.status + ' ' + jqxhr.statusCode().responseText,
 				domElement, "fa-exclamation-circle");

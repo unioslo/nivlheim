@@ -13,10 +13,12 @@ import (
 
 type apiCall struct {
 	methodAndPath, body string
+	remoteAddr          string
 	expectStatus        int
 	expectJSON          string
 	expectContent       string
 	accessProfile       *AccessProfile
+	sessionProfile      *AccessProfile
 	runAsNotAuth        bool
 }
 
@@ -40,16 +42,22 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 		} else if tt.accessProfile != nil {
 			// Enable auth
 			authRequired = true
+			// Create an API key
+			key := GenerateTemporaryAPIKey(tt.accessProfile)
+			// Set the Authorization http header
+			req.Header.Add("Authorization", "APIKEY "+string(key))
+		} else if tt.sessionProfile != nil {
+			// Enable auth
+			authRequired = true
 			// Fake a session
 			trapResponse := httptest.NewRecorder()
-			req.RemoteAddr = "111.222.111.222"
 			session := newSession(trapResponse, req)
 			// Copy the cookie from the response to the request
 			response := trapResponse.Result()
 			req.AddCookie(response.Cookies()[0])
 			// Set the access profile in the session
-			session.AccessProfile = tt.accessProfile
-			session.userinfo.IsAdmin = tt.accessProfile.IsAdmin()
+			session.AccessProfile = tt.sessionProfile
+			session.userinfo.IsAdmin = tt.sessionProfile.IsAdmin()
 			// Because we're faking a session, we also need to fake the headers Origin and Host,
 			// otherwise we'll trip the CSRF protection
 			req.Header.Add("Origin", "http://www.acme.com/")
@@ -59,12 +67,18 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 			// effectively running as admin. This is the default when testing API calls.
 			authRequired = false
 		}
+		if tt.remoteAddr != "" {
+			req.RemoteAddr = tt.remoteAddr
+		}
 		rr := httptest.NewRecorder()
 		mux.ServeHTTP(rr, req)
 		if status := rr.Code; status != tt.expectStatus {
 			apstr := ""
+			if tt.sessionProfile != nil {
+				apstr = fmt.Sprintf("\nSession access: %#v", tt.sessionProfile)
+			}
 			if tt.accessProfile != nil {
-				apstr = fmt.Sprintf("\n%#v", tt.accessProfile)
+				apstr = fmt.Sprintf("\nKey access: %#v", tt.accessProfile)
 			}
 			t.Errorf("%s\nreturned status %v, expected %v.%s\n%s",
 				tt.methodAndPath, status, tt.expectStatus,
