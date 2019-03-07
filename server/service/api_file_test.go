@@ -2,10 +2,16 @@ package main
 
 import (
 	"net/http"
+	"os"
 	"testing"
 )
 
 func TestApiMethodFile(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+
 	tests := []apiCall{
 		// Test that methods other than GET aren't allowed
 		{
