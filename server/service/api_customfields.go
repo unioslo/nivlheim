@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
 	"regexp"
 	"strings"
@@ -53,11 +54,18 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 			return
 		}
 
+		// parse the POST parameters
+		err := req.ParseForm()
+		if err != nil && req.ContentLength > 0 {
+			http.Error(w, fmt.Sprintf("Unable to parse the form data: %s", err.Error()),
+				http.StatusBadRequest)
+			return
+		}
 		// Create a new item. Check parameters
 		requiredParams := []string{"name", "filename", "regexp"}
 		missingParams := make([]string, 0)
 		for _, paramName := range requiredParams {
-			if req.FormValue(paramName) == "" {
+			if formValue(req.PostForm, paramName) == "" {
 				missingParams = append(missingParams, paramName)
 			}
 		}
@@ -66,15 +74,15 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 			return
 		}
 		// if the name contains special characters, it isn't valid
-		name := req.FormValue("name")
+		name := formValue(req.PostForm, "name")
 		if regexp.MustCompile("[^a-z0-9_]").MatchString(name) {
 			http.Error(w, "name contains invalid characters", http.StatusBadRequest)
 			return
 		}
 		// Everything checks out, insert
-		filename := strings.Replace(req.FormValue("filename"), "*", "%", -1)
-		_, err := vars.db.Exec("INSERT INTO customfields(name, filename, regexp) VALUES($1,$2,$3)",
-			name, filename, req.FormValue("regexp"))
+		filename := strings.Replace(formValue(req.PostForm, "filename"), "*", "%", -1)
+		_, err = vars.db.Exec("INSERT INTO customfields(name, filename, regexp) VALUES($1,$2,$3)",
+			name, filename, formValue(req.PostForm, "regexp"))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -165,6 +173,13 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			return
 		}
 
+		// parse the PUT parameters
+		err := req.ParseForm()
+		if err != nil && req.ContentLength > 0 {
+			http.Error(w, fmt.Sprintf("Unable to parse the form data: %s", err.Error()),
+				http.StatusBadRequest)
+			return
+		}
 		// Replace one item
 		match := regexp.MustCompile("/(\\w+)$").FindStringSubmatch(req.URL.Path)
 		if match == nil {
@@ -175,7 +190,7 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 		requiredParams := []string{"filename", "regexp"}
 		missingParams := make([]string, 0)
 		for _, paramName := range requiredParams {
-			if req.FormValue(paramName) == "" {
+			if formValue(req.PostForm, paramName) == "" {
 				missingParams = append(missingParams, paramName)
 			}
 		}
@@ -183,13 +198,13 @@ func (vars *apiMethodCustomFieldsItem) ServeHTTP(w http.ResponseWriter, req *htt
 			http.Error(w, "Missing parameters: "+strings.Join(missingParams, ","), http.StatusBadRequest)
 			return
 		}
-		newName := req.FormValue("name")
+		newName := formValue(req.PostForm, "name")
 		if newName == "" {
 			newName = name
 		}
-		filename := strings.Replace(req.FormValue("filename"), "*", "%", -1)
+		filename := strings.Replace(formValue(req.PostForm, "filename"), "*", "%", -1)
 		res, err := vars.db.Exec("UPDATE customfields SET name=$1, filename=$2, regexp=$3 "+
-			"WHERE name=$4", newName, filename, req.FormValue("regexp"), name)
+			"WHERE name=$4", newName, filename, formValue(req.PostForm, "regexp"), name)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

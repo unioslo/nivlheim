@@ -71,6 +71,18 @@ func TestApiMethodCustomFields(t *testing.T) {
 			body:          "filename=/etc/foo&regexp=(.*)",
 			expectStatus:  http.StatusNotFound,
 		},
+		// Try to create an item, but use the wrong case for field names. Should still work
+		{
+			methodAndPath: "POST /api/v0/settings/customfields",
+			body:          "NaMe=foo&FiLeNaMe=%2Fetc%2Fblah&regExp=baz",
+			expectStatus:  http.StatusCreated,
+		},
+		// Same as above, but update
+		{
+			methodAndPath: "PUT /api/v0/settings/customfields/foo",
+			body:          "NaMe=bar&FiLeNaMe=%2Fetc%2Fblah&regExp=baz",
+			expectStatus:  http.StatusNoContent,
+		},
 	}
 
 	db := getDBconnForTesting(t)

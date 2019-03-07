@@ -73,6 +73,13 @@ func (vars *apiMethodIpRanges) ServeHTTP(w http.ResponseWriter, req *http.Reques
 }
 
 func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Request) {
+	// parse the POST parameters
+	err := req.ParseForm()
+	if err != nil && req.ContentLength > 0 {
+		http.Error(w, fmt.Sprintf("Unable to parse the form data: %s", err.Error()),
+			http.StatusBadRequest)
+		return
+	}
 	switch req.Method {
 	case httpPUT:
 		match := regexp.MustCompile("/(\\d+)$").FindStringSubmatch(req.URL.Path)
@@ -87,8 +94,8 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 		}
 		// Update
 		res, err := vars.db.Exec("UPDATE ipranges SET iprange=$1, comment=$2, "+
-			"use_dns=$3 WHERE iprangeid=$4", iprange, req.FormValue("comment"),
-			isTrueish(req.FormValue("useDns")), ipRangeID)
+			"use_dns=$3 WHERE iprangeid=$4", iprange, formValue(req.PostForm, "comment"),
+			isTrueish(formValue(req.PostForm, "useDns")), ipRangeID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -111,8 +118,8 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 		}
 		// Insert
 		_, err := vars.db.Exec("INSERT INTO ipranges(iprange,comment,use_dns) "+
-			"VALUES($1,$2,$3)", iprange, req.FormValue("comment"),
-			isTrueish(req.FormValue("useDns")))
+			"VALUES($1,$2,$3)", iprange, formValue(req.PostForm, "comment"),
+			isTrueish(formValue(req.PostForm, "useDns")))
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -149,7 +156,7 @@ func (vars *apiMethodIpRanges) ServeHTTPREST(w http.ResponseWriter, req *http.Re
 
 func verifyIpRangeParameter(w http.ResponseWriter, req *http.Request,
 	db *sql.DB, updatingId int) (string, bool) {
-	iprange := req.FormValue("ipRange")
+	iprange := formValue(req.PostForm, "ipRange")
 	if iprange == "" {
 		http.Error(w, "Missing parameter: ipRange", http.StatusUnprocessableEntity)
 		return "", false

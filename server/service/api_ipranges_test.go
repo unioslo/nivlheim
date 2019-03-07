@@ -91,6 +91,18 @@ func TestApiMethodIpRanges(t *testing.T) {
 			body:          "ipRange=192.168.0.0%2F16&useDns=0&comment=different",
 			expectStatus:  http.StatusNotFound,
 		},
+		// Register a new ip range (with a twist: The parameter names are terribly mixed case)
+		{
+			methodAndPath: "POST /api/v0/settings/ipranges",
+			body:          "IpRaNge=55.55.55.55%2F32&cOmmEnt=fiftyfive",
+			expectStatus:  http.StatusCreated,
+		},
+		// Same as above, but update
+		{
+			methodAndPath: "PUT /api/v0/settings/ipranges/2",
+			body:          "IpRaNge=66.66.66.66%2F32&cOmmEnt=sixtysix",
+			expectStatus:  http.StatusNoContent,
+		},
 	}
 	db := getDBconnForTesting(t)
 	defer db.Close()

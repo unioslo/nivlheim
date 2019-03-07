@@ -13,6 +13,11 @@ type apiMethodFile struct {
 }
 
 func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	if req.Method != httpGET {
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
 	var fields map[string]bool
 	var hErr *httpError
 
