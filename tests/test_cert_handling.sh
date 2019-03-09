@@ -20,7 +20,8 @@ trap finish EXIT
 # Clean/init everything
 sudo systemctl stop nivlheim
 sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
-	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/*
+	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
+	/var/www/nivlheim/queue/*
 echo -n | sudo tee /var/log/httpd/error_log
 sudo -u apache /var/nivlheim/installdb.sh --wipe
 sudo systemctl start nivlheim
@@ -115,23 +116,20 @@ popd
 # Blacklist and check response
 sudo psql apache -q -c "UPDATE certificates SET revoked=true"
 # Test ping
-if sudo curl -sf --cacert /var/www/nivlheim/CA/nivlheimca.crt \
-	--cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/ping; then
 	echo "Secure/ping worked even though cert was blacklisted."
 	exit 1
 fi
 # Test post (it will get a 403 anyway, because the nonce is missing)
-sudo curl -sS --cacert /var/www/nivlheim/CA/nivlheimca.crt \
-	--cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+sudo curl -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/post > $tempdir/postresult
 if ! grep -qi "revoked" $tempdir/postresult; then
 	echo "Post worked even though cert was blacklisted."
 	exit 1
 fi
 # Test renew
-sudo curl -sf --cacert /var/www/nivlheim/CA/nivlheimca.crt \
-	--cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/renewcert > $tempdir/renewresult
 if ! grep -qi "revoked" $tempdir/renewresult; then
 	echo "Renewcert worked even though cert was blacklisted."

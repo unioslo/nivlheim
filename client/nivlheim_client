@@ -45,7 +45,7 @@ sub getpassword();
 # Options with default values
 my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
-	'ca_file'   => '/var/nivlheim/nivlheimca.crt:/var/www/nivlheim/CA/nivlheimca.crt'
+	'ca_file'   => '/var/nivlheim/nivlheimca.crt'
 	             . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.crt'
 	             . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/et/ssl/cert.pem',
 	'cert_file' => '/var/nivlheim/my.crt',
@@ -62,7 +62,7 @@ my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
-my $VERSION = '0.10.1';
+my $VERSION = '0.12.1';
 
 # Usage text
 my $USAGE = <<"END_USAGE";
@@ -494,15 +494,13 @@ sub ssl_connect($$$) {
 	my ($hostname, $port, $use_client_cert) = @_;
 
 	if (!-r $opt{cert_file} || !-r $opt{key_file}) { $use_client_cert = 0; }
-	my $commonName;
-	if ($real_ca_file =~ m!/nivlheimca\.crt$!) {
-		$commonName = "localhost";
-	} else {
-		$commonName = $hostname;
+
+	my $verify_mode = IO::Socket::SSL::SSL_VERIFY_PEER();
+	if ($hostname eq 'localhost') {
+		$verify_mode = IO::Socket::SSL::SSL_VERIFY_NONE();
 	}
 	if ($opt{debug}) {
-		print "hostname=$hostname port=$port\n";
-		print "commonName=$commonName use_client_cert=$use_client_cert\n";
+		print "hostname=$hostname port=$port use_client_cert=$use_client_cert\n";
 		#$IO::Socket::SSL::DEBUG = 3;
 	}
 
@@ -542,9 +540,9 @@ sub ssl_connect($$$) {
 			# We have a connection - try to start SSL
 			if (my $ssl = IO::Socket::SSL->new_from_fd(
 					$socket->fileno(),
-					SSL_verify_mode => IO::Socket::SSL::SSL_VERIFY_PEER(),
+					SSL_verify_mode => $verify_mode,
 					SSL_verifycn_scheme => 'http',
-					SSL_verifycn_name => $commonName,
+					SSL_verifycn_name => $hostname,
 					SSL_ca_file     => $real_ca_file,
 					SSL_ca_path     => '',
 					SSL_use_cert    => $use_client_cert ? 1 : 0,
@@ -560,8 +558,7 @@ sub ssl_connect($$$) {
 			}
 			else {
 				# Negotiation failed
-				warn("Could not establish SSL connection: $! $@\n")
-					if $opt{debug};
+				warn("Could not establish SSL connection: $! $@\n");
 			}
 			$socket->close();
 		}

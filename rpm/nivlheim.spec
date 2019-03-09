@@ -187,6 +187,8 @@ install -p -m 0755 server/cgi/renewcert %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0755 server/cgi/post %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
+install -p -m 0755 server/create_new_CA.sh %{buildroot}%{_sbindir}/
+install -p -m 0755 server/activate_new_CA.sh %{buildroot}%{_sbindir}/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
@@ -246,6 +248,8 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/nivlheim/server.conf
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
+%{_sbindir}/create_new_CA.sh
+%{_sbindir}/activate_new_CA.sh
 %dir /var/log/nivlheim
 /var/www/cgi-bin/*
 /var/www/html/*

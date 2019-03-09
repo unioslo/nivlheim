@@ -26,6 +26,7 @@ if [ ! -f nivlheimca.key ]; then
 	openssl genrsa -out nivlheimca.key 4096
 	openssl req -new -key nivlheimca.key -out nivlheimca.csr -config /etc/nivlheim/openssl_ca.conf
 	openssl x509 -req -days 365 -in nivlheimca.csr -out nivlheimca.crt -signkey nivlheimca.key
+	cp nivlheimca.crt /var/www/html/clientca.pem
 fi
 
 # generate a SSL certificate as a default for the web server
