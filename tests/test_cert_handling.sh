@@ -123,14 +123,14 @@ if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 fi
 # Test post (it will get a 403 anyway, because the nonce is missing)
 sudo curl -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
-	https://localhost/cgi-bin/secure/post > $tempdir/postresult
+	https://localhost/cgi-bin/secure/post > $tempdir/postresult || true
 if ! grep -qi "revoked" $tempdir/postresult; then
 	echo "Post worked even though cert was blacklisted."
 	exit 1
 fi
 # Test renew
-sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
-	https://localhost/cgi-bin/secure/renewcert > $tempdir/renewresult
+sudo curl -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+	https://localhost/cgi-bin/secure/renewcert > $tempdir/renewresult || true
 if ! grep -qi "revoked" $tempdir/renewresult; then
 	echo "Renewcert worked even though cert was blacklisted."
 	exit 1

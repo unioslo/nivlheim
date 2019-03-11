@@ -25,12 +25,21 @@ if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
 fi
 
 # Create a new CA certificate
-sudo /usr/sbin/create_new_CA.sh
+sudo /etc/cron.daily/client_CA_cert.sh --force-create --verbose
 
 # Verify that the old client certificate still works
 if ! sudo curl -sSkf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/ping; then
 	echo "The client cert didn't work after a new CA was created."
+	exit 1
+fi
+
+# Verify that the client doesn't ask for a new certificate yet
+OLDMD5=$(md5sum /var/nivlheim/my.crt)
+sudo /usr/sbin/nivlheim_client
+NEWMD5=$(md5sum /var/nivlheim/my.crt)
+if [[ "$OLDMD5" != "$NEWMD5" ]]; then
+	echo "The client got get a new certificate before the new CA was activated."
 	exit 1
 fi
 
@@ -49,21 +58,30 @@ if [[ "$A" != "$B" ]]; then
 fi
 
 # Activate the new CA certificate
-sudo /usr/sbin/activate_new_CA.sh
+sudo /etc/cron.daily/client_CA_cert.sh --force-activate --verbose
 
 # Verify that the old client certificate still works
+sudo cp /var/www/cgi-bin/ping /var/www/cgi-bin/secure/foo
 if ! sudo curl -sSkf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
-	https://localhost/cgi-bin/secure/ping; then
+	https://localhost/cgi-bin/secure/foo; then
 	echo "The client cert didn't work after a new CA was activated."
 	exit 1
 fi
 
-# Ask for a new certificate, verify that it was signed with the new CA cert
-sudo rm -f /var/nivlheim/my.* /var/run/nivlheim_client_last_run
+# Run the client again, verify that it asked for (and got) a new certificate
+# (because secure/ping should return 400)
+# and verify that it was signed with the new CA cert
+OLDMD5=$(md5sum /var/nivlheim/my.crt)
+sudo rm -f /var/run/nivlheim_client_last_run
 sudo /usr/sbin/nivlheim_client
 if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
     echo "The client failed to run the third time."
     exit 1
+fi
+NEWMD5=$(md5sum /var/nivlheim/my.crt)
+if [[ "$OLDMD5" == "$NEWMD5" ]]; then
+	echo "The client didn't get a new certificate after the server got a new CA."
+	exit 1
 fi
 C=`openssl x509 -in /var/nivlheim/my.crt -noout -issuer_hash`
 if [[ "$B" == "$C" ]]; then
