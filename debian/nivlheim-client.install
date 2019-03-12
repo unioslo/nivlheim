@@ -1,0 +1,5 @@
+client/nivlheim_client /usr/sbin
+client/client.conf /usr/share/nivlheim
+client/cronjob /usr/share/nivlheim
+tests /usr/share/nivlheim
+

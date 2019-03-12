@@ -1,0 +1,33 @@
+#!/bin/sh
+
+set -e
+
+conf=/etc/nivlheim/client.conf
+
+if [ configure = "$1" ] ; then
+    if [ "" = "$2" ]; then
+        # provide client config only on first time install
+	if [ ! -e $conf ] ; then
+            cp /usr/share/nivlheim/client.conf $conf
+	fi
+	nivlheim_client
+    else
+        # Also upgrade old and untouched configuration files
+	md5sum=$(md5sum $conf | sed -e 's/ .*//')
+	for knownsum in \
+	    375b2c7beac38c793efa94fcc0422111 \
+	    a9fe30a28200ca399e66f98d7d4dbc0f \
+	    2519d61fc5369fe6a25d32916f7dfd62 \
+	    4e3580f97d5a579b3b52effb60eaeef5 \
+	    341da2c04c1b6ddd7a320e8db7e41b88 \
+	    8a37729c6c64a6c2cf2904d6819ddd25
+	do
+	    if [ "$md5sum" = "$knownsum" ] ; then
+		echo "Updating $conf to latest version."
+		cp /usr/share/nivlheim/client.conf $conf
+	    fi
+	done
+    fi
+fi
+
+#DEBHELPER#
