@@ -82,7 +82,7 @@ Requires: perl(Sys::Syslog)
 %package server
 Summary:  Server components of Nivlheim
 Group:    Applications/System
-Requires: perl, openssl, httpd, mod_ssl, systemd
+Requires: perl, openssl, httpd, mod_ssl, systemd, cronie
 Requires: postgresql, postgresql-server, postgresql-contrib
 Requires: unzip, file
 Requires: perl(Archive::Tar)
@@ -190,6 +190,7 @@ install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
 install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
+install -p -m 0755 -D server/client_CA_cert.sh %{buildroot}%{_sysconfdir}/cron.daily/client_CA_cert.sh
 rm -rf server/website/mockapi server/website/templates server/website/libs
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
 install -p -m 0644 ../jquery-3.3.1/dist/jquery.min.js %{buildroot}%{_localstatedir}/www/html/libs/jquery-3.3.1.min.js
@@ -244,6 +245,7 @@ rm -rf %{buildroot}
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config(noreplace) %{_sysconfdir}/nivlheim/server.conf
+%{_sysconfdir}/cron.daily/client_CA_cert.sh
 %{_unitdir}/%{name}.service
 %{_sbindir}/nivlheim_service
 %dir /var/log/nivlheim
@@ -263,6 +265,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Mon Mar 11 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.12.2-20190311
+- New cron job that maintains the client CA certificates
+
 * Tue Dec 11 2018 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.11.0-20181211
 - Include 3rd party javascript and css libraries in the rpm file
 
