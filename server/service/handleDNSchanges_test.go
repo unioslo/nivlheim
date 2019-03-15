@@ -138,4 +138,24 @@ func TestHandleDNSchanges(t *testing.T) {
 				test.expected)
 		}
 	}
+	// Run again
+	db.Exec("UPDATE hostinfo SET dnsttl=null")
+	job.Run(db)
+	// Check the results again, to test for flip-flopping
+	for _, test := range tests {
+		var hostname sql.NullString
+		err = db.QueryRow("SELECT hostname FROM hostinfo WHERE certfp=$1",
+			test.certfp).Scan(&hostname)
+		if err == sql.ErrNoRows {
+			// Some rows may have been legitimately removed
+			continue
+		}
+		if err != nil {
+			t.Fatal(err)
+		}
+		if hostname.String != test.expected {
+			t.Errorf("Got hostname \"%s\", expected %s", hostname.String,
+				test.expected)
+		}
+	}
 }
