@@ -63,37 +63,48 @@ func TestHandleDNSchanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	type testname struct {
-		certfp     string
-		ipAddress  string
-		osHostname string
-		hostname   sql.NullString
-		expected   string
+		certfp            string
+		ipAddress         string
+		osHostname        string
+		hostname          sql.NullString
+		expected          string
+		override_hostname sql.NullString
 	}
 	tests := []testname{
+		// this host will be renamed based on DNS PTR record for the ip address
 		testname{
 			certfp:     "a",
 			ipAddress:  "129.240.202.63",
 			osHostname: "bottleneck.bestchoice.com",
 			expected:   "callisto.uio.no",
 		},
+		// this host is in an ip range where use_dns=false,
+		// so it will get the name the OS says it has
 		testname{
 			certfp:     "b",
 			ipAddress:  "193.157.111.23",
 			osHostname: "paperweight.withoutdns.com",
-			expected:   "paperweight.withoutdns.com.local",
+			expected:   "paperweight.withoutdns.com",
 		},
+		// same name as previous host. since the name will be taken,
+		// this host will remain unnamed.
 		testname{
 			certfp:     "e",
 			ipAddress:  "193.157.111.55",
-			osHostname: "paperweight.withoutdns.com", // same name as previous
-			expected:   "paperweight.withoutdns.com.2.local",
+			osHostname: "paperweight.withoutdns.com",
+			expected:   "",
 		},
+		// this host will be renamed based on DNS PTR record for the ip address,
+		// so it will get the name "ns1.uio.no" initially (but see the next record)
 		testname{
 			certfp:     "c",
 			ipAddress:  "129.240.2.6",
 			osHostname: "not-the-correct-name.no",
 			expected:   "",
 		},
+		// This host will be renamed based on DNS PTR record for the ip address,
+		// and also the OS gives the same name, so Nivlheim will trust it more
+		// than the previous case, and let it take over the name "ns1.uio.no".
 		testname{
 			certfp:     "d",
 			ipAddress:  "129.240.2.6",
@@ -101,23 +112,42 @@ func TestHandleDNSchanges(t *testing.T) {
 			hostname:   sql.NullString{String: "ns1.uio.no", Valid: true},
 			expected:   "ns1.uio.no",
 		},
+		// Host outside IP ranges, manually approved
 		testname{
 			certfp:     "g",
-			ipAddress:  "80.90.100.110", // outside ranges, manually approved
-			osHostname: "foo",           // shouldn't matter
+			ipAddress:  "80.90.100.110",
+			osHostname: "foo", // shouldn't matter
 			expected:   "manual.example.com",
 		},
+		// Host outside IP ranges, manually approved, but the hostname is already in use now,
+		// so it will remain unnamed.
 		testname{
 			certfp:     "h",
 			ipAddress:  "80.90.100.112", // outside ranges, manually approved
 			osHostname: "foo",           // shouldn't matter
 			expected:   "",              // the name "manual.example.com" is already taken now
 		},
+		// Verify that override_hostname works
+		testname{
+			certfp:            "i",
+			ipAddress:         "1.2.3.4",
+			osHostname:        "shouldnt.matter.no.no.no",
+			override_hostname: sql.NullString{String: "saruman.uio.no", Valid: true},
+			expected:          "saruman.uio.no",
+		},
+		// Although this host has correct DNS PTR and OS hostname,
+		// it shouldn't take over the name, since another host has it in override_hostname
+		testname{
+			certfp:     "j",
+			ipAddress:  "129.240.118.67",
+			osHostname: "saruman.uio.no",
+			expected:   "",
+		},
 	}
 	for _, test := range tests {
-		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,os_hostname,hostname) "+
-			"VALUES($1,$2,$3,$4)", test.certfp, test.ipAddress, test.osHostname,
-			test.hostname)
+		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,"+
+			"os_hostname,hostname,override_hostname) VALUES($1,$2,$3,$4,$5)",
+			test.certfp, test.ipAddress, test.osHostname, test.hostname, test.override_hostname)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -146,10 +176,6 @@ func TestHandleDNSchanges(t *testing.T) {
 		var hostname sql.NullString
 		err = db.QueryRow("SELECT hostname FROM hostinfo WHERE certfp=$1",
 			test.certfp).Scan(&hostname)
-		if err == sql.ErrNoRows {
-			// Some rows may have been legitimately removed
-			continue
-		}
 		if err != nil {
 			t.Fatal(err)
 		}
