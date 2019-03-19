@@ -7,7 +7,8 @@ if [[ "$1" != "--skipsetup" ]]; then
 	# Clean/init everything
 	sudo systemctl stop nivlheim
 	sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
-		/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/*
+		/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
+		/var/www/nivlheim/queue/*
 	echo -n | sudo tee /var/log/httpd/error_log
 	sudo -u apache /var/nivlheim/installdb.sh --wipe
 	sudo systemctl start nivlheim

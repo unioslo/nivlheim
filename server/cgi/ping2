@@ -9,13 +9,23 @@ $timestamp =~ s/\s+GMT$//;
 my $time = Time::Piece->strptime($timestamp, "%b %d %H:%M:%S %Y");
 my $left = $time - gmtime;
 if ($left->days < 30) {
-	print "Status: 403\nContent-Type: text/plain\n\nYour cert is about to expire, please renew it.\n";
+	print "Status: 400\nContent-Type: text/plain\n\nYour certificate is about to expire, please renew it.\n";
+	exit;
+}
+
+# If the client cert was signed by a different CA than the one that's currently active,
+# politely ask it to renew
+my $clientcert = $ENV{'SSL_CLIENT_CERT'};
+my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
+my $value1 = $x509->issuer();
+my $ca = Crypt::OpenSSL::X509->new_from_file('/var/www/nivlheim/CA/nivlheimca.crt');
+my $value2 = $ca->subject();
+if ($value1 ne $value2) {
+	print "Status: 400\nContent-Type: text/plain\n\nThe server has a new CA certificate, please renew your certificate.\n";
 	exit;
 }
 
 # Compute the client cert fingerprint
-my $clientcert = $ENV{'SSL_CLIENT_CERT'};
-my $x509 = Crypt::OpenSSL::X509->new_from_string($clientcert);
 my $fingerprint = $x509->fingerprint_sha1();
 $fingerprint =~ s/://g;
 
