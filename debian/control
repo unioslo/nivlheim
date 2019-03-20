@@ -2,8 +2,9 @@ Source: nivlheim
 Section: admin
 Priority: extra
 Maintainer: Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>
-Build-Depends: debhelper (>= 9~)
-Standards-Version: 3.9.6
+Build-Depends: debhelper (>= 9~),
+	       quilt
+Standards-Version: 1.9.3
 Homepage: http://nivlheim.uio.no/
 Vcs-Git: git://git.uio.no/nivlheim.git
 Vcs-Browser: http://git.uio.no/git/?p=nivlheim.git;a=tree

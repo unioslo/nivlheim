@@ -1,4 +1,4 @@
-nivlheim (1.9.2.git.2019.03.01) stretch; urgency=low
+nivlheim (1.9.3.git.2019.03.19) stretch; urgency=low
 
   * Initial release.
   * Depend on ca-certificates to get the ca-certificates.crt file.
