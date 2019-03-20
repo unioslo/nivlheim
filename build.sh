@@ -1,8 +1,4 @@
 #!/bin/bash
 
-debuild -us -uc
+debuild -us -uc -b
 dh_clean
-dh_quilt_unpatch
-rm -f debian/nivlheim-client.debhelper.log
-
-
