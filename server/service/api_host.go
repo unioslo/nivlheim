@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"net/http"
+	"regexp"
 	"time"
 
 	"github.com/lib/pq"
@@ -26,30 +27,11 @@ func (vars *apiMethodHost) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 
 func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// Get a list of names and IDs of all defined custom fields
-	customFields := make([]string, 0)
-	customFieldIDs := make(map[string]int)
-	rows, err := vars.db.Query("SELECT fieldid,name FROM customfields")
+	customFields, customFieldIDs, err := getListOfCustomFields(vars.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var fieldID int
-		var name string
-		err = rows.Scan(&fieldID, &name)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		customFields = append(customFields, name)
-		customFieldIDs[name] = fieldID
-	}
-	if err = rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	rows.Close()
 
 	// Make a complete list of allowed field names (standard + custom)
 	allowedFields := []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
@@ -57,36 +39,45 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 		"clientVersion", "files", "support"}
 	allowedFields = append(allowedFields, customFields...)
 
+	// The "fields" parameter says which fields I am supposed to return
 	fields, hErr := unpackFieldParam(req.FormValue("fields"), allowedFields)
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
 	}
 
-	qparams := make([]interface{}, 0)
+	// Make a sql statement.
+	queryParams := make([]interface{}, 0)
 	statement := "SELECT ipaddr, COALESCE(hostname,host(ipaddr)) as hostname, lastseen, os, os_edition, " +
 		"os_family, kernel, manufacturer, product, serialno, certfp, clientversion " +
 		"FROM hostinfo "
-	if req.FormValue("hostname") != "" {
-		statement += "WHERE hostname=$1"
-		qparams = append(qparams, req.FormValue("hostname"))
-	} else if req.FormValue("certfp") != "" {
+
+	// Get the host name (or the certificate fingerprint) from the URL path
+	fingerprintMatch := regexp.MustCompile("/([a-fA-F0-9]{40})$").FindStringSubmatch(req.URL.Path)
+	if fingerprintMatch != nil {
 		statement += "WHERE certfp=$1"
-		qparams = append(qparams, req.FormValue("certfp"))
+		queryParams = append(queryParams, fingerprintMatch[1])
 	} else {
-		http.Error(w, "Missing parameters. Requires either hostname or certfp.",
-			http.StatusUnprocessableEntity)
-		return
+		hostnameMatch := regexp.MustCompile("/([\\w\\.\\-]+)$").FindStringSubmatch(req.URL.Path)
+		if hostnameMatch != nil {
+			statement += "WHERE hostname=$1"
+			queryParams = append(queryParams, hostnameMatch[1])
+		} else {
+			http.Error(w, "Missing hostname or certificate fingerprint in URL path",
+				http.StatusUnprocessableEntity)
+			return
+		}
 	}
 
+	// Query the database for one row from the hostinfo table
 	var ipaddr, hostname, os, osEdition, osFamily, kernel, manufacturer,
 		product, serialNo, certfp, clientversion sql.NullString
 	var lastseen pq.NullTime
-	err = vars.db.QueryRow(statement, qparams...).
+	err = vars.db.QueryRow(statement, queryParams...).
 		Scan(&ipaddr, &hostname, &lastseen, &os, &osEdition, &osFamily,
 			&kernel, &manufacturer, &product, &serialNo, &certfp, &clientversion)
 	if err == sql.ErrNoRows {
-		// No host found. Return a "not found" status instead
+		// No host found. Return a "not found" status
 		http.Error(w, "Host not found.", http.StatusNotFound)
 		return
 	}
@@ -95,11 +86,13 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 		return
 	}
 
+	// Verify access
 	if !access.HasAccessTo(certfp.String) {
 		http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
 		return
 	}
 
+	// Pick out values for the result
 	res := make(map[string]interface{}, 0)
 	if fields["ipAddress"] {
 		res["ipAddress"] = jsonString(ipaddr)
@@ -247,14 +240,25 @@ func makeSupportList(db *sql.DB, serialNo string) ([]apiSupport, *httpError) {
 }
 
 func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
-	certfp := req.FormValue("certfp")
-	hostname := req.FormValue("hostname")
-	if certfp == "" && hostname == "" {
-		http.Error(w, "Missing a hostname or certfp parameter", http.StatusUnprocessableEntity)
-		return
+	// Get the host name (or the certificate fingerprint) from the URL path
+	var certfp, hostname string
+	fingerprintMatch := regexp.MustCompile("/([a-fA-F0-9]{40})$").FindStringSubmatch(req.URL.Path)
+	if fingerprintMatch != nil {
+		certfp = fingerprintMatch[1]
+	} else {
+		hostnameMatch := regexp.MustCompile("/([\\w\\.\\-]+)$").FindStringSubmatch(req.URL.Path)
+		if hostnameMatch != nil {
+			hostname = hostnameMatch[1]
+		} else {
+			http.Error(w, "Missing hostname or certificate fingerprint in URL path",
+				http.StatusUnprocessableEntity)
+			return
+		}
 	}
+	// Run the whole operation in a transaction
 	err := utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
-		if certfp == "" {
+		// If hostname was given, look up the certificate fingerprint
+		if hostname != "" {
 			var nullstr sql.NullString
 			err := tx.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
 				hostname).Scan(&nullstr)
@@ -297,4 +301,30 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 	}
+}
+
+// Get a list of names and IDs of all defined custom fields
+func getListOfCustomFields(db *sql.DB) ([]string, map[string]int, error) {
+	customFields := make([]string, 0)
+	customFieldIDs := make(map[string]int)
+	rows, err := db.Query("SELECT fieldid,name FROM customfields")
+	if err != nil {
+		return nil, nil, err
+	}
+	defer rows.Close()
+	for rows.Next() {
+		var fieldID int
+		var name string
+		err = rows.Scan(&fieldID, &name)
+		if err != nil {
+			return nil, nil, err
+		}
+		customFields = append(customFields, name)
+		customFieldIDs[name] = fieldID
+	}
+	if err = rows.Err(); err != nil {
+		return nil, nil, err
+	}
+	rows.Close()
+	return customFields, customFieldIDs, nil
 }

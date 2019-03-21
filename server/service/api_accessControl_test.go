@@ -26,7 +26,7 @@ func TestApiAccessControl(t *testing.T) {
 	tests := []apiCall{
 		//============= test that expiration date/time is enforced ====
 		{
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath: "GET /api/v0/host/foo.acme.com?fields=hostname",
 			accessProfile: expiredAP,
 			expectStatus:  403,
 			expectContent: "This key has expired",
@@ -34,20 +34,20 @@ func TestApiAccessControl(t *testing.T) {
 		//============= test that readonly is enforced =======
 		{
 			// delete as user with access
-			methodAndPath: "DELETE /api/v0/host?hostname=foo.acme.com",
+			methodAndPath: "DELETE /api/v0/host/foo.acme.com",
 			accessProfile: readonlyAP,
 			expectStatus:  403,
 			expectContent: "This key can only be used for GET requests",
 		},
 		//============= test that ip restrictions are enforced ===
 		{
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath: "GET /api/v0/host/foo.acme.com?fields=hostname",
 			accessProfile: restrictedIPAP,
 			expectStatus:  403,
 			expectContent: "This key can only be used from certain ip addresses",
 		},
 		{
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath: "GET /api/v0/host/foo.acme.com?fields=hostname",
 			remoteAddr:    "192.168.0.25",
 			accessProfile: restrictedIPAP,
 			expectStatus:  200,
@@ -124,51 +124,51 @@ func TestApiAccessControl(t *testing.T) {
 		//======== host api =========
 		{
 			// User requests details for a host they have access to
-			methodAndPath:  "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath:  "GET /api/v0/host/foo.acme.com?fields=hostname",
 			sessionProfile: userAP,
 			expectStatus:   200,
 			expectJSON:     "{\"hostname\":\"foo.acme.com\"}",
 		},
 		{
 			// User requests details for a host they DON'T have access to
-			methodAndPath:  "GET /api/v0/host?hostname=bar.acme.com&fields=hostname",
+			methodAndPath:  "GET /api/v0/host/bar.acme.com?fields=hostname",
 			sessionProfile: userAP,
 			expectStatus:   403,
 		},
 		{
 			// Unauthorized
-			methodAndPath: "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath: "GET /api/v0/host/foo.acme.com?fields=hostname",
 			runAsNotAuth:  true,
 			expectStatus:  401,
 		},
 		{
 			// admin
-			methodAndPath:  "GET /api/v0/host?hostname=foo.acme.com&fields=hostname",
+			methodAndPath:  "GET /api/v0/host/foo.acme.com?fields=hostname",
 			sessionProfile: adminAP,
 			expectStatus:   200,
 			expectJSON:     "{\"hostname\":\"foo.acme.com\"}",
 		},
 		{
 			// delete as unauthorized
-			methodAndPath: "DELETE /api/v0/host?hostname=bar.acme.com",
+			methodAndPath: "DELETE /api/v0/host/bar.acme.com",
 			runAsNotAuth:  true,
 			expectStatus:  401,
 		},
 		{
 			// delete as user without access
-			methodAndPath:  "DELETE /api/v0/host?hostname=bar.acme.com",
+			methodAndPath:  "DELETE /api/v0/host/bar.acme.com",
 			sessionProfile: userAP,
 			expectStatus:   403,
 		},
 		{
 			// delete as user with access
-			methodAndPath:  "DELETE /api/v0/host?hostname=foo.acme.com",
+			methodAndPath:  "DELETE /api/v0/host/foo.acme.com",
 			sessionProfile: userAP,
 			expectStatus:   204,
 		},
 		{
 			// delete as admin
-			methodAndPath:  "DELETE /api/v0/host?hostname=bar.acme.com",
+			methodAndPath:  "DELETE /api/v0/host/bar.acme.com",
 			sessionProfile: adminAP,
 			expectStatus:   204,
 		},
