@@ -19,6 +19,7 @@ const (
 	httpPOST   = "POST"
 	httpPUT    = "PUT"
 	httpDELETE = "DELETE"
+	httpPATCH  = "PATCH"
 )
 
 func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
