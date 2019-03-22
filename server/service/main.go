@@ -112,7 +112,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchlevel int
-	const requirePatchLevel = 3
+	const requirePatchLevel = 4
 	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
 	if patchlevel != requirePatchLevel {
 		log.Printf("Error: Wrong database patch level. "+
@@ -178,6 +178,8 @@ func triggerJob(job Job) {
 			return
 		}
 	}
+	// If the job type isn't in the list, there's a programming error.
+	// The type should have been registered by calling RegisterJob from an init() function.
 	panic("Trying to trigger an unregistered job?")
 }
 

@@ -186,8 +186,8 @@ function browseHostByCert(certfp) {
 	.done(function(){
 		APIcall(
 			//"mockapi/browsehost.json",
-			"/api/v0/host?certfp="+encodeURIComponent(certfp)+
-			"&fields=ipAddress,hostname,lastseen,os,osEdition,osFamily,"+
+			"/api/v0/host/"+encodeURIComponent(certfp)+
+			"?fields=ipAddress,hostname,overrideHostname,lastseen,os,osEdition,osFamily,"+
 			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
@@ -203,14 +203,15 @@ function browseHostByCert(certfp) {
 			})
 		.done(function(){
 			window.scrollTo(0,0);
+			attachHandlersToForms();
 		});
 	});
 }
 
 function deleteHostByCert(certfp) {
 	APIcall(
-		"/api/v0/host?certfp="+encodeURIComponent(certfp)+
-		"&fields=ipAddress,hostname,lastseen,os,osEdition,"+
+		"/api/v0/host/"+encodeURIComponent(certfp)+
+		"?fields=ipAddress,hostname,lastseen,os,osEdition,"+
 		"manufacturer,product,certfp",
 		"deletehost", "div#pageContent",
 	function(data){
@@ -243,7 +244,7 @@ function restDeleteHost(certfp) {
 	// Put a spinner on the button
 	$("a#deleteButton").addClass("is-loading");
 	// Perform the ajax call
-	let url = getAPIURLprefix()+"/api/v0/host?certfp="+certfp;
+	let url = getAPIURLprefix()+"/api/v0/host/"+certfp;
 	$.ajax({
 		"url": url,
 		"method": "DELETE"

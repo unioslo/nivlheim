@@ -2,9 +2,9 @@ package main
 
 import (
 	"database/sql"
-	"fmt"
 	"log"
 	"net"
+	"strings"
 	"time"
 
 	"github.com/lib/pq"
@@ -64,7 +64,7 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 			if hostname == "" {
 				return nil
 			}
-			_, err = tx.Exec("DELETE FROM hostinfo WHERE hostname=$1 AND certfp!=$2",
+			_, err = tx.Exec("UPDATE hostinfo SET hostname=null WHERE hostname=$1 AND certfp!=$2",
 				hostname, m.certfp.String)
 			if err != nil {
 				log.Panic(err)
@@ -91,10 +91,23 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 // in one place only.
 func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	lastseen time.Time) (string, error) {
-	// 1. First, see if the ip address is within one of the ip ranges
-	//    where DNS should be used.
+	// First, see if a name has been manually set for the host, that overrides automatics
+	var overrideName sql.NullString
+	err := tx.QueryRow("SELECT override_hostname FROM hostinfo WHERE certfp=$1", certfp).
+		Scan(&overrideName)
+	if err == nil {
+		if overrideName.Valid {
+			s := strings.TrimSpace(overrideName.String)
+			if s != "" {
+				return s, nil
+			}
+		}
+	} else if err != sql.ErrNoRows {
+		return "", err
+	}
+	// See if the ip address is within one of the ip ranges where DNS should be used.
 	var count int
-	err := tx.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+
+	err = tx.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+
 		"AND use_dns", ipAddress).Scan(&count)
 	if err != nil {
 		return "", err
@@ -118,6 +131,17 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 			// (and therefore DNS name). Leave it alone.
 			return "", nil
 		}
+		// Is it taken by another host by using override_hostname?
+		err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE override_hostname=$1",
+			hostname).Scan(&count)
+		if err != nil {
+			return "", err
+		}
+		if count > 0 {
+			// Yes, the name is in use by another host, which someone has manually given this name.
+			// Leave it alone.
+			return "", nil
+		}
 		// Is the result from DNS what the OS thinks its name is?
 		if hostname == osHostname {
 			// Then we must assume it is correct
@@ -127,7 +151,8 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 		// Well, is the name in use by any other machine at the moment?
 		// One who's OS agrees with DNS?
 		err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE "+
-			"hostname=os_hostname AND hostname=$1 AND certfp != $2",
+			"hostname=os_hostname AND hostname=$1 AND certfp != $2 "+
+			"AND (SELECT count(*) FROM ipranges WHERE use_dns AND ipaddr <<= iprange)>0",
 			hostname, certfp).Scan(&count)
 		if err != nil {
 			return "", err
@@ -148,19 +173,18 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	}
 	if count > 0 {
 		// Automatic naming without using DNS.
-		// If the machine claims to have the hostname "donut.yourdomain.com",
-		// the automatic name shouldn't conflict with other machines
-		// with valid DNS records on the same domain.
-		// Therefore, a suffix is added, so the name in Nivlheim becomes
-		// "donut.yourdomain.com.local".
-		// If another machine already has that name, the new name becomes
-		// "donut.yourdomain.com.2.local".
-		tx.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname LIKE $1||'%.local'",
-			osHostname).Scan(&count)
-		if count > 0 {
-			return fmt.Sprintf("%s.%d.local", osHostname, count+1), nil
+		// First, check if the name given by the operating system (osHostname) is free:
+		err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE (hostname=$1 OR override_hostname=$1)"+
+			" AND certfp!=$2", osHostname, certfp).Scan(&count)
+		if err != nil {
+			return "", err
 		}
-		return osHostname + ".local", nil
+		if count == 0 {
+			// Nobody is using osHostname
+			return osHostname, nil
+		}
+		// If the name given by the operating system is in use by another machine, give up.
+		return "", nil
 	}
 	// Cannot be named automatically. Check if it has been manually approved.
 	var hostname sql.NullString
@@ -173,7 +197,7 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 		return "", nil
 	}
 	count = 1
-	err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1",
+	err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE hostname=$1 OR override_hostname=$1",
 		hostname.String).Scan(&count)
 	if err != nil {
 		return "", err

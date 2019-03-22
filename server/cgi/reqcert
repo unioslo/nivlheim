@@ -107,6 +107,7 @@ if (@row && $row[0]>0) {
 		$dbh->disconnect;
 		exit;
 	}
+	# The client has been approved.
 	$hostname = $row[1];
 }
 
@@ -177,6 +178,7 @@ eval {
 		."commonname,cert) VALUES(now(),?,?,?)");
 	$sth->execute(($new_fingerprint, $hostname, $cert));
 	$sth->finish;
+	# Separate UPDATE statement because it needs the auto-incremented id value from INSERT
 	$dbh->do("UPDATE certificates SET first=".
 		"(SELECT certid FROM certificates WHERE fingerprint=?) ".
 		"WHERE fingerprint=?", undef, ($new_fingerprint, $new_fingerprint));

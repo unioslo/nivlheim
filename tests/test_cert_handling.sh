@@ -77,6 +77,9 @@ if [ $OK -eq 0 ]; then
 fi
 echo ""
 
+# Stop the system daemon to prevent it from messing with the tests
+sudo systemctl stop nivlheim
+
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
 sudo psql apache -c "UPDATE hostinfo SET hostname='abcdef'"
 sudo /usr/sbin/nivlheim_client
