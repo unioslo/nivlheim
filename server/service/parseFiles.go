@@ -338,6 +338,9 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 		fieldID int
 		value   string
 	}
+	// The reason for these arrays is that I want to close the result set before
+	// starting a new database query, in order to only use 1 database connection.
+	// The unit tests depend on it, because they run on a temp schema.
 	found := make([]Item, 0)
 	notfound := make([]Item, 0)
 	for rows.Next() {

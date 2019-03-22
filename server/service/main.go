@@ -178,6 +178,8 @@ func triggerJob(job Job) {
 			return
 		}
 	}
+	// If the job type isn't in the list, there's a programming error.
+	// The type should have been registered by calling RegisterJob from an init() function.
 	panic("Trying to trigger an unregistered job?")
 }
 
