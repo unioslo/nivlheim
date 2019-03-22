@@ -292,13 +292,15 @@ function editInPlace() {
 	// add click handlers to the buttons
 	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
+		let method = $(container).data("edit-method");
+		if (method=="") method = "PUT";
 		let body = $(container).find("input").serialize();
 		$(container).find("input:checkbox:not(:checked)").each(function(index){
 			body += "&" + $(this).attr('name') + "=0";
 		});
 		$(event.currentTarget).addClass("is-loading");
 		$(container).find("button.cancel").prop("disabled","disabled");
-		AJAXwithRefresh(container, action, "PUT", body)
+		AJAXwithRefresh(container, action, method, body)
 		.fail(function(){
 			$(event.currentTarget).removeClass("is-loading").shake();
 			$(container).find("button.cancel").prop("disabled",false);

@@ -187,7 +187,7 @@ function browseHostByCert(certfp) {
 		APIcall(
 			//"mockapi/browsehost.json",
 			"/api/v0/host/"+encodeURIComponent(certfp)+
-			"?fields=ipAddress,hostname,lastseen,os,osEdition,osFamily,"+
+			"?fields=ipAddress,hostname,overrideHostname,lastseen,os,osEdition,osFamily,"+
 			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
@@ -203,6 +203,7 @@ function browseHostByCert(certfp) {
 			})
 		.done(function(){
 			window.scrollTo(0,0);
+			attachHandlersToForms();
 		});
 	});
 }

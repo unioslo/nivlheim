@@ -307,8 +307,8 @@ func (vars *apiMethodHost) servePATCH(w http.ResponseWriter, req *http.Request, 
 				http.StatusBadRequest)
 			return nil
 		}
-		s := formValue(req.PostForm, "overridehostname")
-		if s != "" {
+		s, ok := ifFormValue(req.PostForm, "overridehostname")
+		if ok {
 			var count int
 			err := tx.QueryRow("SELECT count(*) FROM hostinfo"+
 				" WHERE (hostname=$1 OR override_hostname=$1)"+
@@ -318,7 +318,7 @@ func (vars *apiMethodHost) servePATCH(w http.ResponseWriter, req *http.Request, 
 				http.Error(w, "The name is already in use.", http.StatusConflict)
 				return nil
 			}
-			res, err := tx.Exec("UPDATE hostinfo SET override_hostname=$1 WHERE certfp=$2",
+			res, err := tx.Exec("UPDATE hostinfo SET override_hostname=$1,dnsttl=null WHERE certfp=$2",
 				s, certfp)
 			if err != nil {
 				return err
@@ -333,6 +333,7 @@ func (vars *apiMethodHost) servePATCH(w http.ResponseWriter, req *http.Request, 
 				http.Error(w, "", http.StatusNoContent) // 204 OK
 			}
 		} else {
+			// The request is correct but doesn't contain any data (that I recognize anyway)
 			http.Error(w, "", http.StatusUnprocessableEntity) // 422
 		}
 		return nil
@@ -380,22 +381,20 @@ func getHostFromURLPath(path string, db rowQueryer) (string, error) {
 	fingerprintMatch := regexp.MustCompile("/host/([a-fA-F0-9]{40})$").FindStringSubmatch(path)
 	if fingerprintMatch != nil {
 		return fingerprintMatch[1], nil
-	} else {
-		hostnameMatch := regexp.MustCompile("/host/([\\w\\.\\-]+)$").FindStringSubmatch(path)
-		if hostnameMatch != nil {
-			var nullstr sql.NullString
-			err := db.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
-				hostnameMatch[1]).Scan(&nullstr)
-			if err == sql.ErrNoRows {
-				return "", &httpError{code: http.StatusNotFound, message: "hostname not found"}
-			}
-			if err != nil {
-				return "", &httpError{code: http.StatusInternalServerError, message: err.Error()}
-			}
-			return nullstr.String, nil
-		} else {
-			return "", &httpError{code: http.StatusUnprocessableEntity,
-				message: "Missing hostname or certificate fingerprint in URL path"}
-		}
 	}
+	hostnameMatch := regexp.MustCompile("/host/([\\w\\.\\-]+)$").FindStringSubmatch(path)
+	if hostnameMatch != nil {
+		var nullstr sql.NullString
+		err := db.QueryRow("SELECT certfp FROM hostinfo WHERE hostname=$1",
+			hostnameMatch[1]).Scan(&nullstr)
+		if err == sql.ErrNoRows {
+			return "", &httpError{code: http.StatusNotFound, message: "hostname not found"}
+		}
+		if err != nil {
+			return "", &httpError{code: http.StatusInternalServerError, message: err.Error()}
+		}
+		return nullstr.String, nil
+	}
+	return "", &httpError{code: http.StatusUnprocessableEntity,
+		message: "Missing hostname or certificate fingerprint in URL path"}
 }

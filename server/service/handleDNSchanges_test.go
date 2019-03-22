@@ -63,12 +63,12 @@ func TestHandleDNSchanges(t *testing.T) {
 		t.Fatal(err)
 	}
 	type testname struct {
-		certfp            string
-		ipAddress         string
-		osHostname        string
-		hostname          sql.NullString
-		expected          string
-		override_hostname sql.NullString
+		certfp           string
+		ipAddress        string
+		osHostname       string
+		hostname         sql.NullString
+		expected         string
+		overrideHostname sql.NullString
 	}
 	tests := []testname{
 		// this host will be renamed based on DNS PTR record for the ip address
@@ -129,11 +129,11 @@ func TestHandleDNSchanges(t *testing.T) {
 		},
 		// Verify that override_hostname works
 		testname{
-			certfp:            "i",
-			ipAddress:         "1.2.3.4",
-			osHostname:        "shouldnt.matter.no.no.no",
-			override_hostname: sql.NullString{String: "saruman.uio.no", Valid: true},
-			expected:          "saruman.uio.no",
+			certfp:           "i",
+			ipAddress:        "1.2.3.4",
+			osHostname:       "shouldnt.matter.no.no.no",
+			overrideHostname: sql.NullString{String: "saruman.uio.no", Valid: true},
+			expected:         "saruman.uio.no",
 		},
 		// Although this host has correct DNS PTR and OS hostname,
 		// it shouldn't take over the name, since another host has it in override_hostname
@@ -147,7 +147,7 @@ func TestHandleDNSchanges(t *testing.T) {
 	for _, test := range tests {
 		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,"+
 			"os_hostname,hostname,override_hostname) VALUES($1,$2,$3,$4,$5)",
-			test.certfp, test.ipAddress, test.osHostname, test.hostname, test.override_hostname)
+			test.certfp, test.ipAddress, test.osHostname, test.hostname, test.overrideHostname)
 		if err != nil {
 			t.Fatal(err)
 		}

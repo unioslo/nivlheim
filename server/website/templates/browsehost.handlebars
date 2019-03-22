@@ -7,17 +7,26 @@
 
 <p>
 <table>
-<tr>
-	<th>IP address</th>
-	<td>{{ipAddress}}</td>
-	<td rowspan="5">
+<tr data-edit-action="/api/v0/host/{{certfp}}" data-edit-method="PATCH">
+	<th>{{#if overrideHostname}}Manually set hostname{{/if}}</th>
+	<td data-name="overrideHostname">{{overrideHostname}}</td>
+	<td rowspan="2">
+		<button class="button editbutton">
+			<span class="icon"><i class="far fa-edit"></i></span>
+			<span>Manually set hostname</span>
+		</button>
+	</td>
+</tr>
+<tr><th>IP address</th><td>{{ipAddress}}</td>
+</tr>
+	<tr><th>Last seen</th><td>{{formatDateTime lastseen}}</td>
+	<td>
 		<a class="button" href="/#/deletehost/{{certfp}}">
 			<span class="icon"><i class="fas fa-trash"></i></span>
 			<span>Delete this machine</span>
 		</a>
 	</td>
 </tr>
-<tr><th>Last seen</th><td>{{formatDateTime lastseen}}</td></tr>
 <tr><th>OS</th><td>{{os}}</td></tr>
 <tr><th>OS edition</th><td>{{osEdition}}</td></tr>
 <tr><th>OS family</th><td>{{osFamily}}</td></tr>

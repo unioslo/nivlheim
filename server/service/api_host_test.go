@@ -38,6 +38,12 @@ func TestHostAPI(t *testing.T) {
 			expectJSON:    "{\"hostname\":\"foo.example.com\",\"overrideHostname\":\"foo2.example.com\"}",
 		},
 		{
+			// Try to set the name to an empty string
+			methodAndPath: "PATCH /api/v0/host/foo.example.com",
+			body:          "overrideHostname=",
+			expectStatus:  http.StatusNoContent,
+		},
+		{
 			// Retrieve a host by fingerprint instead of hostname
 			methodAndPath: "GET /api/v0/host/0123456789ABCDEF0123456789abcdef00001111?fields=hostname",
 			expectStatus:  http.StatusOK,
