@@ -84,6 +84,8 @@ Summary:  Server components of Nivlheim
 Group:    Applications/System
 Requires: perl, openssl, httpd, mod_ssl, systemd, cronie
 Requires: postgresql, postgresql-server, postgresql-contrib
+%{?fedora:Requires: policycoreutils-python-utils}
+%{?rhel:Requires: policycoreutils-python}
 Requires: unzip, file
 Requires: perl(Archive::Tar)
 Requires: perl(Archive::Zip)
@@ -265,6 +267,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Sun Mar 24 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.13.0-20190324
+- Added dependency on package policycoreutils-python(-utils)
+
 * Mon Mar 11 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.12.2-20190311
 - New cron job that maintains the client CA certificates
 

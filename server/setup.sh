@@ -56,7 +56,7 @@ chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
 # SElinux
 chcon -R -t httpd_sys_rw_content_t /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}
 for dir in /var/log/nivlheim /var/www/nivlheim/{db,certs,rand,queue}; do
-	semanage fcontext -a -t httpd_sys_rw_content_t $dir
+	semanage fcontext -a -t httpd_sys_rw_content_t "$dir(/.*)?"
 done
 setsebool -P httpd_can_network_connect_db on
 setsebool -P httpd_can_network_connect on  # for proxy connections to the API

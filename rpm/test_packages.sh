@@ -17,6 +17,14 @@ if [ -f installerror ]; then
 	exit 1
 fi
 
+# If restorecon would change anything, it means something wasn't installed right
+sudo restorecon -nvR /var/www/nivlheim /var/log/nivlheim > /tmp/changed.log
+if [[ `wc -l /tmp/changed.log` -gt 0 ]]; then
+	echo "restorecon indicates some files/dirs don't have the right SELinux context/type."
+	echo "There could be a problem with semanage commands in setup.sh."
+	exit 1
+fi
+
 # Verify that the system service is running
 if ! sudo systemctl is-active --quiet nivlheim; then
 	sudo systemctl status nivlheim
