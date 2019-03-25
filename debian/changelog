@@ -1,0 +1,16 @@
+nivlheim (1.9.3-1) stretch; urgency=low
+
+  * Initial release.
+  * Depend on ca-certificates to get the ca-certificates.crt file.
+  * Depend on libio-socket-inet6-perl and libnet-dns-perl needed by
+    the perl client.
+  * Make sure /etc/nivlheim/client.conf is not a conffile, and copy it
+    on first time installation from /usr/share/nivlheim/client.conf.
+    This allow cfengine to rewrite it without causing conffile questions
+    on upgrades.
+  * Depend on libio-socket-ssl-perl for IO::Socket::SSL and libwww-perl
+    or libhttp-message-perl for HTTP::Request::Common used by the
+    client.
+  * Depend on libnetaddr-ip-perl for NetAddr::IP used by the client.
+
+ -- Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>  Tue, 26 Feb 2019 17:21:55 +0100
