@@ -42,30 +42,11 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 	}
 
 	// Get a list of names and IDs of all defined custom fields
-	customFields := make([]string, 0)
-	customFieldIDs := make(map[string]int)
-	rows, err := vars.db.Query("SELECT fieldid,name FROM customfields")
+	customFields, customFieldIDs, err := getListOfCustomFields(vars.db)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	defer rows.Close()
-	for rows.Next() {
-		var fieldID int
-		var name string
-		err = rows.Scan(&fieldID, &name)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		customFields = append(customFields, name)
-		customFieldIDs[name] = fieldID
-	}
-	if err = rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	rows.Close()
 
 	// Make a complete list of allowed field names (standard + custom)
 	allowedFields := make([]string, len(apiHostListStandardFields))
@@ -223,7 +204,7 @@ func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Reques
 		//	log.Print(qparams)
 	}
 
-	rows, err = vars.db.Query(statement, qparams...)
+	rows, err := vars.db.Query(statement, qparams...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return

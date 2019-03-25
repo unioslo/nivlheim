@@ -282,6 +282,15 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 	}
 }
 
+func ifFormValue(form url.Values, caseInsensitiveKey string) (string, bool) {
+	for k, v := range form {
+		if strings.EqualFold(k, caseInsensitiveKey) {
+			return v[0], true
+		}
+	}
+	return "", false
+}
+
 func formValue(form url.Values, caseInsensitiveKey string) string {
 	for k, v := range form {
 		if strings.EqualFold(k, caseInsensitiveKey) {

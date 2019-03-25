@@ -19,6 +19,7 @@ const (
 	httpPOST   = "POST"
 	httpPUT    = "PUT"
 	httpDELETE = "DELETE"
+	httpPATCH  = "PATCH"
 )
 
 func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
@@ -29,6 +30,8 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	api.Handle("/api/v0/file",
 		wrapRequireAuth(&apiMethodFile{db: theDB}, theDB))
 	api.Handle("/api/v0/host",
+		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
+	api.Handle("/api/v0/host/",
 		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
 	api.Handle("/api/v0/hostlist",
 		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}, theDB))
