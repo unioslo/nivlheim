@@ -2,7 +2,7 @@
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
-Version:  %{getenv:GIT_TAG}
+Version:  0.13.0
 Release:  %{date}%{?dist}
 
 Summary:  File collector
@@ -136,6 +136,11 @@ mv fontawesome-free-5.2.0-web/css/all.css fontawesome/css/
 mv fontawesome-free-5.2.0-web/LICENSE.txt fontawesome/
 chmod -R a+rX,g-w,o-w bulma-0.7.2 fontawesome
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
+%if "%{getenv:GIT_BRANCH}" != "master"
+    %define SUFFIX -%{getenv:GIT_BRANCH}
+%else
+    %define SUFFIX %{nil}
+%endif
 
 # disable building of the debug package.
 # avoids the error debuginfo-without-sources from rpmlint
@@ -165,6 +170,8 @@ rm -f $GOPATH/bin/*
 go install -ldflags='-linkmode=external -w -s'
 popd
 mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
+# Replace the version number in nivlheim_client
+sed -i 's/0.0.0/%{version}%{SUFFIX}/g' client/nivlheim_client
 
 %install
 rm -rf %{buildroot}
@@ -209,8 +216,7 @@ cp -a ../fontawesome %{buildroot}%{_localstatedir}/www/html/libs
 chmod 755 %{buildroot}%{_localstatedir}/www/html/libs
 install -p -m 0755 gopath/bin/service %{buildroot}%{_sbindir}/nivlheim_service
 cp -a server/database/* %{buildroot}%{_localstatedir}/nivlheim/
-echo %{version} > %{buildroot}%{_sysconfdir}/nivlheim/version
-echo %{version} > %{buildroot}%{_localstatedir}/www/html/version.txt
+echo %{version}%{SUFFIX} > %{buildroot}%{_localstatedir}/www/html/version.txt
 # add the version number to js and css urls to ensure browsers will reload
 sed -i 's/src="\(.\+.js\)"/src="\1?%{version}"/g' %{buildroot}%{_localstatedir}/www/html/index.html
 sed -i 's/href="\(.\+.css\)"/href="\1?%{version}"/g' %{buildroot}%{_localstatedir}/www/html/index.html
@@ -243,7 +249,6 @@ rm -rf %{buildroot}
 %dir %{_sysconfdir}/nivlheim
 %license LICENSE.txt
 %doc README.md
-%config %{_sysconfdir}/nivlheim/version
 %config(noreplace) %{_sysconfdir}/httpd/conf.d/nivlheim.conf
 %config %{_sysconfdir}/nivlheim/openssl_ca.conf
 %config(noreplace) %{_sysconfdir}/nivlheim/server.conf
