@@ -377,7 +377,7 @@ function allHosts() {
 			// Look at url parameters (if any) and select appropriate items
 			let p = getUrlParams();
 			if (p["q"]) {
-				let a = p["q"].split(',');
+				let a = p["q"].split('|');
 				for (let i=0; i<a.length; i++) {
 					$("aside.menu li a:contains('"+a[i]+"')").addClass('is-active');
 				}
@@ -402,22 +402,22 @@ function reloadMatchingHosts() {
 	// find the selected elements from the menu
 	let oses = [];
 	$("aside.menu li a.os.is-active span:first-of-type").each(function(i,e){
-		oses.push(e.innerText);
+		oses.push(e.innerText.replace(",","%2C"));
 	});
 	let editions = [];
 	$("aside.menu li a.osEdition.is-active span:first-of-type").each(function(i,e){
-		editions.push(e.innerText);
+		editions.push(e.innerText.replace(",","%2C"));
 	});
 	let manufacturers = [];
 	$("aside.menu li a.manufacturer.is-active span:first-of-type").each(function(i,e){
-		manufacturers.push(e.innerText);
+		manufacturers.push(e.innerText.replace(",","%2C"));
 	});
 	let products = [];
 	$("aside.menu li a.product.is-active span:first-of-type").each(function(i,e){
-		products.push(e.innerText);
+		products.push(e.innerText.replace(",","%2C"));
 	});
 	// set the query string in the url
-	let q = oses.concat(editions).concat(manufacturers).concat(products).join(',');
+	let q = oses.concat(editions).concat(manufacturers).concat(products).join('|');
 	if (q) q = "?q="+q;
 	location.assign("/#/allhosts"+q);
 	// prepare the API call that loads the list of hosts that match

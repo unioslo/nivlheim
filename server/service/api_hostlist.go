@@ -396,22 +396,20 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 
 	re := regexp.MustCompile("^(\\w+)([=!<>]{1,2})(.+)$")
 	for _, pair := range strings.Split(queryString, "&") {
-		un, err := url.QueryUnescape(pair)
-		if err == nil {
-			pair = un
-		}
 		m := re.FindStringSubmatch(pair)
-		if m == nil || err != nil {
+		if m == nil {
 			return "", nil, &httpError{
 				code:    http.StatusBadRequest,
 				message: "Syntax error: " + pair,
 			}
 		}
-		name := m[1]
+
+		name, _ := url.QueryUnescape(m[1])
 		if name == "fields" || name == "sort" ||
 			name == "limit" || name == "offset" || name == "group" {
 			continue
 		}
+
 		operator := m[2]
 		ok := false
 		for _, s := range []string{"=", "!=", "<", ">"} {
@@ -446,6 +444,7 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 		value := m[3]
 		if strings.Index(value, "*") > -1 {
 			// The value contains wildcards
+			value, _ = url.QueryUnescape(value)
 			parts := make([]string, 0)
 			for _, valuePart := range strings.Split(value, "*") {
 				if len(valuePart) > 0 {
@@ -479,6 +478,7 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 				// >2h = more than 2 hours ago
 				// <30m = less than 30 minutes ago
 				// supported time units: s(seconds), m(minutes), h(hours), d(days)
+				value, _ = url.QueryUnescape(value)
 				var count int
 				var unit string
 				_, err := fmt.Sscanf(value, "%d%s", &count, &unit)
@@ -503,15 +503,20 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 					}
 				}
 			} else {
+				// A bit of comma "magic":
+				// Escaped commas are interpreted as part of the values,
+				// and unescaped commas are interpreted as separators.
 				if strings.Index(value, ",") > -1 && operator == "=" {
 					q := make([]string, 0)
 					for _, s := range strings.Split(value, ",") {
+						s, _ = url.QueryUnescape(s)
 						qparams = append(qparams, s)
 						q = append(q, fmt.Sprintf("$%d", len(qparams)))
 					}
 					where = append(where, fmt.Sprintf("%s IN (%s)", colname,
 						strings.Join(q, ",")))
 				} else {
+					value, _ = url.QueryUnescape(value)
 					qparams = append(qparams, value)
 					where = append(where, fmt.Sprintf("%s %s $%d", colname,
 						operator, len(qparams)))
