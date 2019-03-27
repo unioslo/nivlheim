@@ -76,6 +76,18 @@ func TestBuildSQLWhere(t *testing.T) {
 			sql:    "os_edition IS NOT NULL",
 			params: []interface{}{},
 		},
+		whereTest{
+			// If commas are url encoded as %2C they should be considered part of the string
+			query:  "manufacturer=VMWare%2C%20Inc.,Apple",
+			sql:    "manufacturer IN ($1,$2)",
+			params: []interface{}{"VMWare, Inc.", "Apple"},
+		},
+		whereTest{
+			// If commas are url encoded as %2C they should be considered part of the string
+			query:  "os=foo%2cbar%2Cbaz",
+			sql:    "os = $1",
+			params: []interface{}{"foo,bar,baz"},
+		},
 	}
 
 	allowedFields := make([]string, len(apiHostListStandardFields))
