@@ -59,6 +59,13 @@ func (ap *AccessProfile) AllowAllIPs() {
 	ap.ipranges[0] = net.IPNet{IP: net.IPv4(0, 0, 0, 0), Mask: net.CIDRMask(0, 128)}
 }
 
+func (ap *AccessProfile) AllowOnlyLocalhost() {
+	ap.ipranges = []net.IPNet{
+		net.IPNet{IP: net.IPv4(127, 0, 0, 1), Mask: net.IPv4Mask(255, 255, 255, 255)},
+		net.IPNet{IP: net.ParseIP("::1"), Mask: net.CIDRMask(1, 128)},
+	}
+}
+
 func (ap *AccessProfile) GetSQLWHERE() string {
 	//TODO this is temporary (bad) solution; will be removed later. See issue #67
 	var sql strings.Builder
@@ -84,7 +91,19 @@ func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 		ap.certs = make(map[string]bool)
 		return ap, nil
 	}
-	resp, err := http.Get(authorizationPluginURL + url.QueryEscape(userID))
+
+	pluginAccess := &AccessProfile{
+		isAdmin:  true,
+		expires:  time.Now().Add(time.Duration(10) * time.Second),
+		readonly: true,
+	}
+	pluginAccess.AllowAllIPs()
+	tempKey := GenerateTemporaryAPIKey(pluginAccess)
+
+	postValues := url.Values{}
+	postValues.Set("u", userID)
+	postValues.Set("key", string(tempKey))
+	resp, err := http.PostForm(authorizationPluginURL, postValues)
 	if err != nil {
 		return nil, err
 	}
@@ -145,15 +164,6 @@ func wrapRequireAdmin(h http.Handler) http.Handler {
 // has authenticated, either through Oauth2 or an API key.
 func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		//TODO let local auth plugin through. handle this in a better way.
-		//  When api keys become a thing, the system can generate a short-lived
-		//  api key on the fly and pass it to the auth plugin. That key wouldn't
-		//  even have to be saved to the database.
-		//  See issue #74: https://github.com/usit-gd/nivlheim/issues/74
-		if isLocal(req) {
-			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
-			return
-		}
 		// If authentication is not enabled in config, let the request through
 		if !authRequired {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
