@@ -19,8 +19,6 @@ func (job removeInactiveMachinesJob) HowOften() time.Duration {
 }
 
 func (job removeInactiveMachinesJob) Run(db *sql.DB) {
-	archiveDayLimit := getSystemSettingAsInt(db, DaysIfNotSeenThenArchive)
-	deleteDayLimit := getSystemSettingAsInt(db, DaysIfNotSeenThenDelete)
 	rows, err := db.Query("SELECT certfp,extract(day from now()-lastseen) FROM hostinfo")
 	if err != nil {
 		log.Print(err)

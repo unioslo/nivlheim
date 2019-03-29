@@ -10,6 +10,7 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
+	"strconv"
 	"strings"
 	"syscall"
 	"time"
@@ -49,6 +50,8 @@ var oauth2LogoutEndpoint string
 var authRequired bool
 var authorizationPluginURL string
 var devmode bool
+var archiveDayLimit int = 30
+var deleteDayLimit int = 180
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -216,6 +219,10 @@ func readConfigFile() {
 			authRequired = isTrueish(value)
 		case "authpluginurl":
 			authorizationPluginURL = value
+		case "archiveafterdays":
+			archiveDayLimit, _ = strconv.Atoi(value)
+		case "deleteafterdays":
+			deleteDayLimit, _ = strconv.Atoi(value)
 		}
 	}
 	if err = scanner.Err(); err != nil {
