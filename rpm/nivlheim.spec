@@ -2,7 +2,7 @@
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
-Version:  0.13.0
+Version:  0.14.0
 Release:  %{date}%{?dist}
 
 Summary:  File collector
@@ -126,6 +126,10 @@ This package contains the server components of Nivlheim.
 %setup -q -T -b 4 -n jquery-3.3.1
 %setup -q -T -b 6 -n moment-2.22.2
 %setup -q -T -b 8 -n tarantino-2.1.0
+%autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
+A=`pwd`
+cd `dirname %{SOURCE0}`
+sha256sum --quiet -c "$A/rpm/sha256sums"
 cd %{_builddir}
 rm -rf bulma-0.7.2 fontawesome-free-5.2.0-web
 unzip -q %{SOURCE7}
@@ -135,12 +139,12 @@ mv fontawesome-free-5.2.0-web/webfonts fontawesome/
 mv fontawesome-free-5.2.0-web/css/all.css fontawesome/css/
 mv fontawesome-free-5.2.0-web/LICENSE.txt fontawesome/
 chmod -R a+rX,g-w,o-w bulma-0.7.2 fontawesome
-%autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 %if "%{getenv:GIT_BRANCH}" != "master"
     %define SUFFIX -%{getenv:GIT_BRANCH}
 %else
     %define SUFFIX %{nil}
 %endif
+cd $A
 
 # disable building of the debug package.
 # avoids the error debuginfo-without-sources from rpmlint
@@ -272,6 +276,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Fri Mar 29 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.14.0-20190329
+- Added sha256sum integrity check for sources
+
 * Sun Mar 24 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.13.0-20190324
 - Added dependency on package policycoreutils-python(-utils)
 

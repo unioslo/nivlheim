@@ -23,6 +23,7 @@ cp *.spec $BUILDDIR/SPECS/
 cp *.patch $BUILDDIR/SOURCES/ 2>/dev/null
 SPEC=`eval echo $BUILDDIR/SPECS/*.spec`
 echo "buildrpm: Spec file = $SPEC"
+grep 'Version:' $SPEC
 
 # hard-replace a few macroes in the spec file, because
 # otherwise the environment variables would have to be present
