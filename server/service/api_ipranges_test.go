@@ -107,6 +107,6 @@ func TestApiMethodIpRanges(t *testing.T) {
 	db := getDBconnForTesting(t)
 	defer db.Close()
 	mux := http.NewServeMux()
-	mux.Handle("/", wrapRequireAdmin(&apiMethodIpRanges{db: db}))
+	mux.Handle("/", wrapRequireAdmin(&apiMethodIpRanges{db: db}, db))
 	testAPIcalls(t, mux, tests)
 }

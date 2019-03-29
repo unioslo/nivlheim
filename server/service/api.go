@@ -48,15 +48,15 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 
 	// API functions that are only available to administrators
 	api.Handle("/api/v0/awaitingApproval",
-		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}, theDB))
 	api.Handle("/api/v0/awaitingApproval/",
-		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}))
+		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/ipranges",
-		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/ipranges/",
-		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
+		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}, theDB))
 	api.Handle("/api/v0/resetWaitingTimeForFailedTasks",
-		wrapRequireAdmin(&apiMethodResetWaitingTime{db: theDB}))
+		wrapRequireAdmin(&apiMethodResetWaitingTime{db: theDB}, theDB))
 
 	// API functions that don't require authentication
 	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})

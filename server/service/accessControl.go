@@ -27,7 +27,7 @@ func (ap *AccessProfile) OwnerID() string {
 }
 
 func (ap *AccessProfile) HasAccessTo(certfp string) bool {
-	return ap.isAdmin || ap.certs[certfp]
+	return ap.certs[certfp] || (ap.isAdmin && len(ap.certs) == 0)
 }
 
 func (ap *AccessProfile) IsAdmin() bool {
@@ -136,28 +136,26 @@ type httpHandlerWithAccessProfile interface {
 	ServeHTTP(http.ResponseWriter, *http.Request, *AccessProfile)
 }
 
-// wrapRequireAdmin adds a layer that requires that there is
-// an interactive user session and that the user has admin rights.
-func wrapRequireAdmin(h http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
-		// If authentication is not enabled in config, let the request through
-		if !authRequired {
-			h.ServeHTTP(w, req)
-			return
-		}
-		session := getSessionFromRequest(req)
-		if session == nil {
-			// The user isn't logged in
-			http.Error(w, "Not logged in", http.StatusUnauthorized)
-			return
-		}
-		if !session.userinfo.IsAdmin {
-			// The user isn't admin
-			http.Error(w, "This operation requires admin", http.StatusForbidden)
-			return
-		}
-		h.ServeHTTP(w, req)
-	})
+type httpHandlerWithAccessProfileFunc func(http.ResponseWriter, *http.Request, *AccessProfile)
+
+func (f httpHandlerWithAccessProfileFunc) ServeHTTP(w http.ResponseWriter, r *http.Request, ap *AccessProfile) {
+	f(w, r, ap)
+}
+
+// wrapRequireAdmin adds a layer that requires that the user has administrative rights,
+// in addition to being authenticated, either through Oauth2 or an API key.
+func wrapRequireAdmin(h http.Handler, db *sql.DB) http.Handler {
+	return wrapRequireAuth(
+		httpHandlerWithAccessProfileFunc(
+			func(w http.ResponseWriter, req *http.Request, ap *AccessProfile) {
+				if !ap.IsAdmin() {
+					// The user isn't admin
+					http.Error(w, "This operation requires admin", http.StatusForbidden)
+					return
+				}
+				h.ServeHTTP(w, req)
+			}),
+		db)
 }
 
 // wrapRequireAuth adds a layer that requires that the user
