@@ -99,7 +99,7 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 			if err != nil {
 				return nil, err
 			}
-			if certfp.Valid && ap.certs[certfp.String] {
+			if certfp.Valid && ap.HasAccessTo(certfp.String) {
 				newMap[certfp.String] = true
 			}
 		}
