@@ -20,8 +20,7 @@ Delete archived data for hosts that have not been heard from in this many days:
 
 <h1 class="title is-4">Tasks</h1>
 
-<a class="button is-primary"
-	onclick="restPut('/api/v0','resetWaitingTimeForFailedTasks','')">
+<a class="button is-primary" id="resetWaitTimeButton">
 Reset the waiting time for all failed tasks</a>
 <span data-error-for="resetWaitingTimeForFailedTasks" class="has-text-danger"></span>
 <span data-saved-for="resetWaitingTimeForFailedTasks" class="has-text-info"></span>
