@@ -180,7 +180,8 @@ function submitForm(event) {
 	// replace the submit button with a spinner
 	let b = $(event.target).find("input[type=submit]");
 	let oldSubmitButton = b.replaceWith(
-		'<a class="button is-loading" style="width:'+b.width()+'px">Loading</a>');
+		'<a class="button is-loading">Loading</a>');
+	$(event.target).find("a.button.is-loading").width(b.width());
 	// Use the ACTION or data-action attribute from the FORM tag
 	let path = $(this).data("action") || new URL(this.action).pathname;
 	// use the METHOD or data-method attribute from the FORM tag
@@ -265,7 +266,9 @@ function refresh(domElement) {
 function autoexpand(event) {
 	// event.target is the input element
 	event.target.style = "";
-	event.target.size = event.target.value.length;
+	if (event.target.value.length > 0) {
+		event.target.size = event.target.value.length;
+	}
 }
 
 function editInPlace() {
@@ -281,10 +284,11 @@ function editInPlace() {
 			// text string
 			let name = $(this).data("name");
 			let value = htmlEscape($(this).text());
+			let w = $(this).width();
 			$(this).replaceWith('<input class="input" type="text" '+
-				'name="'+name+'" value="'+value+'" '+
-				'style="width:'+($(this).width()+30)+'px" onkeyup="autoexpand(event)">');
-		} 
+				'name="'+name+'" value="'+value+'">');
+			$("input[name=\""+name+"\"]").width(w+30).keyup(autoexpand);
+		}
 	});
 	// replace the "edit" button with two "accept" and "cancel" buttons
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
@@ -293,7 +297,7 @@ function editInPlace() {
 	$(container).find("button.submit").click(function(event){
 		let action = $(container).data("edit-action");
 		let method = $(container).data("edit-method");
-		if (method=="") method = "PUT";
+		if (!method) method = "PUT";
 		let body = $(container).find("input").serialize();
 		$(container).find("input:checkbox:not(:checked)").each(function(index){
 			body += "&" + $(this).attr('name') + "=0";

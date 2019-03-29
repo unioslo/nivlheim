@@ -164,4 +164,5 @@ func (vars *apiMethodResetWaitingTime) ServeHTTP(w http.ResponseWriter, req *htt
 		return
 	}
 	vars.db.Exec("UPDATE tasks SET delay=0, delay2=0 WHERE lasttry IS NOT NULL AND delay>0")
+	http.Error(w, "", http.StatusNoContent) // 204 OK
 }

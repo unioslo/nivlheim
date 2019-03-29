@@ -448,11 +448,22 @@ function settingsPage() {
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
 		let p1 = APIcall("/api/v0/settings", "settings", "#placeholder_settings")
+			.done(function(){
+				$("#resetWaitTimeButton").click(function(){restPut('/api/v0','resetWaitingTimeForFailedTasks','')});
+			});
 		let p2 = APIcall(
 			//"mockapi/awaiting_approval.json",
 			"/api/v0/awaitingApproval"+
 			"?fields=hostname,reversedns,ipaddress,approvalId",
-			"awaiting_approval", $('#placeholder_approval'));
+			"awaiting_approval", $('#placeholder_approval'))
+			.done(function(){
+				$("[data-approve-id]").each(function(i,elem){
+					$(elem).click(function(){approve($(elem).data('approve-id'));});
+				});
+				$("[data-deny-id]").each(function(i,elem){
+					$(elem).click(function(){deny($(elem).data('deny-id'));});
+				});
+			});
 		let p3 = APIcall(
 			"/api/v0/settings/customfields?fields=name,filename,regexp",
 			"customfields", "#placeholder_customfields");
