@@ -55,10 +55,6 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
 	api.Handle("/api/v0/settings/ipranges/",
 		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}))
-	api.Handle("/api/v0/settings/",
-		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
-	api.Handle("/api/v0/settings",
-		wrapRequireAdmin(&apiMethodSettings{db: theDB}))
 	api.Handle("/api/v0/resetWaitingTimeForFailedTasks",
 		wrapRequireAdmin(&apiMethodResetWaitingTime{db: theDB}))
 
