@@ -156,7 +156,9 @@ eval{
 		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
-	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true,parsed=false "
+	# Why set parsed=false on unchanged files? Because if the machine has been archived
+	# and came back, the hostinfo values must be re-populated.
+	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true,parsed=false,received=now() "
 		."WHERE fileid=? AND NOT current");
 
 	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
