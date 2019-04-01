@@ -164,6 +164,7 @@ $(document).ready(function(){
 });
 
 function showFrontPage() {
+	document.title = "Home - Nivlheim";
 	renderTemplate("frontpage", {}, "div#pageContent")
 	.done(function(){
 		$("button#searchButton").click(newSearch);
@@ -192,6 +193,7 @@ function browseHostByCert(certfp) {
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
 			function(data){
+				document.title = data['hostname'] + " - Nivlheim";
 				// put the custom fields in a map so they can be iterated through
 				let m = {};
 				for (let i=0; i<customfields.length; i++) {
@@ -293,12 +295,13 @@ function browseFileByName(certfp, filename) {
 		"&certfp="+certfp,
 		"browsefile", "div#pageContent")
 	.done(showDiff)
-	.done(function(){
+	.done(function(data){
 		$("select#selectVersion:first-child").prop("selected","selected");
 		$("select#selectVersion").change(function(){
 			location.href = "#/browsefile/"+$(this).val();
 		});
 		window.scrollTo(0,0);
+		document.title = data['filename'] + " - Nivlheim";
 	});
 }
 
@@ -321,6 +324,7 @@ function searchPage(page, q) {
 	// if we're not already on the search page, render the template
 	renderTemplate("searchpage", {"query": q}, "div#pageContent")
 	.done(function(){
+		document.title = 'Search - Nivlheim';
 		// add handlers to the input field and button
 		$("button#searchButton").click(newSearch);
 		$("input#search").keyup(function(e){
@@ -334,6 +338,10 @@ function searchPage(page, q) {
 		APIcall("/api/v0/hostlist?fields=hostname,certfp&hostname="+
 			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
 			"div#searchResultHostnames");
+		// search IP addresses
+		APIcall("/api/v0/hostlist?fields=hostname,certfp&ipAddress="+
+			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
+			"div#searchResultHostnames2");
 		// search files
 		APIcall(
 			//"mockapi/searchpage.json",
@@ -347,6 +355,7 @@ function searchPage(page, q) {
 			let elem = $("input#search")[0];
 			elem.selectionStart = elem.selectionEnd = elem.value.length;
 		});
+		document.title = q + ' - Nivlheim search';
 	});
 }
 
@@ -391,6 +400,7 @@ function allHosts() {
 				reloadMatchingHosts();
 			});
 		});
+		document.title = 'Browse hosts - Nivlheim';
 	})
 	.fail(function(){
 		showError("Something went wrong when querying the server.",
@@ -445,6 +455,7 @@ function loadMoreHosts() {
 }
 
 function settingsPage() {
+	document.title = "Settings - Nivlheim";
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
 		let p1 = APIcall("/api/v0/settings", "settings", "#placeholder_settings")
@@ -474,6 +485,7 @@ function settingsPage() {
 }
 
 function iprangesPage() {
+	document.title = "IP ranges - Nivlheim";
 	APIcall(//"mockapi/ipranges.json",
 		"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
 		"ipranges", "div#pageContent")
@@ -483,6 +495,7 @@ function iprangesPage() {
 }
 
 function keysPage() {
+	document.title = "API keys - Nivlheim";
 	APIcall("/api/v0/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
 		"keyspage", "div#pageContent")
 	.done(function(){
@@ -493,6 +506,7 @@ function keysPage() {
 }
 
 function keyEditPage(keyid) {
+	document.title = "API keys - Nivlheim";
 	APIcall("/api/v0/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
 		"keyeditpage", "div#pageContent", function(obj){
 			// Only show the expiry date, not the whole timestamp

@@ -62,9 +62,11 @@ setsebool -P httpd_can_network_connect_db on
 setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 
 # initialize postgresql. new/old syntax
-if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then
-	echo "Unable to initialize PostgreSQL database."
-	echo "Assuming there is an existing installation."
+if [ -d /var/lib/pgsql/data ] && [ -z "$(ls /var/lib/pgsql/data)" ]; then
+	if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then
+		echo "Unable to initialize PostgreSQL database."
+		echo "Assuming there is an existing installation."
+	fi
 fi
 
 # restart apache httpd and postgres
