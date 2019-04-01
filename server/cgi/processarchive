@@ -23,7 +23,7 @@ sub uts_to_rfc3339($);
 # Restrict access to only localhost, and disallow proxy connections
 my $ip = $ENV{'REMOTE_ADDR'};
 if (defined($ENV{'HTTP_X_FORWARDED_FOR'}) || ($ip ne "127.0.0.1" && $ip ne "::1")) {
-	print "Status: 403\n\n";
+	print "Status: 403\r\n\r\n";
 	exit;
 }
 
@@ -45,24 +45,24 @@ if ($@) {
 # Check parameters
 my %params = parse_query_string();
 unless (exists $params{'file'}) {
-	print "Status: 400\n\nMissing parameter: file\n";
+	print "Status: 400\r\n\r\nMissing parameter: file\n";
 	$logger->debug("Missing parameter: file");
 	exit;
 }
 if ($params{'file'} =~ m![\\/]!) {
-	print "Status: 403\n\n";
+	print "Status: 403\r\n\r\n";
 	$logger->debug("File path contains slashes; not allowed");
 	exit;
 }
 my $archivefile = $params{'file'};
 $archivefile = "$confdir/queue/$archivefile";
 unless (-f $archivefile) {
-	print "Status: 410\n\nCan't find the archive file.\n";
+	print "Status: 410\r\n\r\nCan't find the archive file.\n";
 	$logger->debug("Can't find the archive file");
 	exit;
 }
 unless (-r $archivefile) {
-	print "Status: 400\n\nUnable to read the archive file.\n";
+	print "Status: 400\r\n\r\nUnable to read the archive file.\n";
 	$logger->debug("Unable to read the archive file");
 	exit;
 }
@@ -72,7 +72,7 @@ $logger->debug("Connecting to database");
 my %attr = ("AutoCommit" => 0);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
-	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
 	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);

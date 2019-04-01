@@ -93,9 +93,9 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	// AgeOfNewestFile
 	var t sql.NullFloat64
 	status.AgeOfNewestFile = -1
-	vars.db.QueryRow("SELECT extract(epoch from now()-received) FROM files " +
-		"WHERE parsed ORDER BY fileid DESC LIMIT 1").Scan(&t)
-	if t.Valid {
+	err = vars.db.QueryRow("SELECT extract(epoch from now()-received) FROM files " +
+		"ORDER BY fileid DESC LIMIT 1").Scan(&t)
+	if err == nil && t.Valid {
 		status.AgeOfNewestFile = float32(t.Float64)
 	}
 

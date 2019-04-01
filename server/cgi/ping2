@@ -9,7 +9,7 @@ $timestamp =~ s/\s+GMT$//;
 my $time = Time::Piece->strptime($timestamp, "%b %d %H:%M:%S %Y");
 my $left = $time - gmtime;
 if ($left->days < 30) {
-	print "Status: 400\nContent-Type: text/plain\n\nYour certificate is about to expire, please renew it.\n";
+	print "Status: 400\r\nContent-Type: text/plain\r\n\r\nYour certificate is about to expire, please renew it.\n";
 	exit;
 }
 
@@ -21,7 +21,7 @@ my $value1 = $x509->issuer();
 my $ca = Crypt::OpenSSL::X509->new_from_file('/var/www/nivlheim/CA/nivlheimca.crt');
 my $value2 = $ca->subject();
 if ($value1 ne $value2) {
-	print "Status: 400\nContent-Type: text/plain\n\nThe server has a new CA certificate, please renew your certificate.\n";
+	print "Status: 400\r\nContent-Type: text/plain\r\n\r\nThe server has a new CA certificate, please renew your certificate.\n";
 	exit;
 }
 
@@ -33,7 +33,7 @@ $fingerprint =~ s/://g;
 my %attr = ("AutoCommit" => 1);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
-	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
 	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
@@ -44,7 +44,7 @@ my @row = $dbh->selectrow_array(
 	undef, ($fingerprint));
 if (@row && $row[0]) {
 	# This certificate is revoked. Reject the client
-	print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
+	print "Status: 403\r\nContent-Type: text/plain\r\n\r\nYour certificate has been revoked.\n";
 	$dbh->disconnect;
 	exit;
 }
@@ -56,10 +56,10 @@ if ($x509->subject() =~ /CN=(\S+)/) { $cn = $1; }
 	undef, ($fingerprint));
 if (@row && $row[0] ne $cn) {
 	# The machine has been renamed. It should renew its certificate.
-	print "Status: 403\nContent-Type: text/plain\n\nPlease renew your certificate.\n";
+	print "Status: 403\r\nContent-Type: text/plain\r\n\r\nPlease renew your certificate.\n";
 	$dbh->disconnect;
 	exit;
 }
 
 $dbh->disconnect;
-print "Content-Type: text/plain\n\npong\n";
+print "Content-Type: text/plain\r\n\r\npong\n";

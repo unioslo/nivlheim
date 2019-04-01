@@ -68,7 +68,7 @@ eval {
 	# Connect to Postgres
 	my $dbh = DBI->connect("dbi:Pg:", "", "");
 	if (!$dbh) {
-		print "Status: 500\nContent-Type: text/plain\n\n";
+		print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
 		print "Unable to connect to Postgres database:\n";
 		print $DBI::errstr . "\n";
 		$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
@@ -81,11 +81,11 @@ eval {
 		undef, ($fingerprint));
 	if (@row && $row[0]) {
 		# This certificate is revoked. Reject the client
-		print "Status: 403\nContent-Type: text/plain\n\nYour certificate has been revoked.\n";
+		print "Status: 403\r\nContent-Type: text/plain\r\n\r\nYour certificate has been revoked.\n";
 		return;
 	}
 	if (@row && defined($row[1]) && $row[1]>0 && $row[1] ne $query->param('nonce')) {
-		print "Status: 403\nContent-Type: text/plain\n\nThe nonce is incorrect. Your certificate has been revoked.\n";
+		print "Status: 403\r\nContent-Type: text/plain\r\n\r\nThe nonce is incorrect. Your certificate has been revoked.\n";
 		$dbh->do("UPDATE certificates SET revoked=true WHERE fingerprint=?",
 			undef, ($fingerprint));
 		return;
@@ -94,7 +94,7 @@ eval {
 	# Look at the POST parameters
 	my $os_hostname = $query->param('hostname');
 	if (!defined($os_hostname)) {
-		print "Status: 422\nContent-Type: text/plain\n\nMissing parameters.";
+		print "Status: 422\r\nContent-Type: text/plain\r\n\r\nMissing parameters.";
 		return;
 	}
 	$logger->debug("client says its hostname is $os_hostname");
