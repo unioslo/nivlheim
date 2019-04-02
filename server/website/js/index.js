@@ -458,11 +458,7 @@ function settingsPage() {
 	document.title = "Settings - Nivlheim";
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
-		let p1 = APIcall("/api/v0/settings", "settings", "#placeholder_settings")
-			.done(function(){
-				$("#resetWaitTimeButton").click(function(){restPut('/api/v0','resetWaitingTimeForFailedTasks','')});
-			});
-		let p2 = APIcall(
+		let p1 = APIcall(
 			//"mockapi/awaiting_approval.json",
 			"/api/v0/awaitingApproval"+
 			"?fields=hostname,reversedns,ipaddress,approvalId",
@@ -475,10 +471,11 @@ function settingsPage() {
 					$(elem).click(function(){deny($(elem).data('deny-id'));});
 				});
 			});
-		let p3 = APIcall(
+		let p2 = APIcall(
 			"/api/v0/settings/customfields?fields=name,filename,regexp",
 			"customfields", "#placeholder_customfields");
-		Promise.all([p1,p2,p3]).then(function(){
+		Promise.all([p1,p2]).then(function(){
+			$("#resetWaitTimeButton").click(function(){restPut('/api/v0','resetWaitingTimeForFailedTasks','')});
 			attachHandlersToForms();
 		});
 	});
