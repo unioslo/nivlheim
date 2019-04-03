@@ -8,9 +8,14 @@
 		{{#each ipRanges}}
 		<tr data-edit-action="/api/v0/settings/ipranges/{{ipRangeId}}">
 			<td>
+				<label class="checkbox is-not-displayed">
+					<input type="checkbox" name="useDns"
+						data-name="useDns"
+						{{#if useDns}}checked{{/if}} >
+					Use DNS
+				</label>
 				{{#if useDns}}
-				<span class="tag is-dark">DNS</span>
-				<input type="hidden" name="useDns" value="1">
+				<span class="tag is-dark checkboxreplacement">DNS</span>
 				{{/if}}
 			</td>
 			<td><span data-name="ipRange">{{ipRange}}</span></td>

@@ -280,7 +280,7 @@ function editInPlace() {
 		// in here, "this" is the element with the data-name attribute
 		if ($(this).attr("type") == "checkbox") {
 			$(this).prop("disabled", false);
- 		} else {
+		} else {
 			// text string
 			let name = $(this).data("name");
 			let value = htmlEscape($(this).text());
@@ -290,6 +290,11 @@ function editInPlace() {
 			$("input[name=\""+name+"\"]").width(w+30).keyup(autoexpand);
 		}
 	});
+	// special handling for checkboxes wrapped in label tags
+	$(container).find("label.checkbox").each(function(){
+		$(this).show();
+	});
+	$(container).find("label.checkbox ~ .checkboxreplacement").hide();
 	// replace the "edit" button with two "accept" and "cancel" buttons
 	$(button).replaceWith('<button class="button submit"><i class="fas fa-check color-approve"></i></button>'+
 		'<button class="button cancel"><i class="fas fa-times color-deny"></i></button>');
