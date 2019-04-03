@@ -172,19 +172,19 @@ func TestApiAccessControl(t *testing.T) {
 			sessionProfile: adminAP,
 			expectStatus:   204,
 		},
-		//============= awaitingApproval api ============
+		//============= manualApproval api ============
 		{
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=ipAddress",
+			methodAndPath: "GET /api/v0/manualApproval?fields=ipAddress",
 			runAsNotAuth:  true,
 			expectStatus:  401,
 		},
 		{
-			methodAndPath:  "GET /api/v0/awaitingApproval?fields=ipAddress",
+			methodAndPath:  "GET /api/v0/manualApproval?fields=ipAddress",
 			sessionProfile: userAP,
 			expectStatus:   403,
 		},
 		{
-			methodAndPath:  "GET /api/v0/awaitingApproval?fields=ipAddress",
+			methodAndPath:  "GET /api/v0/manualApproval?fields=ipAddress",
 			sessionProfile: adminAP,
 			expectStatus:   200,
 		},

@@ -354,26 +354,43 @@ function restPut(apiPath, name, body) {
 
 function approve(id) {
 	$.ajax({
-		url : getAPIURLprefix()+'/api/v0/awaitingApproval/'
-				+id+'?hostname='+$('input#hostname'+id).val(),
-		method: "PUT"
+		url : getAPIURLprefix()+'/api/v0/manualApproval/'
+				+id+'?approved=1&hostname='+$('input#hostname'+id).val(),
+		method: "PATCH"
 	})
 	.always(function(){
-		APIcall("/api/v0/awaitingApproval"+
-				"?fields=hostname,reversedns,ipaddress,approvalId",
-			"awaiting_approval", $('#placeholder_approval'));
+		APIcall("/api/v0/manualApproval"+
+				"?fields=hostname,reversedns,ipaddress,approvalId"+
+				"&approved=null",
+			"awaiting_approval", $('#placeholder_approval'))
+		.done(function(){
+			attachHandlersToDenyAndAcceptButtons();
+		});
 	});
 }
 
 function deny(id) {
 	$.ajax({
-		url : getAPIURLprefix()+'/api/v0/awaitingApproval/'+id,
-		method: "DELETE"
+		url : getAPIURLprefix()+'/api/v0/manualApproval/'+id+'?approved=false',
+		method: "PATCH"
 	})
 	.always(function(){
-		APIcall("/api/v0/awaitingApproval"+
-				"?fields=hostname,reversedns,ipaddress,approvalId",
-			"awaiting_approval", $('#placeholder_approval'));
+		APIcall("/api/v0/manualApproval"+
+				"?fields=hostname,reversedns,ipaddress,approvalId"+
+				"&approved=null",
+			"awaiting_approval", $('#placeholder_approval'))
+		.done(function(){
+			attachHandlersToDenyAndAcceptButtons();
+		});
+	});
+}
+
+function attachHandlersToDenyAndAcceptButtons() {
+	$("[data-approve-id]").each(function(i,elem){
+		$(elem).click(function(){approve($(elem).data('approve-id'));});
+	});
+	$("[data-deny-id]").each(function(i,elem){
+		$(elem).click(function(){deny($(elem).data('deny-id'));});
 	});
 }
 

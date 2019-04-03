@@ -15,44 +15,67 @@ func TestApprovalAPI(t *testing.T) {
 	tests := []apiCall{
 		{
 			// read the list. Should have 2 entries, inserted before the tests are run.
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=ipAddress,approvalId",
+			methodAndPath: "GET /api/v0/manualApproval?fields=ipAddress,approvalId",
 			expectStatus:  200,
-			expectJSON:    "{\"awaitingApproval\":[{\"approvalId\":1,\"ipAddress\":\"4.3.2.1\"},{\"approvalId\":2,\"ipAddress\":\"8.7.6.5\"}]}",
+			expectJSON:    "{\"manualApproval\":[{\"approvalId\":1,\"ipAddress\":\"4.3.2.1\"},{\"approvalId\":2,\"ipAddress\":\"8.7.6.5\"}]}",
 		},
 		{
-			// approve the machine. That should make it disappear from the list.
-			methodAndPath: "PUT /api/v0/awaitingApproval/1",
-			body:          "hostname=baz.example.com",
+			// approve the first machine
+			methodAndPath: "PATCH /api/v0/manualApproval/1",
+			body:          "hostname=baz.example.com&approved=true",
 			expectStatus:  204,
 		},
 		{
-			// read the list. should have 1 entry now.
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=approvalId",
-			expectStatus:  200,
-			expectJSON:    "{\"awaitingApproval\":[{\"approvalId\":2}]}",
+			// PUT shouldn't work
+			methodAndPath: "PUT /api/v0/manualApproval/1",
+			expectStatus:  405, // method not allowed
 		},
 		{
-			// deny the other machine. That should make it disappear from the list.
-			methodAndPath: "DELETE /api/v0/awaitingApproval/2",
+			// read the list, and filter on approved=null. should have 1 entry now.
+			methodAndPath: "GET /api/v0/manualApproval?fields=approvalId,approved&approved=null",
+			expectStatus:  200,
+			expectJSON:    "{\"manualApproval\":[{\"approvalId\":2,\"approved\":null}]}",
+		},
+		{
+			// deny the other machine
+			methodAndPath: "PATCH /api/v0/manualApproval/2",
+			body:          "approved=false",
 			expectStatus:  204,
 		},
 		{
 			// read the list. should be empty now.
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=hostname",
+			methodAndPath: "GET /api/v0/manualApproval?fields=hostname&approved=null",
 			expectStatus:  200,
-			expectJSON:    "{\"awaitingApproval\":[]}",
+			expectJSON:    "{\"manualApproval\":[]}",
 		},
 		{
 			// pre-approve a new machine
-			methodAndPath: "POST /api/v0/awaitingApproval",
-			body:          "hostname=acme.example.com&ipAddress=11.22.33.44",
+			methodAndPath: "POST /api/v0/manualApproval",
+			body:          "hostname=acme.example.com&ipAddress=11.22.33.44&approved=true",
 			expectStatus:  204,
 		},
 		{
-			// read the list. should be empty since the machine was already pre-approved
-			methodAndPath: "GET /api/v0/awaitingApproval?fields=hostname,ipAddress,approvalId",
+			// read the full list
+			methodAndPath: "GET /api/v0/manualApproval?fields=hostname,approved",
 			expectStatus:  200,
-			expectJSON:    "{\"awaitingApproval\":[]}",
+			expectJSON:    "{\"manualApproval\":[{\"hostname\":\"baz.example.com\",\"approved\":true},{\"hostname\":\"bar.example.com\",\"approved\":false},{\"hostname\":\"acme.example.com\",\"approved\":true}]}",
+		},
+		{
+			// read the list, filter on approved=null. should be empty since the last machine was already pre-approved
+			methodAndPath: "GET /api/v0/manualApproval?fields=hostname,ipAddress,approvalId&approved=null",
+			expectStatus:  200,
+			expectJSON:    "{\"manualApproval\":[]}",
+		},
+		{
+			// remove an entry
+			methodAndPath: "DELETE /api/v0/manualApproval/1",
+			expectStatus:  204,
+		},
+		{
+			// verify that the deleted item is no longer on the list
+			methodAndPath: "GET /api/v0/manualApproval?fields=hostname,approved",
+			expectStatus:  200,
+			expectJSON:    "{\"manualApproval\":[{\"hostname\":\"bar.example.com\",\"approved\":false},{\"hostname\":\"acme.example.com\",\"approved\":true}]}",
 		},
 	}
 
@@ -60,10 +83,10 @@ func TestApprovalAPI(t *testing.T) {
 	defer db.Close()
 
 	db.Exec("INSERT INTO waiting_for_approval(ipaddr,hostname,received)" +
-		" VALUES('4.3.2.1','bar.example.com',now()),('8.7.6.5','baz.example.com',now())")
+		" VALUES('4.3.2.1','foo.example.com',now()),('8.7.6.5','bar.example.com',now())")
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/awaitingApproval", &apiMethodAwaitingApproval{db: db})
-	mux.Handle("/api/v0/awaitingApproval/", &apiMethodAwaitingApproval{db: db})
+	mux.Handle("/api/v0/manualApproval", &apiMethodApproval{db: db})
+	mux.Handle("/api/v0/manualApproval/", &apiMethodApproval{db: db})
 	testAPIcalls(t, mux, tests)
 }

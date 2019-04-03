@@ -47,10 +47,10 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
 
 	// API functions that are only available to administrators
-	api.Handle("/api/v0/awaitingApproval",
-		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}, theDB))
-	api.Handle("/api/v0/awaitingApproval/",
-		wrapRequireAdmin(&apiMethodAwaitingApproval{db: theDB}, theDB))
+	api.Handle("/api/v0/manualApproval",
+		wrapRequireAdmin(&apiMethodApproval{db: theDB}, theDB))
+	api.Handle("/api/v0/manualApproval/",
+		wrapRequireAdmin(&apiMethodApproval{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/ipranges",
 		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}, theDB))
 	api.Handle("/api/v0/settings/ipranges/",
@@ -267,6 +267,7 @@ func wrapCSRFprotection(h http.Handler) http.Handler {
 // Wrappers for sql nulltypes that encodes the values when marshalling JSON
 type jsonTime pq.NullTime
 type jsonString sql.NullString
+type jsonBool sql.NullBool
 
 func (jst jsonTime) MarshalJSON() ([]byte, error) {
 	if jst.Valid && !jst.Time.IsZero() {
@@ -278,6 +279,13 @@ func (jst jsonTime) MarshalJSON() ([]byte, error) {
 func (ns jsonString) MarshalJSON() ([]byte, error) {
 	if ns.Valid {
 		return json.Marshal(ns.String)
+	}
+	return []byte("null"), nil
+}
+
+func (b jsonBool) MarshalJSON() ([]byte, error) {
+	if b.Valid {
+		return json.Marshal(b.Bool)
 	}
 	return []byte("null"), nil
 }

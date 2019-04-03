@@ -460,16 +460,11 @@ function settingsPage() {
 	.done(function(){
 		let p1 = APIcall(
 			//"mockapi/awaiting_approval.json",
-			"/api/v0/awaitingApproval"+
-			"?fields=hostname,reversedns,ipaddress,approvalId",
+			"/api/v0/manualApproval"+
+			"?fields=hostname,reversedns,ipaddress,approvalId&approved=null",
 			"awaiting_approval", $('#placeholder_approval'))
 			.done(function(){
-				$("[data-approve-id]").each(function(i,elem){
-					$(elem).click(function(){approve($(elem).data('approve-id'));});
-				});
-				$("[data-deny-id]").each(function(i,elem){
-					$(elem).click(function(){deny($(elem).data('deny-id'));});
-				});
+				attachHandlersToDenyAndAcceptButtons();
 			});
 		let p2 = APIcall(
 			"/api/v0/settings/customfields?fields=name,filename,regexp",

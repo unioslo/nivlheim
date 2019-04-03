@@ -19,7 +19,7 @@ fi
 
 # If restorecon would change anything, it means something wasn't installed right
 sudo restorecon -nvR /var/www/nivlheim /var/log/nivlheim > /tmp/changed.log
-if [[ `wc -l /tmp/changed.log` -gt 0 ]]; then
+if [[ $(cat /tmp/changed.log | wc -l) -gt 0 ]]; then
 	echo "restorecon indicates some files/dirs don't have the right SELinux context/type."
 	echo "There could be a problem with semanage commands in setup.sh."
 	exit 1
@@ -64,8 +64,8 @@ echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
 sudo /usr/sbin/nivlheim_client
 # Approve the client, using the API
-ID=`curl -sS 'http://localhost:4040/api/v0/awaitingApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
-curl -X PUT -sS "http://localhost:4040/api/v0/awaitingApproval/$ID?hostname=abcdef"
+ID=`curl -sS 'http://localhost:4040/api/v0/manualApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
+curl -sSX PATCH --data "hostname=abcdef&approved=true" "http://localhost:4040/api/v0/manualApproval/$ID"
 
 # Run the client again, this time it will receive a certificate
 # and post data into the system
