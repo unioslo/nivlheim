@@ -164,7 +164,7 @@ func TestKeyCRUD(t *testing.T) {
 	tests := []apiCall{
 		// create a key with default values
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "",
 			expectStatus:  http.StatusCreated,
 		},
@@ -183,88 +183,88 @@ func TestKeyCRUD(t *testing.T) {
 	tests = []apiCall{
 		// read the key list
 		{
-			methodAndPath: "GET /api/v0/keys?fields=keyID,readonly",
+			methodAndPath: "GET /api/v2/keys?fields=keyID,readonly",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"keyID\":" + keyID + ",\"readonly\":true}]",
 		},
 		// update a key
 		{
-			methodAndPath: "PUT /api/v0/keys/" + keyID,
+			methodAndPath: "PUT /api/v2/keys/" + keyID,
 			body:          "comment=foo&filter=hostname%3Da%2A&expires=2020-12-24T18:00:00%2B01:00&readonly=no",
 			expectStatus:  http.StatusNoContent,
 		},
 		// read one key
 		{
-			methodAndPath: "GET /api/v0/keys/" + keyID + "?fields=comment,filter,readonly,expires",
+			methodAndPath: "GET /api/v2/keys/" + keyID + "?fields=comment,filter,readonly,expires",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T19:00:00+02:00\"}",
 		},
 		// try to read a non-existent key
 		{
-			methodAndPath: "GET /api/v0/keys/123?fields=comment,filter,readonly,expires",
+			methodAndPath: "GET /api/v2/keys/123?fields=comment,filter,readonly,expires",
 			expectStatus:  http.StatusNotFound,
 		},
 		// update the key with some ip ranges. Also tests that short date format is allowed.
 		{
-			methodAndPath: "PUT /api/v0/keys/" + keyID,
+			methodAndPath: "PUT /api/v2/keys/" + keyID,
 			body:          "ipranges=192.168.1.0/24,172.16.0.0/20&comment=gep&expires=2019-12-13",
 			expectStatus:  http.StatusNoContent,
 		},
 		// try to update a non-existent key
 		{
-			methodAndPath: "PUT /api/v0/keys/817198372",
+			methodAndPath: "PUT /api/v2/keys/817198372",
 			body:          "comment=foo",
 			expectStatus:  http.StatusNotFound,
 		},
 		// read the key, verify the ip ranges
 		{
-			methodAndPath: "GET /api/v0/keys/" + keyID + "?fields=ipranges,comment",
+			methodAndPath: "GET /api/v2/keys/" + keyID + "?fields=ipranges,comment",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"ipRanges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"],\"comment\":\"gep\"}",
 		},
 		// delete the key
 		{
-			methodAndPath: "DELETE /api/v0/keys/" + keyID,
+			methodAndPath: "DELETE /api/v2/keys/" + keyID,
 			expectStatus:  http.StatusNoContent,
 		},
 		// delete the key again (should not work)
 		{
-			methodAndPath: "DELETE /api/v0/keys/" + keyID,
+			methodAndPath: "DELETE /api/v2/keys/" + keyID,
 			expectStatus:  http.StatusNotFound,
 		},
 		// list the keys (now empty)
 		{
-			methodAndPath: "GET /api/v0/keys?fields=key,readonly",
+			methodAndPath: "GET /api/v2/keys?fields=key,readonly",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[]",
 		},
 		// create a new key with some ip ranges
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "ipRanges=192.168.1.0/24,172.16.0.0/20",
 			expectStatus:  http.StatusCreated,
 		},
 		// read it back
 		{
-			methodAndPath: "GET /api/v0/keys?fields=ipranges",
+			methodAndPath: "GET /api/v2/keys?fields=ipranges",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"ipRanges\":[\"192.168.1.0/24\",\"172.16.0.0/20\"]}]",
 		},
 		// create a new key with an invalid ip range (bits set to the right of the netmask)
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "ipRanges=192.168.1.3/24",
 			expectStatus:  http.StatusBadRequest,
 		},
 		// create a new key with invalid ip ranges
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "ipRanges=192.168.345.765/32",
 			expectStatus:  http.StatusBadRequest,
 		},
 		// post garbage
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "%#)(/¤&)(#/¤&()#¤",
 			expectStatus:  http.StatusBadRequest,
 		},
@@ -288,52 +288,52 @@ func TestAccessToEditingAPIkeys(t *testing.T) {
 	tests := []apiCall{
 		// create two keys for two different users
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "comment=first",
 			expectStatus:  http.StatusCreated,
 			accessProfile: &firstUser,
 		},
 		{
-			methodAndPath: "POST /api/v0/keys",
+			methodAndPath: "POST /api/v2/keys",
 			body:          "comment=second",
 			expectStatus:  http.StatusCreated,
 			accessProfile: &secondUser,
 		},
 		// read the key list, verify that you only see your own keys
 		{
-			methodAndPath: "GET /api/v0/keys?fields=comment",
+			methodAndPath: "GET /api/v2/keys?fields=comment",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"comment\":\"first\"}]",
 			accessProfile: &firstUser,
 		},
 		{
-			methodAndPath: "GET /api/v0/keys?fields=comment",
+			methodAndPath: "GET /api/v2/keys?fields=comment",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"comment\":\"second\"}]",
 			accessProfile: &secondUser,
 		},
 		// if you're unauthorized, you shouldn't see any of them
 		{
-			methodAndPath: "GET /api/v0/keys?fields=comment",
+			methodAndPath: "GET /api/v2/keys?fields=comment",
 			expectStatus:  http.StatusUnauthorized,
 			runAsNotAuth:  true,
 		},
 		// try to read a key you don't own
 		{
-			methodAndPath: "GET /api/v0/keys/1?fields=comment",
+			methodAndPath: "GET /api/v2/keys/1?fields=comment",
 			expectStatus:  http.StatusForbidden,
 			accessProfile: &secondUser,
 		},
 		// try to modify a key you don't own
 		{
-			methodAndPath: "PUT /api/v0/keys/1",
+			methodAndPath: "PUT /api/v2/keys/1",
 			body:          "comment=ha-ha",
 			expectStatus:  http.StatusForbidden,
 			accessProfile: &secondUser,
 		},
 		// try to delete a key you don't own
 		{
-			methodAndPath: "DELETE /api/v0/keys/1",
+			methodAndPath: "DELETE /api/v2/keys/1",
 			expectStatus:  http.StatusForbidden,
 			accessProfile: &secondUser,
 		},

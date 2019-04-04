@@ -354,12 +354,12 @@ function restPut(apiPath, name, body) {
 
 function approve(id) {
 	$.ajax({
-		url : getAPIURLprefix()+'/api/v0/manualApproval/'
+		url : getAPIURLprefix()+'/api/v2/manualApproval/'
 				+id+'?approved=1&hostname='+$('input#hostname'+id).val(),
 		method: "PATCH"
 	})
 	.always(function(){
-		APIcall("/api/v0/manualApproval"+
+		APIcall("/api/v2/manualApproval"+
 				"?fields=hostname,reversedns,ipaddress,approvalId"+
 				"&approved=null",
 			"awaiting_approval", $('#placeholder_approval'))
@@ -371,11 +371,11 @@ function approve(id) {
 
 function deny(id) {
 	$.ajax({
-		url : getAPIURLprefix()+'/api/v0/manualApproval/'+id+'?approved=false',
+		url : getAPIURLprefix()+'/api/v2/manualApproval/'+id+'?approved=false',
 		method: "PATCH"
 	})
 	.always(function(){
-		APIcall("/api/v0/manualApproval"+
+		APIcall("/api/v2/manualApproval"+
 				"?fields=hostname,reversedns,ipaddress,approvalId"+
 				"&approved=null",
 			"awaiting_approval", $('#placeholder_approval'))
@@ -405,7 +405,7 @@ function autoReloadStatus() {
 	let start = new Date().getTime();
 	APIcall(
 		//"mockapi/systemstatus_data.json",
-		"/api/v0/status",
+		"/api/v2/status",
 		"systemstatus",	$('#placeholder_systemstatus'))
 		.done(function(data){
 			let end = new Date().getTime();
@@ -420,7 +420,7 @@ function autoReloadStatus() {
 		});
 	APIcall(
 		//"mockapi/latestnewmachines.json",
-		"/api/v0/hostlist?fields=hostname,certfp,lastseen"+
+		"/api/v2/hostlist?fields=hostname,certfp,lastseen"+
 			"&sort=-lastseen&limit=20",
 		"latestnewmachines", $('div#latestmachines'));
 }
@@ -441,7 +441,7 @@ function showDiff(data) {
 		return;
 	}
 	// Retrieve the contents of the previous version
-	$.getJSON(getAPIURLprefix()+"/api/v0/file?fileId="+otherFileId+"&fields=content",
+	$.getJSON(getAPIURLprefix()+"/api/v2/file?fileId="+otherFileId+"&fields=content",
 		function(data2){
 			$("div.filecontent").html(diffString(
 				htmlEscape(data2.content),

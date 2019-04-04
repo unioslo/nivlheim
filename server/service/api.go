@@ -27,43 +27,43 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 
 	// API functions
 	api := http.NewServeMux()
-	api.Handle("/api/v0/file",
+	api.Handle("/api/v2/file",
 		wrapRequireAuth(&apiMethodFile{db: theDB}, theDB))
-	api.Handle("/api/v0/host",
+	api.Handle("/api/v2/host",
 		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
-	api.Handle("/api/v0/host/",
+	api.Handle("/api/v2/host/",
 		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
-	api.Handle("/api/v0/hostlist",
+	api.Handle("/api/v2/hostlist",
 		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}, theDB))
-	api.Handle("/api/v0/searchpage",
+	api.Handle("/api/v2/searchpage",
 		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}, theDB))
-	api.Handle("/api/v0/settings/customfields",
+	api.Handle("/api/v2/settings/customfields",
 		wrapRequireAuth(&apiMethodCustomFieldsCollection{db: theDB}, theDB))
-	api.Handle("/api/v0/settings/customfields/",
+	api.Handle("/api/v2/settings/customfields/",
 		wrapRequireAuth(&apiMethodCustomFieldsItem{db: theDB}, theDB))
-	api.Handle("/api/v0/keys",
+	api.Handle("/api/v2/keys",
 		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
-	api.Handle("/api/v0/keys/",
+	api.Handle("/api/v2/keys/",
 		wrapRequireAuth(&apiMethodKeys{db: theDB}, theDB))
 
 	// API functions that are only available to administrators
-	api.Handle("/api/v0/manualApproval",
+	api.Handle("/api/v2/manualApproval",
 		wrapRequireAdmin(&apiMethodApproval{db: theDB}, theDB))
-	api.Handle("/api/v0/manualApproval/",
+	api.Handle("/api/v2/manualApproval/",
 		wrapRequireAdmin(&apiMethodApproval{db: theDB}, theDB))
-	api.Handle("/api/v0/settings/ipranges",
+	api.Handle("/api/v2/settings/ipranges",
 		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}, theDB))
-	api.Handle("/api/v0/settings/ipranges/",
+	api.Handle("/api/v2/settings/ipranges/",
 		wrapRequireAdmin(&apiMethodIpRanges{db: theDB}, theDB))
-	api.Handle("/api/v0/resetWaitingTimeForFailedTasks",
+	api.Handle("/api/v2/resetWaitingTimeForFailedTasks",
 		wrapRequireAdmin(&apiMethodResetWaitingTime{db: theDB}, theDB))
 
 	// API functions that don't require authentication
-	api.Handle("/api/v0/status", &apiMethodStatus{db: theDB})
-	api.HandleFunc("/api/v0/userinfo", apiGetUserInfo)
+	api.Handle("/api/v2/status", &apiMethodStatus{db: theDB})
+	api.HandleFunc("/api/v2/userinfo", apiGetUserInfo)
 
 	// Add CSRF protection to all the api functions
-	mux.Handle("/api/v0/", wrapCSRFprotection(api))
+	mux.Handle("/api/v2/", wrapCSRFprotection(api))
 
 	// Oauth2-related endpoints
 	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
@@ -78,7 +78,7 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	mux.Handle("/api/internal/", wrapOnlyAllowLocal(internal))
 
 	//
-	mux.HandleFunc("/api/v0/mu", doNothing)
+	mux.HandleFunc("/api/v2/mu", doNothing)
 
 	return mux
 }

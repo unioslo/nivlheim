@@ -130,51 +130,51 @@ func TestApiMethodHostList(t *testing.T) {
 	tests := []apiCall{
 		// a list that includes a custom field
 		{
-			methodAndPath: "GET /api/v0/hostlist?fields=hostname,duck",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname,duck",
 			expectStatus:  http.StatusOK,
 			expectJSON: "[{\"hostname\":\"bar.baz.no\",\"duck\":\"gladstone\"}," +
 				"{\"hostname\":\"foo.bar.no\",\"duck\":\"donald\"}]",
 		},
 		// filter on a custom field
 		{
-			methodAndPath: "GET /api/v0/hostlist?fields=hostname,duck&duck=donald",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname,duck&duck=donald",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"hostname\":\"foo.bar.no\", \"duck\": \"donald\"}]",
 		},
 		// filter on a custom field (that isn't in the list of returned fields)
 		{
-			methodAndPath: "GET /api/v0/hostlist?fields=hostname&duck=donald",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&duck=donald",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "[{\"hostname\":\"foo.bar.no\"}]",
 		},
 		// Group query
 		{
-			methodAndPath: "GET /api/v0/hostlist?group=hostname",
+			methodAndPath: "GET /api/v2/hostlist?group=hostname",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"bar.baz.no\":1,\"foo.bar.no\":1}",
 		},
 		// Group query on a custom field
 		{
-			methodAndPath: "GET /api/v0/hostlist?group=town",
+			methodAndPath: "GET /api/v2/hostlist?group=town",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"duckville\":2}",
 		},
 		// Group on a field where the column name differs from the API name
 		{
-			methodAndPath: "GET /api/v0/hostlist?group=osEdition",
+			methodAndPath: "GET /api/v2/hostlist?group=osEdition",
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"workstation\":2}",
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v0/hostlist?group=osEdition",
+			methodAndPath:  "GET /api/v2/hostlist?group=osEdition",
 			expectStatus:   http.StatusOK,
 			expectJSON:     "{\"workstation\":1}",
 			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v0/hostlist?group=osEdition&hostname=*baz*",
+			methodAndPath:  "GET /api/v2/hostlist?group=osEdition&hostname=*baz*",
 			expectStatus:   http.StatusOK,
 			expectJSON:     "{}",
 			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
@@ -200,6 +200,6 @@ func TestApiMethodHostList(t *testing.T) {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/v0/hostlist", wrapRequireAuth(&apiMethodHostList{db: db, devmode: true}, db))
+	mux.Handle("/api/v2/hostlist", wrapRequireAuth(&apiMethodHostList{db: db, devmode: true}, db))
 	testAPIcalls(t, mux, tests)
 }

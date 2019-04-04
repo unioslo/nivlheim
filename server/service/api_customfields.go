@@ -8,11 +8,11 @@ import (
 	"strings"
 )
 
-//  GET  /api/v0/customfields            - list all
-//  POST /api/v0/customfields            - create a new
-//  GET  /api/v0/customfields/<name>     - show details for one
-//  PUT  /api/v0/customfields/<name>     - update(replace) one
-//  DELETE  /api/v0/customfields/<name>  - delete one
+//  GET  /api/v2/customfields            - list all
+//  POST /api/v2/customfields            - create a new
+//  GET  /api/v2/customfields/<name>     - show details for one
+//  PUT  /api/v2/customfields/<name>     - update(replace) one
+//  DELETE  /api/v2/customfields/<name>  - delete one
 
 type apiMethodCustomFieldsCollection struct {
 	db *sql.DB

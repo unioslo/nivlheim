@@ -32,7 +32,7 @@ if ! sudo systemctl is-active --quiet nivlheim; then
 fi
 
 # Verify that the API is available by direct connection
-if ! curl -sSfo /dev/null http://localhost:4040/api/v0/status; then
+if ! curl -sSfo /dev/null http://localhost:4040/api/v2/status; then
 	echo "The API is unavailable at port 4040."
 	exit 1
 fi
@@ -52,7 +52,7 @@ do
 done
 
 # Check that the API is available through the main web server
-if ! curl -sSkfo /dev/null https://localhost/api/v0/status; then
+if ! curl -sSkfo /dev/null https://localhost/api/v2/status; then
 	echo "The API is unavailable through https."
 	exit 1
 fi
@@ -64,8 +64,8 @@ echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 # Run the client, it will be put on waiting list for a certificate
 sudo /usr/sbin/nivlheim_client
 # Approve the client, using the API
-ID=`curl -sS 'http://localhost:4040/api/v0/manualApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
-curl -sSX PATCH --data "hostname=abcdef&approved=true" "http://localhost:4040/api/v0/manualApproval/$ID"
+ID=`curl -sS 'http://localhost:4040/api/v2/manualApproval?fields=approvalId'|perl -ne 'print $1 if /"approvalId":\s+(\d+)/'`
+curl -sSX PATCH --data "hostname=abcdef&approved=true" "http://localhost:4040/api/v2/manualApproval/$ID"
 
 # Run the client again, this time it will receive a certificate
 # and post data into the system
@@ -82,7 +82,7 @@ OK=0
 for try in {1..20}; do
 	sleep 3
 	# Query the API for the new machine
-	if [ $(curl -sS 'http://localhost:4040/api/v0/hostlist?fields=hostname' | grep -c "abcdef") -gt 0 ]; then
+	if [ $(curl -sS 'http://localhost:4040/api/v2/hostlist?fields=hostname' | grep -c "abcdef") -gt 0 ]; then
 		OK=1
 		break
 	fi

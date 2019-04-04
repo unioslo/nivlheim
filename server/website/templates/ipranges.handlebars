@@ -6,7 +6,7 @@
 	<div class="column is-narrow">
 		<table class="table is-transparent is-hoverable">
 		{{#each ipRanges}}
-		<tr data-edit-action="/api/v0/settings/ipranges/{{ipRangeId}}">
+		<tr data-edit-action="/api/v2/settings/ipranges/{{ipRangeId}}">
 			<td>
 				<label class="checkbox is-not-displayed">
 					<input type="checkbox" name="useDns"
@@ -34,7 +34,7 @@
 		{{/each}}
 		</table>
 		{{#if ipranges}}<hr>{{/if}}
-		<form method="POST" action="/api/v0/settings/ipranges">
+		<form method="POST" action="/api/v2/settings/ipranges">
 			<div class="field">
 				<label class="label">IP range (CIDR notation)</label>
 				<div class="control">
