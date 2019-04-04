@@ -16,7 +16,7 @@
 						<th colspan="2"><!-- edit and delete buttons --></th>
 					</tr>
 					{{/if}}
-					<tr data-edit-action="/api/v0/keys/{{keyID}}">
+					<tr data-edit-action="/api/v2/keys/{{keyID}}">
 						<td><span data-name="name" class="all-copy">{{key}}</span></td>
 						<td>{{comment}}</td>
 						<td>{{filter}}</td>
@@ -48,7 +48,7 @@
 		<div class="columns">
 			<div class="column is-narrow">
 				<h1 class="title is-5" id="formtitle">Generate a new key</h1>
-				<form action="/api/v0/keys" method="post" id="keyform">
+				<form action="/api/v2/keys" method="post" id="keyform">
 					<div class="field">
 						<label class="label">Comment or description</label>
 						<div class="control">

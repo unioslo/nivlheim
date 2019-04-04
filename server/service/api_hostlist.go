@@ -21,7 +21,7 @@ type apiHostListStandardField struct {
 }
 
 var apiHostListStandardFields = []apiHostListStandardField{
-	{publicName: "ipAddress", columnName: "ipaddr"},
+	{publicName: "ipAddress", columnName: "host(ipaddr)"},
 	{publicName: "hostname", columnName: "hostname"},
 	{publicName: "lastseen", columnName: "lastseen"},
 	{publicName: "os", columnName: "os"},

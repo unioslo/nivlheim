@@ -1,2 +1,2 @@
 #!/usr/bin/perl
-print "Content-Type: text/plain\n\npong\n";
+print "Content-Type: text/plain\r\n\r\npong\n";

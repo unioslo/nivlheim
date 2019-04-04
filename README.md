@@ -2,10 +2,19 @@
 ### Install the server
 1. Spin up a clean VM running Fedora 29, 28, RHEL 7, or CentOS 7
 2. If you're using RHEL or CentOS, you need to [enable the EPEL package repository](https://fedoraproject.org/wiki/EPEL).
-3. Configure the package repository:
 ```
-sudo dnf copr enable oyvindh/Nivlheim
+sudo yum install -y epel-release
 ```
+3. Configure the package repository.  
+    - Fedora:
+    ```
+    sudo dnf copr enable oyvindh/Nivlheim
+    ```
+    - CentOS / RHEL:
+    ```
+    sudo yum install -y yum-plugin-copr
+    sudo yum copr enable oyvindh/Nivlheim
+    ```
 or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim/),
 download the appropriate repository config file, and place it in
 `/etc/yum.repos.d/`  
@@ -56,7 +65,7 @@ server=yourserver.example.com
 5. If you are using a self-signed certificate for the web server (by default the nivlheim_server package will set it up with one), then the CA certificate file must be distributed to the clients.  
 Copy `/var/www/nivlheim/CA/nivlheimca.crt` from the server, and place it in `/var/nivlheim` on the machine you're installing the client software on.
 
-6. Run /usr/sbin/nivlheim_client manually (as root), or wait for cron to run it (could take up to one hour).
+6. Run /usr/sbin/nivlheim_client manually (as root), or wait for cron to run it (could take up to 5 minutes).
 
 7. On the web admin pages the new machine will show up as waiting for approval. After it has been approved, and the client has run one more time, data from it will start showing up in the system.
 

@@ -18,7 +18,7 @@ if [[ "$1" != "--skipsetup" ]]; then
 	if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
 	    echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 	fi
-	curl -sS -X POST 'http://localhost:4040/api/v0/settings/ipranges' -d 'ipRange=127.0.0.0/24'
+	curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=127.0.0.0/24'
 	sudo /usr/sbin/nivlheim_client
 	if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
 	    echo "The client failed to post data successfully."

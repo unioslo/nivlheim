@@ -1,10 +1,10 @@
-{{#if awaitingApproval}}
+{{#if manualApproval}}
 <h1 class="title is-4">Waiting for approval</h1>
 <h1 class="subtitle is-6">
 	These machines are from ip address ranges not covered
 	by the ruleset, and must be manually approved/denied.
 </h1>
-{{#each awaitingApproval}}
+{{#each manualApproval}}
 <article class="media">
 	<figure class="media-left">
 		<p class="image is-64x64">

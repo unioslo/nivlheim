@@ -31,7 +31,7 @@ sleep 4
 if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
     echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 fi
-curl -sS -X POST 'http://localhost:4040/api/v0/settings/ipranges' -d 'ipRange=127.0.0.0/24'
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=127.0.0.0/24'
 sudo /usr/sbin/nivlheim_client
 if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
     echo "The client failed to post data successfully."
@@ -66,7 +66,7 @@ for try in {1..20}; do
 	sleep 3
 	echo -n "."
 	# Query the API for the new machine
-	if [ $(curl -sS 'http://localhost:4040/api/v0/hostlist?fields=hostname' | grep -c "hostname") -gt 0 ]; then
+	if [ $(curl -sS 'http://localhost:4040/api/v2/hostlist?fields=hostname' | grep -c "hostname") -gt 0 ]; then
 		OK=1
 		break
 	fi

@@ -25,7 +25,7 @@ ssh $USER\@$IP -o StrictHostKeyChecking=no \
 	-C "chmod 777 ./test_apikeys.sh; ./test_apikeys.sh --setup"
 
 # this command should give http status 401
-status=$(curl -ksS -o /tmp/output -w "%{http_code}" -H "Authorization: APIKEY asldjasldfjk" "https://$IP/api/v0/hostlist?fields=hostname")
+status=$(curl -ksS -o /tmp/output -w "%{http_code}" -H "Authorization: APIKEY asldjasldfjk" "https://$IP/api/v2/hostlist?fields=hostname")
 if [[ "$status" -ne "401" ]]; then
 	echo "Authorization: APIKEY asldjasldfjk"
 	echo "Status: $status"
@@ -34,7 +34,7 @@ if [[ "$status" -ne "401" ]]; then
 fi
 
 # this command should give http status 200
-status=$(curl -ksS -o /tmp/output -w "%{http_code}" -H "Authorization: APIKEY abcd" "https://$IP/api/v0/hostlist?fields=hostname")
+status=$(curl -ksS -o /tmp/output -w "%{http_code}" -H "Authorization: APIKEY abcd" "https://$IP/api/v2/hostlist?fields=hostname")
 if [[ "$status" -ne "200" ]]; then
 	echo "Authorization: APIKEY abcd"
 	echo "Status: $status"

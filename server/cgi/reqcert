@@ -50,7 +50,7 @@ my $logger = Log::Log4perl->get_logger("reqcert");
 my %attr = ("AutoCommit" => 1);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
-	print "Status: 500\nContent-Type: text/plain\n\n";
+	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
 	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
@@ -79,7 +79,7 @@ if (@row && $row[0]>0) {
 		$logger->debug("The host $ipaddr has not been pre-approved");
 		$hostname = $params{'hostname'};
 		if (!defined($hostname) || $hostname eq "") {
-			print "Status: 400\nContent-Type: text/plain\n\n";
+			print "Status: 400\r\nContent-Type: text/plain\r\n\r\n";
 			print "Missing required parameter: hostname\n";
 			$logger->warn("Missing required parameter: hostname");
 			$dbh->disconnect;
@@ -96,14 +96,14 @@ if (@row && $row[0]>0) {
 		$logger->info("Adding $hostname to the waiting for approval list.");
 		$dbh->do("INSERT INTO waiting_for_approval(ipaddr, hostname, received) "
 			."VALUES(?,?,now());", undef, ($ipaddr,$hostname));
-		print "Content-Type: text/plain\n\nYou have been added to the waiting list.\n";
+		print "Content-Type: text/plain\r\n\r\nYou have been added to the waiting list.\n";
 		$dbh->disconnect;
 		exit;
 	}
 	if (!$row[2]) {
 		# Not approved yet
 		$logger->debug("The host ".$row[1]." / $ipaddr is already on the waiting list.");
-		print "Content-Type: text/plain\n\nYou are on the waiting list, be patient.\n";
+		print "Content-Type: text/plain\r\n\r\nYou are on the waiting list, be patient.\n";
 		$dbh->disconnect;
 		exit;
 	}
@@ -112,7 +112,7 @@ if (@row && $row[0]>0) {
 }
 
 # HTTP Header
-print "Content-Type: text/plain\n\n";
+print "Content-Type: text/plain\r\n\r\n";
 
 # There is a race condition with openssl, so until that is solved
 # there can be only one instance of this script running at any time.

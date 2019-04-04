@@ -1,5 +1,5 @@
 {
-	"awaitingApproval": [
+	"manualApproval": [
 		{
 			"approvalId": 1,
 			"ipAddress": "127.0.0.1",

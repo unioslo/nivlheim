@@ -128,7 +128,7 @@ $(document).ready(function(){
 	window.setInterval(scrollHandler,500);
 
 	// show the name of the logged in user, or redirect to login
-	$.getJSON(getAPIURLprefix()+"/api/v0/userinfo", function(data){
+	$.getJSON(getAPIURLprefix()+"/api/v2/userinfo", function(data){
 		userinfo = data;
 		if (data == null) {
 			// Not logged in. Redirect to login...
@@ -164,6 +164,7 @@ $(document).ready(function(){
 });
 
 function showFrontPage() {
+	document.title = "Home - Nivlheim";
 	renderTemplate("frontpage", {}, "div#pageContent")
 	.done(function(){
 		$("button#searchButton").click(newSearch);
@@ -177,7 +178,7 @@ function showFrontPage() {
 function browseHostByCert(certfp) {
 	// First, get a list of custom fields (if any)
 	let customfields = [];
-	$.get(getAPIURLprefix()+"/api/v0/settings/customfields?fields=name",
+	$.get(getAPIURLprefix()+"/api/v2/settings/customfields?fields=name",
 	function(data){
 		for (let i=0; i<data.length; i++) {
 			customfields[i] = data[i].name;
@@ -186,12 +187,13 @@ function browseHostByCert(certfp) {
 	.done(function(){
 		APIcall(
 			//"mockapi/browsehost.json",
-			"/api/v0/host/"+encodeURIComponent(certfp)+
+			"/api/v2/host/"+encodeURIComponent(certfp)+
 			"?fields=ipAddress,hostname,overrideHostname,lastseen,os,osEdition,osFamily,"+
 			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
 			function(data){
+				document.title = data['hostname'] + " - Nivlheim";
 				// put the custom fields in a map so they can be iterated through
 				let m = {};
 				for (let i=0; i<customfields.length; i++) {
@@ -210,7 +212,7 @@ function browseHostByCert(certfp) {
 
 function deleteHostByCert(certfp) {
 	APIcall(
-		"/api/v0/host/"+encodeURIComponent(certfp)+
+		"/api/v2/host/"+encodeURIComponent(certfp)+
 		"?fields=ipAddress,hostname,lastseen,os,osEdition,"+
 		"manufacturer,product,certfp",
 		"deletehost", "div#pageContent",
@@ -244,7 +246,7 @@ function restDeleteHost(certfp) {
 	// Put a spinner on the button
 	$("a#deleteButton").addClass("is-loading");
 	// Perform the ajax call
-	let url = getAPIURLprefix()+"/api/v0/host/"+certfp;
+	let url = getAPIURLprefix()+"/api/v2/host/"+certfp;
 	$.ajax({
 		"url": url,
 		"method": "DELETE"
@@ -268,7 +270,7 @@ function restDeleteHost(certfp) {
 function browseFileById(fileId) {
 	APIcall(
 		//"mockapi/browsefile.json",
-		"/api/v0/file?fields=fileId,lastModified,hostname,filename,"+
+		"/api/v2/file?fields=fileId,lastModified,hostname,filename,"+
 		"content,certfp,versions,isNewestVersion,isDeleted"+
 		"&fileId="+encodeURIComponent(fileId),
 		"browsefile", "div#pageContent")
@@ -286,19 +288,20 @@ function browseFileByName(certfp, filename) {
 	filename = decodeURIComponent(filename);
 	APIcall(
 		//"mockapi/browsefile.json",
-		"/api/v0/file?fields=fileId,lastModified,"+
+		"/api/v2/file?fields=fileId,lastModified,"+
 		"hostname,filename,content,certfp,versions,"+
 		"isNewestVersion,isDeleted"+
 		"&filename="+encodeURIComponent(filename)+
 		"&certfp="+certfp,
 		"browsefile", "div#pageContent")
 	.done(showDiff)
-	.done(function(){
+	.done(function(data){
 		$("select#selectVersion:first-child").prop("selected","selected");
 		$("select#selectVersion").change(function(){
 			location.href = "#/browsefile/"+$(this).val();
 		});
 		window.scrollTo(0,0);
+		document.title = data['filename'] + " - Nivlheim";
 	});
 }
 
@@ -321,6 +324,7 @@ function searchPage(page, q) {
 	// if we're not already on the search page, render the template
 	renderTemplate("searchpage", {"query": q}, "div#pageContent")
 	.done(function(){
+		document.title = 'Search - Nivlheim';
 		// add handlers to the input field and button
 		$("button#searchButton").click(newSearch);
 		$("input#search").keyup(function(e){
@@ -331,13 +335,17 @@ function searchPage(page, q) {
 		// show the spinner
 		$("div#searchSpinner").fadeIn();
 		// search host names
-		APIcall("/api/v0/hostlist?fields=hostname,certfp&hostname="+
+		APIcall("/api/v2/hostlist?fields=hostname,certfp&hostname="+
 			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
 			"div#searchResultHostnames");
+		// search IP addresses
+		APIcall("/api/v2/hostlist?fields=hostname,certfp&ipAddress="+
+			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
+			"div#searchResultHostnames2");
 		// search files
 		APIcall(
 			//"mockapi/searchpage.json",
-			"/api/v0/searchpage?q="+encodeURIComponent(q)+
+			"/api/v2/searchpage?q="+encodeURIComponent(q)+
 			"&page="+page+"&hitsPerPage=8",
 			"searchresultfiles", "div#searchResult")
 		.always(function(){
@@ -347,6 +355,7 @@ function searchPage(page, q) {
 			let elem = $("input#search")[0];
 			elem.selectionStart = elem.selectionEnd = elem.value.length;
 		});
+		document.title = q + ' - Nivlheim search';
 	});
 }
 
@@ -356,10 +365,10 @@ function allHosts() {
 	// retrieve lists of OSes, Manufacturers, etc.
 	let pfx = getAPIURLprefix();
 	let promises = [];
-	promises.push($.get(pfx+"/api/v0/hostlist?group=os"));
-	promises.push($.get(pfx+"/api/v0/hostlist?group=osEdition"));
-	promises.push($.get(pfx+"/api/v0/hostlist?group=manufacturer"));
-	promises.push($.get(pfx+"/api/v0/hostlist?group=product"));
+	promises.push($.get(pfx+"/api/v2/hostlist?group=os"));
+	promises.push($.get(pfx+"/api/v2/hostlist?group=osEdition"));
+	promises.push($.get(pfx+"/api/v2/hostlist?group=manufacturer"));
+	promises.push($.get(pfx+"/api/v2/hostlist?group=product"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
 		// remove entries that are the string "null"
@@ -391,6 +400,7 @@ function allHosts() {
 				reloadMatchingHosts();
 			});
 		});
+		document.title = 'Browse hosts - Nivlheim';
 	})
 	.fail(function(){
 		showError("Something went wrong when querying the server.",
@@ -421,7 +431,7 @@ function reloadMatchingHosts() {
 	if (q) q = "?q="+q;
 	location.assign("/#/allhosts"+q);
 	// prepare the API call that loads the list of hosts that match
-	q = "/api/v0/hostlist?fields=hostname,ipAddress,certfp";
+	q = "/api/v2/hostlist?fields=hostname,ipAddress,certfp";
 	if (oses.length>0) q += "&os="+oses.join(',');
 	if (editions.length>0) q += "&osEdition="+editions.join(',');
 	if (manufacturers.length>0) q += "&manufacturer="+manufacturers.join(',');
@@ -445,37 +455,31 @@ function loadMoreHosts() {
 }
 
 function settingsPage() {
+	document.title = "Settings - Nivlheim";
 	renderTemplate("settingspage", {}, "div#pageContent")
 	.done(function(){
-		let p1 = APIcall("/api/v0/settings", "settings", "#placeholder_settings")
-			.done(function(){
-				$("#resetWaitTimeButton").click(function(){restPut('/api/v0','resetWaitingTimeForFailedTasks','')});
-			});
-		let p2 = APIcall(
+		let p1 = APIcall(
 			//"mockapi/awaiting_approval.json",
-			"/api/v0/awaitingApproval"+
-			"?fields=hostname,reversedns,ipaddress,approvalId",
+			"/api/v2/manualApproval"+
+			"?fields=hostname,reversedns,ipaddress,approvalId&approved=null",
 			"awaiting_approval", $('#placeholder_approval'))
 			.done(function(){
-				$("[data-approve-id]").each(function(i,elem){
-					$(elem).click(function(){approve($(elem).data('approve-id'));});
-				});
-				$("[data-deny-id]").each(function(i,elem){
-					$(elem).click(function(){deny($(elem).data('deny-id'));});
-				});
+				attachHandlersToDenyAndAcceptButtons();
 			});
-		let p3 = APIcall(
-			"/api/v0/settings/customfields?fields=name,filename,regexp",
+		let p2 = APIcall(
+			"/api/v2/settings/customfields?fields=name,filename,regexp",
 			"customfields", "#placeholder_customfields");
-		Promise.all([p1,p2,p3]).then(function(){
+		Promise.all([p1,p2]).then(function(){
+			$("#resetWaitTimeButton").click(function(){restPut('/api/v2','resetWaitingTimeForFailedTasks','')});
 			attachHandlersToForms();
 		});
 	});
 }
 
 function iprangesPage() {
+	document.title = "IP ranges - Nivlheim";
 	APIcall(//"mockapi/ipranges.json",
-		"/api/v0/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
+		"/api/v2/settings/ipranges?fields=ipRangeId,ipRange,comment,useDns",
 		"ipranges", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
@@ -483,17 +487,19 @@ function iprangesPage() {
 }
 
 function keysPage() {
-	APIcall("/api/v0/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
+	document.title = "API keys - Nivlheim";
+	APIcall("/api/v2/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
 		"keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
 		let j = window.location.href.indexOf("/", 10);
-		$("span#apiPrefix").text(window.location.href.substr(0,j)+"/api/v0/");
+		$("span#apiPrefix").text(window.location.href.substr(0,j)+"/api/v2/");
 	});
 }
 
 function keyEditPage(keyid) {
-	APIcall("/api/v0/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
+	document.title = "API keys - Nivlheim";
+	APIcall("/api/v2/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
 		"keyeditpage", "div#pageContent", function(obj){
 			// Only show the expiry date, not the whole timestamp
 			if (obj["expires"] && obj["expires"].length>10)
