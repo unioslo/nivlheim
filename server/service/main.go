@@ -172,6 +172,11 @@ func main() {
 			time.Sleep(time.Second)
 		}
 	}
+	if left > 0 {
+		log.Printf("Terminating %d running jobs.", left)
+	} else {
+		log.Println("All jobs are finished.")
+	}
 }
 
 func triggerJob(job Job) {
