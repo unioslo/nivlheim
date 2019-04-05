@@ -79,7 +79,7 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 			return nil
 		})
 		if err != nil {
-			log.Print(err)
+			log.Panic(err)
 		}
 	}
 }
@@ -204,11 +204,17 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	}
 	if count > 0 {
 		// Send this machine back to approval, the hostname is already taken.
-		tx.Exec("UPDATE waiting_for_approval SET approved=null WHERE ipaddr=$1",
+		_, err = tx.Exec("UPDATE waiting_for_approval SET approved=null WHERE ipaddr=$1",
 			ipAddress)
+		if err != nil {
+			return "", err
+		}
 		return "", nil
 	}
-	tx.Exec("DELETE FROM waiting_for_approval WHERE ipaddr=$1", ipAddress)
+	_, err = tx.Exec("DELETE FROM waiting_for_approval WHERE ipaddr=$1", ipAddress)
+	if err != nil {
+		return "", err
+	}
 	return hostname.String, nil
 }
 
