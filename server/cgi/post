@@ -217,7 +217,7 @@ eval {
 	run_command("openssl x509 -pubkey -noout -in $certfile > $pubkeyfile"); # extract public key from cert
 	unlink($certfile);
 	my $sha = "sha256";
-	if ($clientversion =~ /P$/) {
+	if ($ENV{'HTTP_USER_AGENT'} =~ /Powershell/i) {
 		# Powershell clients use SHA-1
 		$sha = "sha1";
 	}
