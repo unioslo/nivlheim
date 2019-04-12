@@ -42,6 +42,13 @@ openstack server create --flavor m1.small --image "GOLD Fedora 28" --nic net-id=
 FEDIP=$(openstack server list | grep $FED | grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 echo "IP address: \"$FEDIP\""
 
+# Ensure VMs always get deleted
+function finish {
+	openstack server delete --wait $WIN 2>/dev/null || true
+	openstack server delete --wait $FED 2>/dev/null || true
+}
+trap finish EXIT
+
 # Add security groups
 echo "Adding security groups..."
 openstack server add security group $WIN "OSL region" || true
@@ -121,7 +128,3 @@ fi
 echo "Found the new VM in Nivlheim."
 
 echo "Test result: OK"
-
-# Cleanup
-openstack server delete --wait $WIN 2>/dev/null || true
-openstack server delete --wait $FED 2>/dev/null || true
