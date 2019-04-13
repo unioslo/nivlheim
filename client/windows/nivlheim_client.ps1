@@ -27,7 +27,7 @@ param(
 #	[string]$config = "C:\Program Files (x86)\Nivlheim\etc\nivlheim.conf",
 	[string]$certfile = "",
 	[string]$logfile = "C:\Program Files (x86)\Nivlheim\logs\nivlheim.log",
-	[string]$serverbaseurl = "https://nivlheim.uio.no/cgi-bin/", # must have trailing slash
+	[string]$server = "",
 	[bool]$trustallcerts = $false,
 	[bool]$dryrun = $false
 )
@@ -400,6 +400,18 @@ catch {
 	Write-Host $error[0]
 	return
 }
+
+# Compute the server url.
+$actualserver = "nivlheim.uio.no" # start with a default value
+if ($conf.ContainsKey("settings") -And $conf["settings"].ContainsKey("server")) {
+	# Got a value from config file/regkey
+	$actualserver = $conf["settings"]["server"]
+}
+if ($server -ne "") {
+	# Got a command line argument, that overrides config
+	$actualserver = $server
+}
+$serverbaseurl = "https://$actualserver/cgi-bin/" # must have trailing slash
 
 if ($dryrun) {
 	# Override with config from a local file

@@ -109,7 +109,7 @@ encoded=$(base64 --wrap=0 client.conf)
 sshnokey admin\@$WINIP -C "reg add HKEY_LOCAL_MACHINE\\SOFTWARE\\Nivlheim /f /v config /t REG_SZ /d $encoded"
 
 # run the script with -certfile and -logfile pointing to a place the script is allowed to write
-sshnokey admin\@$WINIP -C "powershell -Command ./nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -serverbaseurl https://$FEDIP/cgi-bin/ -trustallcerts:1"
+sshnokey admin\@$WINIP -C "powershell -Command ./nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -server $FEDIP -trustallcerts:1"
 
 # verify that the Powershell script actually sent some data
 OK=0
