@@ -4,10 +4,10 @@ Priority: extra
 Maintainer: Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>
 Build-Depends: debhelper (>= 9~),
 	       quilt
-Standards-Version: 1.9.3
-Homepage: http://nivlheim.uio.no/
-Vcs-Git: git://git.uio.no/nivlheim.git
-Vcs-Browser: http://git.uio.no/git/?p=nivlheim.git;a=tree
+Standards-Version: 2.0.2
+Homepage: https://github.com/usit-gd/nivlheim
+Vcs-Git: git://github.com/usit-gd/nivlheim.git
+Vcs-Browser: https://github.com/usit-gd/nivlheim
 
 Package: nivlheim-client
 Architecture: all

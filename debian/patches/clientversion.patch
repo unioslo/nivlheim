@@ -1,13 +1,13 @@
 diff --git a/client/nivlheim_client b/client/nivlheim_client
-index 87e147e..131dcb2 100644
+index d676eac..8f9f4c1 100644
 --- a/client/nivlheim_client
 +++ b/client/nivlheim_client
 @@ -62,7 +62,7 @@ my $NAME    = 'nivlheim_client';
  my $AUTHOR  = 'Øyvind Hagberg';
  my $CONTACT = 'oyvind.hagberg@usit.uio.no';
  my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
--my $VERSION = '0.12.1';
-+my $VERSION = '1.9.3';
+-my $VERSION = '0.0.0'; # Will be replaced during package building
++my $VERSION = '2.0.2';
  
  # Usage text
  my $USAGE = <<"END_USAGE";
