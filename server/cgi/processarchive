@@ -156,24 +156,31 @@ eval{
 		."VALUES(?,?,?,?, ?,?,?,?,?, ?,?, "
 		."(SELECT certid FROM certificates WHERE fingerprint=?))");
 
-	# Why set parsed=false on unchanged files? Because if the machine has been archived
-	# and came back, the hostinfo values must be re-populated.
-	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true,parsed=false,received=now() "
+	my $sth_setcurrent = $dbh->prepare("UPDATE files SET current=true,received=now() "
 		."WHERE fileid=? AND NOT current");
 
 	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
 		."WHERE fileid=? AND current");
 	my @no_longer_current = ();
 
+	my $sth_clearparsed = $dbh->prepare("UPDATE files SET parsed=false WHERE fileid=?");
+
 	my $sth_crc = $dbh->prepare("SELECT crc32,fileid FROM files "
 		."WHERE certfp=? AND filename=? ORDER BY received DESC LIMIT 1");
 
+	# Must not set lastseen back in time if re-parsing an old file
 	my $sth_hostinfo1 = $dbh->prepare("UPDATE hostinfo SET lastseen=?, clientversion=? ".
 		"WHERE certfp=? AND lastseen<?");
+	# If the machine has changed its ip address or hostname, set dnsttl to null to trigger a new evaluation
 	my $sth_hostinfo2 = $dbh->prepare("UPDATE hostinfo SET ipaddr=?, os_hostname=?, ".
 		"dnsttl=null WHERE (ipaddr!=? OR os_hostname!=?) AND certfp=?");
 
 	my $unchangedfilecount = 0;
+
+	# Is there a hostinfo record for this certificate?
+	@_ = $dbh->selectrow_array(
+		"SELECT count(*) FROM hostinfo WHERE certfp=?", undef, ($meta{certfp}));
+	my $hostinfo_record_exists = $_[0];
 
 	# For each file
 	sub callback1 {
@@ -243,13 +250,23 @@ eval{
 			my $fileid = $$aref[1];
 			if (defined($oldcrc) && $crc32 eq $oldcrc) {
 				$logger->debug("   Unchanged.");
-				# Since this file isn't going to be inserted and parsed, update hostinfo directly
-				$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
-				$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
+				# Is there a hostinfo record for this certificate?
+				if ($hostinfo_record_exists) {
+					# There is a hostinfo record.
+					# Since this file isn't going to be inserted and parsed, update hostinfo directly
+					$sth_hostinfo1->execute(($iso_received, $meta{clientversion}, $meta{certfp}, $iso_received));
+					$sth_hostinfo2->execute(($meta{ip}, $meta{os_hostname}, $meta{ip}, $meta{os_hostname}, $meta{certfp}));
+					$unchangedfilecount++;
+				} else {
+					# There is NO hostinfo record.
+					# It looks like the machine was archived and just now came back.
+					# Set parsed=false so the file will be parsed again,
+					# because the hostinfo values must be re-populated.
+					$sth_clear_parsed->execute(($fileid));
+				}
 				# Make sure this file record keeps it "current" flag set
 				$sth_setcurrent->execute(($fileid));
 				delete $currentfiles->{$originalfilename};
-				$unchangedfilecount++;
 				return;
 			}
 		}
