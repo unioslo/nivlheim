@@ -262,7 +262,7 @@ eval{
 					# It looks like the machine was archived and just now came back.
 					# Set parsed=false so the file will be parsed again,
 					# because the hostinfo values must be re-populated.
-					$sth_clear_parsed->execute(($fileid));
+					$sth_clearparsed->execute(($fileid));
 				}
 				# Make sure this file record keeps it "current" flag set
 				$sth_setcurrent->execute(($fileid));
