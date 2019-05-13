@@ -32,7 +32,7 @@ param(
 	[bool]$dryrun = $false
 )
 
-Set-Variable version -option Constant -value "2.0.2"
+Set-Variable version -option Constant -value "2.0.3"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
