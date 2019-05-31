@@ -36,11 +36,17 @@ var apiHostListStandardFields = []apiHostListStandardField{
 }
 
 func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
-	if req.Method != httpGET {
+	switch req.Method {
+	case httpGET:
+		vars.ServeGET(w, req, access)
+	case httpPOST:
+		vars.ServePOST(w, req, access)
+	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
 	}
+}
 
+func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// Get a list of names and IDs of all defined custom fields
 	customFields, customFieldIDs, err := getListOfCustomFields(vars.db)
 	if err != nil {

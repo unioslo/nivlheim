@@ -23,13 +23,13 @@ type apiMethodKeys struct {
 func (vars *apiMethodKeys) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	switch req.Method {
 	case httpGET:
-		(*vars).read(w, req, access)
+		vars.read(w, req, access)
 	case httpPOST:
-		(*vars).create(w, req, access)
+		vars.create(w, req, access)
 	case httpPUT:
-		(*vars).update(w, req, access)
+		vars.update(w, req, access)
 	case httpDELETE:
-		(*vars).delete(w, req, access)
+		vars.delete(w, req, access)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
