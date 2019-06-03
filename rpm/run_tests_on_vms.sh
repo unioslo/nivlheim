@@ -38,7 +38,7 @@ rm $TMPFILE
 # Clean up the list, only keep the images we want to test on
 IMAGES=()
 for IMAGE in "${LIST[@]}"; do
-	if [[ $IMAGE != *"Fedora"* ]] && [[ $IMAGE != *"CentOS 7"* ]]; then
+	if [[ $IMAGE != *"Fedora 28"* ]] && [[ $IMAGE != *"CentOS 7"* ]]; then
 		continue
 	fi
 	IMAGE=$(echo $IMAGE | xargs) # trim leading/trailing whitespace
