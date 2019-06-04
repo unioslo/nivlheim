@@ -143,11 +143,18 @@ func TestHandleDNSchanges(t *testing.T) {
 			osHostname: "saruman.uio.no",
 			expected:   "",
 		},
+		// Testing a machine without IP address ... could happen if it is added by an external service
+		testname{
+			ipAddress:  "",
+			osHostname: "noname.example.com",
+			expected:   "",
+		},
 	}
 	for _, test := range tests {
+		ipAddr := sql.NullString{String: test.ipAddress, Valid: test.ipAddress != ""}
 		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,"+
 			"os_hostname,hostname,override_hostname) VALUES($1,$2,$3,$4,$5)",
-			test.certfp, test.ipAddress, test.osHostname, test.hostname, test.overrideHostname)
+			test.certfp, ipAddr, test.osHostname, test.hostname, test.overrideHostname)
 		if err != nil {
 			t.Fatal(err)
 		}

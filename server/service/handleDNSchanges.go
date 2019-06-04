@@ -105,6 +105,10 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	} else if err != sql.ErrNoRows {
 		return "", err
 	}
+	// If we got this far and the machine doesn't have an IP address, there's nothing we can do
+	if ipAddress == "" {
+		return "", nil
+	}
 	// See if the ip address is within one of the ip ranges where DNS should be used.
 	var count int
 	err = tx.QueryRow("SELECT count(*) FROM ipranges WHERE $1 <<= iprange "+

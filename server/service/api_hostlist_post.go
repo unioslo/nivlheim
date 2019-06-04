@@ -50,7 +50,8 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 	}
 
 	// Process the entries
-	hash := fnv.New64()
+	updated, created := 0, 0
+	hash := fnv.New128a()
 	for _, entry := range postdata {
 		hostname, ok := entry["hostname"].(string)
 		if !ok {
@@ -97,8 +98,12 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 						log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
 						http.Error(w, "Error while updating the database", http.StatusInternalServerError)
 						return
+					} else {
+						created++
 					}
 				}
+			} else {
+				updated++
 			}
 		}
 
@@ -127,4 +132,6 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 			}
 		}
 	}
+
+	fmt.Fprintf(w, "Updated %d hosts, created %d new hosts\n", updated, created)
 }

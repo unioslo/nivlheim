@@ -1,6 +1,7 @@
 package main
 
 import (
+	"database/sql"
 	"net/http"
 	"os"
 	"reflect"
@@ -179,6 +180,13 @@ func TestApiMethodHostList(t *testing.T) {
 			expectJSON:     "{}",
 			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
 		},
+		// Test POST
+		{
+			methodAndPath: "POST /api/v2/hostlist",
+			body:          "[{\"createIfNotExists\":true,\"hostname\":\"postpostpost\",\"os\":\"ExampleOS\"}]",
+			expectStatus:  http.StatusOK,
+			expectContent: "Updated 0 hosts, created 1 new hosts",
+		},
 	}
 
 	db := getDBconnForTesting(t)
@@ -186,20 +194,31 @@ func TestApiMethodHostList(t *testing.T) {
 	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition) " +
 		"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','workstation')")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	_, err = db.Exec("INSERT INTO customfields(name) VALUES('duck'),('town')")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) " +
 		"VALUES('1111',1,'donald'),('2222',1,'gladstone')," +
 		"('1111',2,'duckville'),('2222',2,'duckville')")
 	if err != nil {
-		t.Fatal(err)
+		t.Error(err)
 	}
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v2/hostlist", wrapRequireAuth(&apiMethodHostList{db: db, devmode: true}, db))
 	testAPIcalls(t, mux, tests)
+
+	var certfp sql.NullString
+	err = db.QueryRow("SELECT certfp FROM hostinfo WHERE hostname='postpostpost'").Scan(&certfp)
+	if err == sql.ErrNoRows {
+		t.Error("POST hostlist failed, didn't find host in database")
+	} else if err != nil {
+		t.Error(err)
+	} else if len(certfp.String) < 32 || len(certfp.String) > 40 {
+		t.Errorf("Expected a certfp between 32 and 40 chars, got \"%s\"", certfp.String)
+	}
+
 }

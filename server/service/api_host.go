@@ -378,7 +378,7 @@ type rowQueryer interface {
 // If a hostname is given, it looks it up in the database
 // and returns the corresponding certificate fingerprint.
 func getHostFromURLPath(path string, db rowQueryer) (string, error) {
-	fingerprintMatch := regexp.MustCompile("/host/([a-fA-F0-9]{40})$").FindStringSubmatch(path)
+	fingerprintMatch := regexp.MustCompile("/host/([a-fA-F0-9]{32,40})$").FindStringSubmatch(path)
 	if fingerprintMatch != nil {
 		return fingerprintMatch[1], nil
 	}
