@@ -73,10 +73,10 @@ func (vars *apiMethodCustomFieldsCollection) ServeHTTP(w http.ResponseWriter, re
 			http.Error(w, "Missing parameters: "+strings.Join(missingParams, ","), http.StatusBadRequest)
 			return
 		}
-		// if the name contains special characters, it isn't valid
+		// if the name contains special or uppercase characters, it isn't valid
 		name := formValue(req.PostForm, "name")
 		if regexp.MustCompile("[^a-z0-9_]").MatchString(name) {
-			http.Error(w, "name contains invalid characters", http.StatusBadRequest)
+			http.Error(w, "The name contains invalid characters. Only a-z, 0-9, and _ is allowed, and no uppercase", http.StatusBadRequest)
 			return
 		}
 		// Everything checks out, insert

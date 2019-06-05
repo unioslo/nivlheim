@@ -7,6 +7,7 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"time"
 
 	"github.com/usit-gd/nivlheim/server/service/utility"
 )
@@ -67,44 +68,43 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 				columnValues[columnName] = value
 			}
 		}
+		columnValues["lastseen"] = time.Now()
 
-		if len(columnValues) > 0 {
-			// Update the host, if it exists
-			sql, params := utility.BuildUpdateStatement("hostinfo", columnValues, "hostname", hostname)
-			var rowsAffected int64
-			res, err := vars.db.Exec(sql, params...)
-			if err == nil {
-				rowsAffected, err = res.RowsAffected()
-			}
-			if err != nil {
-				log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
-				http.Error(w, "Error while updating the database", http.StatusInternalServerError)
-				return
-			}
-			if rowsAffected == 0 {
-				// The host doesn't exist, perhaps create it?
-				b, ok := entry["createIfNotExists"].(bool)
-				if ok && b {
-					// Must invent a value for the certificate fingerprint.
-					// Use a hash of the hostname so it won't change
-					hash.Reset()
-					hash.Write([]byte(hostname))
-					columnValues["certfp"] = fmt.Sprintf("%X", hash.Sum(nil))
-					columnValues["hostname"] = hostname
-					// Insert a row
-					sql, params = utility.BuildInsertStatement("hostinfo", columnValues)
-					_, err = vars.db.Exec(sql, params...)
-					if err != nil {
-						log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
-						http.Error(w, "Error while updating the database", http.StatusInternalServerError)
-						return
-					} else {
-						created++
-					}
+		// Update the host, if it exists
+		sql, params := utility.BuildUpdateStatement("hostinfo", columnValues, "hostname", hostname)
+		var rowsAffected int64
+		res, err := vars.db.Exec(sql, params...)
+		if err == nil {
+			rowsAffected, err = res.RowsAffected()
+		}
+		if err != nil {
+			log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
+			http.Error(w, "Error while updating the database", http.StatusInternalServerError)
+			return
+		}
+		if rowsAffected == 0 {
+			// The host doesn't exist, perhaps create it?
+			b, ok := entry["createIfNotExists"].(bool)
+			if ok && b {
+				// Must invent a value for the certificate fingerprint.
+				// Use a hash of the hostname so it won't change
+				hash.Reset()
+				hash.Write([]byte(hostname))
+				columnValues["certfp"] = fmt.Sprintf("%X", hash.Sum(nil))
+				columnValues["hostname"] = hostname
+				// Insert a row
+				sql, params = utility.BuildInsertStatement("hostinfo", columnValues)
+				_, err = vars.db.Exec(sql, params...)
+				if err != nil {
+					log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
+					http.Error(w, "Error while updating the database", http.StatusInternalServerError)
+					return
+				} else {
+					created++
 				}
-			} else {
-				updated++
 			}
+		} else {
+			updated++
 		}
 
 		// handle any custom fields
