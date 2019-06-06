@@ -106,7 +106,7 @@ $(document).ready(function(){
 	});
 
 	router.param('fileId', /(\\d+)/);
-	router.param('certfp', /([0-9A-F]{40})/);
+	router.param('certfp', /([0-9A-F]{32,40})/);
 	//router.param('hostname', /([\\w\\.]+\\w+)/);
 	router.param('filename', /([A-Za-z0-9_\\.~\\-]+)/);
 	router.param('query', /(.+)/);

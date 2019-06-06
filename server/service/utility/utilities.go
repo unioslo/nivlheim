@@ -133,3 +133,64 @@ func RandomStringID() string {
 	}
 	return b.String()
 }
+
+// BuildUpdateStatement is a helper function that builds an SQL UPDATE statement dynamically.
+func BuildUpdateStatement(tableName string, columnValues map[string]interface{},
+	whereColumn string, whereValue interface{}) (string, []interface{}) {
+	var sql strings.Builder
+	sql.WriteString("UPDATE ")
+	sql.WriteString(tableName)
+	sql.WriteString(" SET ")
+
+	params := make([]interface{}, len(columnValues)+1)
+	index := 1
+	for column, value := range columnValues {
+		if index > 1 {
+			sql.WriteString(",")
+		}
+		sql.WriteString(column)
+		sql.WriteString("=$")
+		sql.WriteString(strconv.Itoa(index))
+		params[index-1] = value
+		index++
+	}
+
+	sql.WriteString(" WHERE ")
+	sql.WriteString(whereColumn)
+	sql.WriteString("=$")
+	sql.WriteString(strconv.Itoa(index))
+	params[len(params)-1] = whereValue
+
+	return sql.String(), params
+}
+
+// BuildInsertStatement is a helper function that builds an SQL INSERT statement dynamically.
+func BuildInsertStatement(tableName string, columnValues map[string]interface{}) (string, []interface{}) {
+	var sql strings.Builder
+	sql.WriteString("INSERT INTO ")
+	sql.WriteString(tableName)
+	sql.WriteString("(")
+
+	params := make([]interface{}, len(columnValues))
+	i := 0
+	for column, value := range columnValues {
+		if i > 0 {
+			sql.WriteString(",")
+		}
+		sql.WriteString(column)
+		params[i] = value
+		i++
+	}
+
+	sql.WriteString(") VALUES(")
+	for i := 0; i < len(params); i++ {
+		if i > 0 {
+			sql.WriteString(",")
+		}
+		sql.WriteString("$")
+		sql.WriteString(strconv.Itoa(i + 1))
+	}
+	sql.WriteString(")")
+
+	return sql.String(), params
+}
