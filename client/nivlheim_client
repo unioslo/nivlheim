@@ -27,7 +27,7 @@ use Archive::Tar;
 use HTTP::Request::Common;
 use Sys::Hostname;
 use Sys::Syslog qw(:standard :macros);
-use File::Path qw(remove_tree);
+use File::Path qw(remove_tree mkpath);
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
 

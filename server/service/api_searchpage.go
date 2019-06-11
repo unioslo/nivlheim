@@ -120,9 +120,6 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if !access.HasAccessTo(certfp.String) {
-			continue
-		}
 		hit.FileID = fileID
 		hit.Filename = jsonString(filename)
 		hit.Hostname = jsonString(hostname)

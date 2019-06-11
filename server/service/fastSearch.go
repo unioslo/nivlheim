@@ -202,7 +202,7 @@ func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 	if !ok {
 		return nil
 	}
-	result := make([]int, 0, maxMatches)
+	result := make([]int, 0, Min(maxMatches, 10))
 	query = strings.ToLower(query)
 	offset := 0
 	for n := 0; n < maxMatches; n++ {
@@ -215,6 +215,14 @@ func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 		offset = offset + i + len(query)
 	}
 	return result
+}
+
+// getFileFromCache returns 3 strings: certificate fingerprint, filename, content
+func getFileFromCache(fileID int64) (string, string, string) {
+	fsMutex.RLock()
+	defer fsMutex.RUnlock()
+	ar := strings.Split(fsKey[fileID], ":")
+	return ar[0], ar[1], fsContent[fileID]
 }
 
 // Job

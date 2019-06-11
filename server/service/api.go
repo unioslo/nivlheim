@@ -29,6 +29,8 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	api := http.NewServeMux()
 	api.Handle("/api/v2/file",
 		wrapRequireAuth(&apiMethodFile{db: theDB}, theDB))
+	api.Handle("/api/v2/grep",
+		wrapRequireAuth(&apiMethodGrep{db: theDB}, theDB))
 	api.Handle("/api/v2/host",
 		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
 	api.Handle("/api/v2/host/",

@@ -30,6 +30,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		ThroughputPerSecond         float32            `json:"throughputPerSecond"`
 		LastExecutionTime           map[string]float32 `json:"lastExecutionTime"`
 		Errors                      map[string]string  `json:"errors"`
+		Version                     jsonString         `json:"version"`
 	}
 	status := Status{}
 
@@ -101,6 +102,12 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 
 	// ThroughputPerSecond
 	status.ThroughputPerSecond = float32(pfib.Sum() / 60.0)
+
+	// Version
+	if version != "" {
+		status.Version.String = version
+		status.Version.Valid = true
+	}
 
 	returnJSON(w, req, status)
 }
