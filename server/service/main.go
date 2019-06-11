@@ -38,6 +38,7 @@ func RegisterJob(newjob Job) {
 
 var jobs []JobListElement
 var postgresSupportsOnConflict bool
+var version string // should be set with -ldflags "-X main.version=1.2.3" during build
 
 // Config (set in /etc/nivlheim/server.conf)
 var oauth2ClientID string

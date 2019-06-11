@@ -171,7 +171,7 @@ rm -f $GOPATH/bin/*
 # The linkmode=external flag is a fix for the error "No build ID note found in ...".
 # The -w flag disables debug info generation, and -s omits the symbol table.
 # By using -w and -s we avoid the unstripped-binary-or-object warning from rpmlint
-go install -ldflags='-linkmode=external -w -s'
+go install -ldflags='-linkmode=external -w -s -X main.version=%{version}%{SUFFIX}'
 popd
 mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
 # Replace the version number in nivlheim_client
