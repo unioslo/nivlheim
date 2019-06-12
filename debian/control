@@ -4,7 +4,7 @@ Priority: extra
 Maintainer: Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>
 Build-Depends: debhelper (>= 9~),
 	       quilt
-Standards-Version: 2.0.2
+Standards-Version: 2.2.0
 Homepage: https://github.com/usit-gd/nivlheim
 Vcs-Git: git://github.com/usit-gd/nivlheim.git
 Vcs-Browser: https://github.com/usit-gd/nivlheim
