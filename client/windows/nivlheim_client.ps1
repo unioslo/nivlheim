@@ -32,7 +32,7 @@ param(
 	[bool]$dryrun = $false
 )
 
-Set-Variable version -option Constant -value "2.2.0"
+Set-Variable version -option Constant -value "2.2.1"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
@@ -237,6 +237,80 @@ function zipfolder($foldername, $zipfilename) {
 	}
 }
 
+# https://gallery.technet.microsoft.com/scriptcenter/PowerShell-Script-to-Roll-a96ec7d4
+function Reset-Log
+{
+	# The function checks to see if file in question is larger than the parameter specified.
+	# If it is, it will roll a log and delete the oldes log if there are more than x logs.
+	param([string]$fileName, [int64]$filesize = 1mb , [int] $logcount = 5)
+
+	$logRollStatus = $true
+	if(test-path $filename)
+	{
+		$file = Get-ChildItem $filename
+		if((($file).length) -ige $filesize) #this starts the log roll
+		{
+			$fileDir = $file.Directory
+			#this gets the name of the file we started with
+			$fn = $file.name
+			$files = Get-ChildItem $filedir | ?{$_.name -like "$fn*"} | Sort-Object lastwritetime
+			#this gets the fullname of the file we started with
+			$filefullname = $file.fullname
+			for ($i = (@($files).count); $i -gt 0; $i--)
+			{
+				$files = Get-ChildItem $filedir | ?{$_.name -like "$fn*"} | Sort-Object lastwritetime
+				$operatingFile = $files | ?{($_.name).trim($fn) -eq $i}
+				if ($operatingfile)
+				 {$operatingFilenumber = ($files | ?{($_.name).trim($fn) -eq $i}).name.trim($fn)}
+				else
+				{$operatingFilenumber = $null}
+
+				if(($operatingFilenumber -eq $null) -and ($i -ne 1) -and ($i -lt $logcount))
+				{
+					$operatingFilenumber = $i
+					$newfilename = "$filefullname.$operatingFilenumber"
+					$operatingFile = $files | ?{($_.name).trim($fn) -eq ($i-1)}
+					write-host "moving to $newfilename"
+					move-item ($operatingFile.FullName) -Destination $newfilename -Force
+				}
+				elseif($i -ge $logcount)
+				{
+					if($operatingFilenumber -eq $null)
+					{
+						$operatingFilenumber = $i - 1
+						$operatingFile = $files | ?{($_.name).trim($fn) -eq $operatingFilenumber}
+
+					}
+					write-host "deleting " ($operatingFile.FullName)
+					remove-item ($operatingFile.FullName) -Force
+				}
+				elseif($i -eq 1)
+				{
+					$operatingFilenumber = 1
+					$newfilename = "$filefullname.$operatingFilenumber"
+					write-host "moving to $newfilename"
+					move-item $filefullname -Destination $newfilename -Force
+				}
+				else
+				{
+					$operatingFilenumber = $i +1
+					$newfilename = "$filefullname.$operatingFilenumber"
+					$operatingFile = $files | ?{($_.name).trim($fn) -eq ($i-1)}
+					write-host "moving to $newfilename"
+					move-item ($operatingFile.FullName) -Destination $newfilename -Force
+				}
+			}
+		  }
+		 else
+		 { $logRollStatus = $false}
+	}
+	else
+	{
+		$logrollStatus = $false
+	}
+	$LogRollStatus
+}
+
 # create a shortened version of a command line, usable as a file name
 function shortencmd($orig) {
 	$s = "";
@@ -352,7 +426,14 @@ if (-Not $dryrun) {
 
 try {
 	if (-Not $dryrun) {
-		Start-Transcript -Path $logfile
+		Reset-Log -fileName $logfile -filesize 100000 -logcount 5 | Out-Null
+		try {
+			# On PowerShell versions before 6, Start-Transcript doesn't support
+			# the -UseMinimalHeader argument, so the command will fail.
+			Start-Transcript -Path $logfile -Append -Force -UseMinimalHeader -ErrorAction Stop
+		} catch {
+			Start-Transcript -Path $logfile -Append -Force -ErrorAction Continue
+		}
 	}
 
 Write-Host "Nivlheim client version: $version"
@@ -367,7 +448,7 @@ $dirpath = Split-Path $invocation.MyCommand.Path
 # We don't want PowerShell to display exceptions that we catch ourselves
 $ErrorActionPreference = "Stop"
 
-# This code is for trusting a self-signed server certificate. 
+# This code is for trusting a self-signed server certificate.
 # The option should not be used in production.
 if ($trustallcerts) {
 Write-Host "Trusting all https certificates."
@@ -375,15 +456,15 @@ add-type @"
 using System.Net;
 using System.Security.Cryptography.X509Certificates;
 public class TrustAllCertsPolicy : ICertificatePolicy {
-   	public bool CheckValidationResult(
-        ServicePoint srvPoint, X509Certificate certificate,
-        WebRequest request, int certificateProblem) {
-            return true;
-        }
- }
+	public bool CheckValidationResult(
+		ServicePoint srvPoint, X509Certificate certificate,
+		WebRequest request, int certificateProblem) {
+			return true;
+		}
+}
 "@
 [System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
-} 
+}
 
 # Read the configuration from registry
 try {
@@ -535,7 +616,7 @@ if (-not $cert.Issuer.Contains("Nivlheim")) {
 # Create a temporary directory structure for storing files.
 $tmpdir = $env:TEMP + "\nivlheim_tmp"
 try {
-	$r = Remove-Item -Path $tmpdir -Recurse -Force
+	$r = Remove-Item -Path $tmpdir -Recurse -Force -ErrorAction:SilentlyContinue
 } catch {}
 $r = New-Item -Path $tmpdir -ItemType directory -Force
 $r = New-Item -Path "$tmpdir\files" -ItemType directory -Force
@@ -617,7 +698,7 @@ if ($dryrun) {
 # Create a zip file
 $zipname = $env:TEMP + "\nivlheim-archive.zip"
 try {
-	Remove-Item -path $zipname -force
+	Remove-Item -Path $zipname -Force -ErrorAction:SilentlyContinue
 } catch {}
 $r = zipfolder $tmpdir $zipname
 
