@@ -4,6 +4,9 @@
 <h1 class="title">{{filename}}</h1>
 <h1 class="subtitle">From <a href="#/browsehost/{{certfp}}">{{hostname}}</a></h1>
 
+<div class="columns">
+	<div class="column">
+
 <div class="field has-addons">
 	<div class="control">
 		<a class="button is-static">
@@ -36,6 +39,24 @@
 		</a>
 	</div>
 	{{/if}}
+</div>
+
+	</div>
+	<div class="column">
+
+<div class="field">
+	<div class="control">
+		<a class="button is-light" id="diffbutton">
+			<span class="icon is-small">
+				<!-- <i class="fas fa-check-square"></i> -->
+				<i class="far fa-square"></i>
+			</span>
+			<span>Show diff</span>
+		</a>
+	</div>
+</div>
+
+	</div>
 </div>
 
 <div class="filecontent">{{content}}</div>

@@ -274,13 +274,27 @@ function browseFileById(fileId) {
 		"content,certfp,versions,isNewestVersion,isDeleted"+
 		"&fileId="+encodeURIComponent(fileId),
 		"browsefile", "div#pageContent")
-	.done(showDiff)
-	.done(function(){
+	.done(function(data){
+		let p = getUrlParams();
+		if (p["diff"]) {
+			showDiff(data);
+			$("a#diffbutton > span.icon > i").removeClass("far fa-square").addClass("fas fa-check-square");
+			$("a#diffbutton").click(function(){
+				location.href = "#/browsefile/"+fileId;
+			});
+		} else {
+			$("a#diffbutton").click(function(){
+				location.href = "#/browsefile/"+fileId+"?diff=y";
+			});
+		};
+	})
+	.done(function(data){
 		$("select#selectVersion").val(fileId);
 		$("select#selectVersion").change(function(){
 			location.href = "#/browsefile/"+$(this).val();
 		});
 		window.scrollTo(0,0);
+		document.title = data['filename'] + " - Nivlheim";
 	});
 }
 
@@ -294,7 +308,20 @@ function browseFileByName(certfp, filename) {
 		"&filename="+encodeURIComponent(filename)+
 		"&certfp="+certfp,
 		"browsefile", "div#pageContent")
-	.done(showDiff)
+	.done(function(data){
+		let p = getUrlParams();
+		if (p["diff"]) {
+			showDiff(data);
+			$("a#diffbutton > span.icon > i").removeClass("far fa-square").addClass("fas fa-check-square");
+			$("a#diffbutton").click(function(){
+				location.href = "#/browsefile/"+data["fileId"];
+			});
+		} else {
+			$("a#diffbutton").click(function(){
+				location.href = "#/browsefile/"+data["fileId"]+"?diff=y";
+			});
+		};
+	})
 	.done(function(data){
 		$("select#selectVersion:first-child").prop("selected","selected");
 		$("select#selectVersion").change(function(){
