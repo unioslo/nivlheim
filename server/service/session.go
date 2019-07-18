@@ -122,7 +122,7 @@ func deleteSession(req *http.Request) {
 
 // API call /api/vx/userinfo
 func apiGetUserInfo(w http.ResponseWriter, req *http.Request) {
-	if !authRequired {
+	if !config.AuthRequired {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Write([]byte("{\"authDisabled\":true,\"isAdmin\":true}"))
 		return

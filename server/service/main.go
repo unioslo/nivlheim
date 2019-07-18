@@ -1,7 +1,6 @@
 package main
 
 import (
-	"bufio"
 	"database/sql"
 	"log"
 	"math/rand"
@@ -10,8 +9,6 @@ import (
 	"reflect"
 	"regexp"
 	"runtime"
-	"strconv"
-	"strings"
 	"syscall"
 	"time"
 )
@@ -39,20 +36,8 @@ func RegisterJob(newjob Job) {
 var jobs []JobListElement
 var postgresSupportsOnConflict bool
 var version string // should be set with -ldflags "-X main.version=1.2.3" during build
-
-// Config (set in /etc/nivlheim/server.conf)
-var oauth2ClientID string
-var oauth2ClientSecret string
-var oauth2Scopes []string
-var oauth2AuthorizationEndpoint string
-var oauth2TokenEndpoint string
-var oauth2UserInfoEndpoint string
-var oauth2LogoutEndpoint string
-var authRequired bool
-var authorizationPluginURL string
+var config = &Config{}
 var devmode bool
-var archiveDayLimit int = 30
-var deleteDayLimit int = 180
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -77,7 +62,14 @@ func main() {
 	}
 
 	// Read config file
-	readConfigFile()
+	const configFileName = "/etc/nivlheim/server.conf"
+	var err error
+	config, err = ReadConfigFile(configFileName)
+	if err != nil {
+		log.Printf("Unable to read %s: %v", configFileName, err)
+		return
+	}
+	log.Printf("Read config file %s.", configFileName)
 
 	// Connect to database
 	var dbConnectionString string
@@ -190,49 +182,4 @@ func triggerJob(job Job) {
 	// If the job type isn't in the list, there's a programming error.
 	// The type should have been registered by calling RegisterJob from an init() function.
 	panic("Trying to trigger an unregistered job?")
-}
-
-func readConfigFile() {
-	const configFileName = "/etc/nivlheim/server.conf"
-	file, err := os.Open(configFileName)
-	if err != nil {
-		log.Printf("Unable to read %s: %v", configFileName, err)
-		return
-	}
-	defer file.Close()
-	scanner := bufio.NewScanner(file)
-	for scanner.Scan() {
-		keyAndValue := strings.SplitN(scanner.Text(), "=", 2)
-		key, value := keyAndValue[0], keyAndValue[1]
-		key = strings.ToLower(strings.TrimSpace(key))
-		value = strings.TrimSpace(value)
-		switch key {
-		case "oauth2clientid":
-			oauth2ClientID = value
-		case "oauth2clientsecret":
-			oauth2ClientSecret = value
-		case "oauth2scopes":
-			oauth2Scopes = strings.Split(value, ",")
-		case "oauth2authorizationendpoint":
-			oauth2AuthorizationEndpoint = value
-		case "oauth2tokenendpoint":
-			oauth2TokenEndpoint = value
-		case "oauth2userinfoendpoint":
-			oauth2UserInfoEndpoint = value
-		case "oauth2logoutendpoint":
-			oauth2LogoutEndpoint = value
-		case "authrequired":
-			authRequired = isTrueish(value)
-		case "authpluginurl":
-			authorizationPluginURL = value
-		case "archiveafterdays":
-			archiveDayLimit, _ = strconv.Atoi(value)
-		case "deleteafterdays":
-			deleteDayLimit, _ = strconv.Atoi(value)
-		}
-	}
-	if err = scanner.Err(); err != nil {
-		log.Printf("Error while reading %s: %v", configFileName, err)
-	}
-	log.Printf("Read config file %s.", configFileName)
 }

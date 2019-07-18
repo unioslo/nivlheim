@@ -83,7 +83,7 @@ func (ap *AccessProfile) GetSQLWHERE() string {
 }
 
 func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
-	if authorizationPluginURL == "" {
+	if config.AuthPluginURL == "" {
 		// If no authorization plugin is defined,
 		// then by default, let everyone have admin rights.
 		ap := new(AccessProfile)
@@ -103,7 +103,7 @@ func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
 	postValues := url.Values{}
 	postValues.Set("u", userID)
 	postValues.Set("key", string(tempKey))
-	resp, err := http.PostForm(authorizationPluginURL, postValues)
+	resp, err := http.PostForm(config.AuthPluginURL, postValues)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +163,7 @@ func wrapRequireAdmin(h http.Handler, db *sql.DB) http.Handler {
 func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		// If authentication is not enabled in config, let the request through
-		if !authRequired {
+		if !config.AuthRequired {
 			h.ServeHTTP(w, req, &AccessProfile{isAdmin: true})
 			return
 		}

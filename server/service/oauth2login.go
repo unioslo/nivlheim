@@ -17,7 +17,6 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Check if the user is already logged in.
-	// If so, just redirect to whereever.
 	session := getSessionFromRequest(req)
 	if session != nil {
 		if session.userinfo.ID == "" {
@@ -27,12 +26,13 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 			deleteSession(req)
 			session = nil
 		} else {
+			// The user is already logged in. Just redirect to the given url.
 			http.Redirect(w, req, redirectAfterLogin, http.StatusTemporaryRedirect)
 			return
 		}
 	}
 
-	// Assemble the redirect url
+	// Assemble the redirect url that the Oauth2 provider will use to redirect back to us.
 	var host = req.Host
 	fh, ok := req.Header["X-Forwarded-Host"]
 	if ok {
@@ -51,12 +51,12 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 
 	// Oauth2 configuration
 	conf := &oauth2.Config{
-		ClientID:     oauth2ClientID,
-		ClientSecret: oauth2ClientSecret,
-		Scopes:       oauth2Scopes,
+		ClientID:     config.Oauth2ClientID,
+		ClientSecret: config.Oauth2ClientSecret,
+		Scopes:       config.Oauth2Scopes,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  oauth2AuthorizationEndpoint,
-			TokenURL: oauth2TokenEndpoint,
+			AuthURL:  config.Oauth2AuthorizationEndpoint,
+			TokenURL: config.Oauth2TokenEndpoint,
 		},
 		RedirectURL: s,
 	}
@@ -105,7 +105,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	client := session.Oauth2Config.Client(oauth2.NoContext, tok)
 
 	// Retrieve user info
-	res, err := client.Get(oauth2UserInfoEndpoint)
+	res, err := client.Get(config.Oauth2UserInfoEndpoint)
 	if err != nil {
 		log.Printf("Oauth2 UserInfo error: %v", err)
 		http.Error(w, "Unable to retrieve user info from Oauth2 provider", http.StatusBadGateway)
@@ -122,7 +122,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Oauth2: Userinfo: %s", string(body))
 	}
 
-	// Parse the JSON
+	// Parse the JSON with the userinfo
 	var userinfo interface{}
 	err = json.Unmarshal(body, &userinfo)
 	if err != nil {
@@ -131,8 +131,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Store the interesting values in the session
-	if utility.GetString(userinfo, "audience") != oauth2ClientID {
+	if utility.GetString(userinfo, "audience") != config.Oauth2ClientID {
 		log.Printf("Oauth2 audience mismatch")
 		http.Error(w, "Oauth2 audience mismatch", http.StatusInternalServerError)
 		return
@@ -156,5 +155,5 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 
 func oauth2Logout(w http.ResponseWriter, req *http.Request) {
 	deleteSession(req)
-	http.Redirect(w, req, oauth2LogoutEndpoint, http.StatusTemporaryRedirect)
+	http.Redirect(w, req, config.Oauth2LogoutEndpoint, http.StatusTemporaryRedirect)
 }

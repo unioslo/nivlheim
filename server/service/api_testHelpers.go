@@ -38,17 +38,17 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 		req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 		if tt.runAsNotAuth {
 			// Enable auth, but don't supply any auth or session information.
-			authRequired = true
+			config.AuthRequired = true
 		} else if tt.accessProfile != nil {
 			// Enable auth
-			authRequired = true
+			config.AuthRequired = true
 			// Create an API key
 			key := GenerateTemporaryAPIKey(tt.accessProfile)
 			// Set the Authorization http header
 			req.Header.Add("Authorization", "APIKEY "+string(key))
 		} else if tt.sessionProfile != nil {
 			// Enable auth
-			authRequired = true
+			config.AuthRequired = true
 			// Fake a session
 			trapResponse := httptest.NewRecorder()
 			session := newSession(trapResponse, req)
@@ -65,7 +65,7 @@ func testAPIcalls(t *testing.T, mux *http.ServeMux, tests []apiCall) {
 		} else {
 			// Disable auth. This will bypass authentication and authorization,
 			// effectively running as admin. This is the default when testing API calls.
-			authRequired = false
+			config.AuthRequired = false
 		}
 		if tt.remoteAddr != "" {
 			req.RemoteAddr = tt.remoteAddr

@@ -28,6 +28,10 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 	}()
 
 	// Archive machines (delete the hostinfo entry, but keep the files)
+	archiveDayLimit := config.ArchiveDayLimit
+	if archiveDayLimit == 0 {
+		archiveDayLimit = 30 // default value is 30 days
+	}
 	rows, err := db.Query("SELECT certfp,extract(day from now()-lastseen) FROM hostinfo")
 	if err != nil {
 		log.Panic(err)
@@ -59,6 +63,10 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 	rows.Close()
 
 	// Delete old files where I haven't heard from the machine in a long time
+	deleteDayLimit := config.DeleteDayLimit
+	if deleteDayLimit == 0 {
+		deleteDayLimit = 180 // default value is 180 days
+	}
 	rows, err = db.Query("SELECT DISTINCT certfp FROM files GROUP BY certfp"+
 		" HAVING max(received) < now() - $1 * interval '1 days'", deleteDayLimit)
 	if err != nil {
