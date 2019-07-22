@@ -25,6 +25,9 @@ if [[ $(cat /tmp/changed.log | wc -l) -gt 0 ]]; then
 	exit 1
 fi
 
+# Give the system service a few seconds to start up
+sleep 5
+
 # Verify that the system service is running
 if ! sudo systemctl is-active --quiet nivlheim; then
 	sudo systemctl status nivlheim

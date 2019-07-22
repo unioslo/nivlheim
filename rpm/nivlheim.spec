@@ -22,6 +22,8 @@ Source7:  https://github.com/jgthms/bulma/releases/download/0.7.2/bulma-0.7.2.zi
 Source8:  https://github.com/CodeYellowBV/tarantino/archive/v2.1.0.tar.gz
 Source9:  https://use.fontawesome.com/releases/v5.2.0/fontawesome-free-5.2.0-web.zip
 Source10: https://raw.githubusercontent.com/wycats/handlebars.js/master/LICENSE
+Source11: https://github.com/go-ldap/ldap/archive/v3.0.3.zip#/ldap-v3.tar.gz
+Source12: https://github.com/go-asn1-ber/asn1-ber/archive/v1.3.zip#/asn1-ber-v1.tar.gz
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -126,6 +128,8 @@ This package contains the server components of Nivlheim.
 %setup -q -T -b 4 -n jquery-3.3.1
 %setup -q -T -b 6 -n moment-2.22.2
 %setup -q -T -b 8 -n tarantino-2.1.0
+%setup -q -T -b 11 -n ldap-3.0.3
+%setup -q -T -b 12 -n asn1-ber-1.3
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 A=`pwd`
 cd `dirname %{SOURCE0}`
@@ -165,6 +169,9 @@ mv ../pq-master $GOPATH/src/github.com/lib/pq
 mkdir -p $GOPATH/src/golang.org/x
 mv ../net-master $GOPATH/src/golang.org/x/net
 mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
+mkdir -p $GOPATH/src/gopkg.in/
+mv ../ldap-3.0.3 $GOPATH/src/gopkg.in/ldap.v3
+mv ../asn1-ber-1.3 $GOPATH/src/gopkg.in/asn1-ber.v1
 pushd $GOPATH/src/github.com/usit-gd/nivlheim/server/service
 NONETWORK=1 NOPOSTGRES=1 go test -v
 rm -f $GOPATH/bin/*
@@ -276,6 +283,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Thu Jul 18 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.2.1-20190718
+- Added sources for a Go LDAP library
+
 * Fri Mar 29 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 0.14.0-20190329
 - Added sha256sum integrity check for sources
 
