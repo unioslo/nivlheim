@@ -1,6 +1,6 @@
 # Getting started
 ### Install the server
-1. Spin up a clean VM running Fedora 29, 28, RHEL 7, or CentOS 7
+1. Spin up a clean VM running Fedora 30, 29, RHEL 7, or CentOS 7
 2. If you're using RHEL or CentOS, you need to [enable the EPEL package repository](https://fedoraproject.org/wiki/EPEL).
 ```
 sudo yum install -y epel-release
