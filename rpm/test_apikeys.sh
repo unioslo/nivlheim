@@ -5,7 +5,8 @@ if [[ "$1" == "--setup" ]]; then
 	sudo systemctl restart nivlheim
 	sleep 5
 	cd /tmp
-	sudo -u apache PGOPTIONS='--client-min-messages=warning' psql -q -c "TRUNCATE TABLE apikeys RESTART IDENTITY CASCADE;INSERT INTO apikeys(key,ownerid) VALUES('abcd','CI');"
+	sudo -u apache PGOPTIONS='--client-min-messages=warning' \
+		psql -q -c "TRUNCATE TABLE apikeys RESTART IDENTITY CASCADE;INSERT INTO apikeys(key,ownergroup) VALUES('abcd','CI');"
 	A=$(echo $SSH_CLIENT | awk '{print $1}')
 	sudo -u apache psql -q -c "INSERT INTO apikey_ips(keyid,iprange) VALUES(1,'$A/32');"
 	exit

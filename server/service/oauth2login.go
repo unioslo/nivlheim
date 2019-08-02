@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/usit-gd/nivlheim/server/service/utility"
@@ -175,10 +176,14 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 			return
 		}
 		if user2 != nil {
+			// Add these groups to user's group list
 			user.Groups = append(user.Groups, user2.Groups...)
 		}
+		// Remove duplicate entries
+		user.Groups = utility.RemoveDuplicateStrings(user.Groups)
+		// Sort the group list
+		sort.Strings(user.Groups)
 		session.userinfo.Groups = user.Groups
-		//TODO groups should also be copied to the access profile
 
 		// fuzzy logic to determine which group matches the primary affiliation best
 		lowerCaseAff := strings.ToLower(user.PrimaryAffiliation)
@@ -206,14 +211,9 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		}
 	}
 
-	// Generate an access profile for this user by calling an external service
-	session.AccessProfile, err = GenerateAccessProfileForUser(session.userID)
-	if err != nil {
-		log.Printf("Error while generating an access profile: %s", err.Error())
-		http.Error(w, "Error while generating an access profile", http.StatusInternalServerError)
-		return
-	}
-	session.userinfo.IsAdmin = session.AccessProfile.IsAdmin()
+	// Generate an access profile for this user
+	session.AccessProfile = GenerateAccessProfileForUser(
+		session.userinfo.IsAdmin, session.userinfo.Groups)
 
 	// Redirect to the page set in redirectAfterLogin.
 	log.Printf("Oauth2: Redirecting to %s", session.RedirectAfterLogin)

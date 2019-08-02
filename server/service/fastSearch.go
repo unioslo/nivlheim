@@ -12,7 +12,7 @@ import (
 
 var fsMutex sync.RWMutex
 var fsContent map[int64]string
-var fsID map[string]int64
+var fsID map[string]int64 // maps a key string to file id. The key is <certfp>:<filename>
 var fsKey map[int64]string
 var fsReady uint32
 
@@ -173,7 +173,7 @@ func searchFiles(searchString string) []int64 {
 	return hits
 }
 
-func searchFilesWithFilter(searchString string, ap *AccessProfile) []int64 {
+func searchFilesWithFilter(searchString string, validCerts map[string]bool) []int64 {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
@@ -181,7 +181,7 @@ func searchFilesWithFilter(searchString string, ap *AccessProfile) []int64 {
 		// extract certfp from key
 		ar := strings.SplitN(key, ":", 2)
 		certfp := ar[0]
-		if ap.HasAccessTo(certfp) {
+		if validCerts[certfp] {
 			content := fsContent[id]
 			if strings.Contains(content, searchString) {
 				hits = append(hits, id)

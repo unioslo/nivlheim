@@ -171,14 +171,14 @@ func TestApiMethodHostList(t *testing.T) {
 			methodAndPath:  "GET /api/v2/hostlist?group=osEdition",
 			expectStatus:   http.StatusOK,
 			expectJSON:     "{\"workstation\":1}",
-			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
 			methodAndPath:  "GET /api/v2/hostlist?group=osEdition&hostname=*baz*",
 			expectStatus:   http.StatusOK,
 			expectJSON:     "{}",
-			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test POST
 		{
@@ -191,8 +191,9 @@ func TestApiMethodHostList(t *testing.T) {
 
 	db := getDBconnForTesting(t)
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition) " +
-		"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','workstation')")
+	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition,ownergroup) VALUES" +
+		"('1111','foo.bar.no','workstation','foogroup')," +
+		"('2222','bar.baz.no','workstation','bargroup')")
 	if err != nil {
 		t.Error(err)
 	}
@@ -200,8 +201,8 @@ func TestApiMethodHostList(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) " +
-		"VALUES('1111',1,'donald'),('2222',1,'gladstone')," +
+	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) VALUES" +
+		"('1111',1,'donald'),('2222',1,'gladstone')," +
 		"('1111',2,'duckville'),('2222',2,'duckville')")
 	if err != nil {
 		t.Error(err)

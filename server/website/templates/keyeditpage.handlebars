@@ -30,14 +30,6 @@
 						</div>
 					</div>
 					<div class="field">
-						<label class="label">Restrict which hosts the key applies to</label>
-						<div class="control">
-							<input class="input" type="text" name="filter" size="60"
-								value="{{filter}}" placeholder="hostname=*.acme.com">
-							<span data-error-for="filter" class="has-text-danger"></span>
-						</div>
-					</div>
-					<div class="field">
 						<label class="label">Expiry date</label>
 						<div class="control">
 							<input class="input" type="text" name="expires" size="20" 
@@ -53,6 +45,31 @@
 123.134.145.0/24">{{#each ipRanges}}{{this}}
 {{/each}}</textarea>
 							<span data-error-for="ipRanges" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Which group owns the key</label>
+						<div class="control select">
+							<select name="ownerGroup" id="owner" class="grouplist" required></select>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Which groups shall this key have access to?</label>
+						<div class="columns">
+							<div class="column is-narrow">
+								<i>Either select some groups from this list...</i><br>
+								<div class="control select is-multiple">
+									<select multiple name="groups" id="group_access" class="grouplist"></select>
+								</div>
+							</div>
+							<div class="column is-narrow">
+								<i>.. or give it access to ALL groups:</i><br>
+								<label class="checkbox">
+									<input type="checkbox" class="checkbox" name="allGroups" value="true"
+										{{#if allGroups}}checked{{/if}}>
+									All groups
+								</label>
+							</div>
 						</div>
 					</div>
 					<div class="field">

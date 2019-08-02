@@ -171,7 +171,16 @@ function attachHandlersToForms() {
 	$("form").submit(submitForm);
 	$(".editbutton").click(editInPlace);
 	$(".deletebutton").click(askDeleteAndRefresh);
-	$(".backbutton").click(function(){ window.history.back(); }); 
+	$(".backbutton").click(function(){ window.history.back(); });
+	$("select.grouplist").each(function(i,elem){
+		$(elem).html("");
+		// Populate the select-element with groups the user is a member of
+		if (userinfo && userinfo.groups) {
+			for (let i=0; i<userinfo.groups.length; i++) {
+				$(elem).append("<option>"+userinfo.groups[i]+"</option>");
+			}
+		}
+	});
 }
 
 function submitForm(event) {

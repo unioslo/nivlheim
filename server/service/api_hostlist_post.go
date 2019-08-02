@@ -24,6 +24,12 @@ var apiHostListWritableFields = map[string]string{
 }
 
 func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
+	// Require admin, because you can overwrite a lot of data with this function
+	if !access.IsAdmin() {
+		http.Error(w, "This operation requires admin", http.StatusForbidden)
+		return
+	}
+
 	// Read the request body
 	body, err := ioutil.ReadAll(req.Body)
 	if err != nil {

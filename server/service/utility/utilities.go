@@ -194,3 +194,19 @@ func BuildInsertStatement(tableName string, columnValues map[string]interface{})
 
 	return sql.String(), params
 }
+
+// RemoveDuplicateStrings returns a new slice with the unique strings from the original array,
+// i.e. duplicate elements have been removed.
+func RemoveDuplicateStrings(array []string) []string {
+	m := make(map[string]bool, len(array))
+	for _, s := range array {
+		m[s] = true
+	}
+	newArray := make([]string, len(m))
+	i := 0
+	for str := range m {
+		newArray[i] = str
+		i++
+	}
+	return newArray
+}

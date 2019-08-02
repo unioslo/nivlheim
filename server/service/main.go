@@ -108,7 +108,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchlevel int
-	const requirePatchLevel = 4
+	const requirePatchLevel = 5
 	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
 	if patchlevel != requirePatchLevel {
 		log.Printf("Error: Wrong database patch level. "+

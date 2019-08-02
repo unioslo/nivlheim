@@ -33,6 +33,7 @@ var apiHostListStandardFields = []apiHostListStandardField{
 	{publicName: "serialNo", columnName: "serialno"},
 	{publicName: "certfp", columnName: "certfp"},
 	{publicName: "clientVersion", columnName: "clientversion"},
+	{publicName: "ownerGroup", columnName: "ownergroup"},
 }
 
 func (vars *apiMethodHostList) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
@@ -94,14 +95,6 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	//                 + the custom fields that were asked for
 	allowedFields = append(allowedFields[0:len(apiHostListStandardFields)], customFields...)
 
-	//TODO: Why are we calling req.ParseForm?
-	//      Let's see what happens if we don't!
-	//err = req.ParseForm()
-	//if err != nil {
-	//	http.Error(w, err.Error(), http.StatusBadRequest)
-	//	return
-	//}
-
 	// Call a function that assembles the "WHERE" clause with associated
 	// parameter values based on the query
 	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery, allowedFields)
@@ -112,7 +105,7 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 
 	// Build the "SELECT ... " part of the statement, including custom fields
 	// Start with the standard fields:
-	temp := make([]string, 0, 10)
+	temp := make([]string, 0, len(apiHostListStandardFields))
 	for _, f := range apiHostListStandardFields {
 		if f.columnName == "hostname" {
 			temp = append(temp, "COALESCE(hostname,host(ipaddr)) as hostname")
@@ -205,10 +198,10 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	}
 	*/
 
-	if vars.devmode {
-		//	log.Println(statement)
-		//	log.Print(qparams)
-	}
+	/*if vars.devmode {
+		log.Println(statement)
+		log.Print(qparams)
+	}*/
 
 	rows, err := vars.db.Query(statement, qparams...)
 	if err != nil {
@@ -237,8 +230,8 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 		res := make(map[string]interface{}, len(fields))
 		var i = 0
 		for _, f := range apiHostListStandardFields {
-			if f.columnName == "certfp" {
-				hasAccessToThisRow = access.HasAccessTo(scanvars[i].String)
+			if f.columnName == "ownergroup" {
+				hasAccessToThisRow = access.HasAccessToGroup(scanvars[i].String)
 			}
 			if fields[f.publicName] {
 				res[f.publicName] = jsonString(scanvars[i])
@@ -349,18 +342,18 @@ func performGroupQuery(w http.ResponseWriter, req *http.Request,
 
 	if len(where) > 0 {
 		statement += " WHERE " + where
-		if access != nil && !access.IsAdmin() {
-			statement += " AND certfp IN (" + access.GetSQLWHERE() + ")"
+		if access != nil && !access.HasAccessToAllGroups() {
+			statement += " AND ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
 		}
-	} else if access != nil && !access.IsAdmin() {
-		statement += " WHERE certfp IN (" + access.GetSQLWHERE() + ")"
+	} else if access != nil && !access.HasAccessToAllGroups() {
+		statement += " WHERE ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
 	}
 	statement += " GROUP BY " + colname
 
-	if devmode {
-		//log.Println(statement)
-		//log.Print(qparams)
-	}
+	/*if devmode {
+		log.Println(statement)
+		log.Print(qparams)
+	}*/
 
 	rows, err := db.Query(statement, qparams...)
 	if err != nil {

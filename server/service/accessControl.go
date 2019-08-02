@@ -2,11 +2,8 @@ package main
 
 import (
 	"database/sql"
-	"encoding/json"
-	"io/ioutil"
 	"net"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -14,20 +11,20 @@ import (
 // AccessProfile holds information about which hosts the user is allowed access to,
 // and whether the user has admin rights.
 type AccessProfile struct {
-	certs    map[string]bool
-	isAdmin  bool
-	ownerID  string
-	expires  time.Time
-	readonly bool
-	ipranges []net.IPNet
+	isAdmin   bool
+	groups    map[string]bool
+	allGroups bool
+	expires   time.Time
+	readonly  bool
+	ipranges  []net.IPNet
 }
 
-func (ap *AccessProfile) OwnerID() string {
-	return ap.ownerID
+func (ap *AccessProfile) HasAccessToGroup(group string) bool {
+	return ap.isAdmin || ap.allGroups || ap.groups[group]
 }
 
-func (ap *AccessProfile) HasAccessTo(certfp string) bool {
-	return ap.certs[certfp] || (ap.isAdmin && len(ap.certs) == 0)
+func (ap *AccessProfile) HasAccessToAllGroups() bool {
+	return ap.isAdmin || ap.allGroups
 }
 
 func (ap *AccessProfile) IsAdmin() bool {
@@ -66,12 +63,14 @@ func (ap *AccessProfile) AllowOnlyLocalhost() {
 	}
 }
 
-func (ap *AccessProfile) GetSQLWHERE() string {
-	//TODO this is temporary (bad) solution; will be removed later. See issue #67
+// GetGroupListForSQLWHERE returns a list like: 'foo','bar','baz'
+// If you use this function, you must first check if the user has access to all groups,
+// because then you shouldn't use this function in a WHERE clause at all.
+func (ap *AccessProfile) GetGroupListForSQLWHERE() string {
 	var sql strings.Builder
 	sql.WriteString("'")
 	frist := true
-	for k := range ap.certs {
+	for k := range ap.groups {
 		if !frist {
 			sql.WriteString("','")
 		}
@@ -82,52 +81,14 @@ func (ap *AccessProfile) GetSQLWHERE() string {
 	return sql.String()
 }
 
-func GenerateAccessProfileForUser(userID string) (*AccessProfile, error) {
-	if config.AuthPluginURL == "" {
-		// If no authorization plugin is defined,
-		// then by default, let everyone have admin rights.
-		ap := new(AccessProfile)
-		ap.isAdmin = true
-		ap.certs = make(map[string]bool)
-		return ap, nil
-	}
-
-	pluginAccess := &AccessProfile{
-		isAdmin:  true,
-		expires:  time.Now().Add(time.Duration(10) * time.Second),
-		readonly: true,
-	}
-	pluginAccess.AllowAllIPs()
-	tempKey := GenerateTemporaryAPIKey(pluginAccess)
-
-	postValues := url.Values{}
-	postValues.Set("u", userID)
-	postValues.Set("key", string(tempKey))
-	resp, err := http.PostForm(config.AuthPluginURL, postValues)
-	if err != nil {
-		return nil, err
-	}
-	jsonbytes, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return nil, err
-	}
-	type scriptResultType struct {
-		IsAdmin bool     `json:"isAdmin"`
-		Certs   []string `json:"certs"`
-	}
-	var scriptResult scriptResultType
-	err = json.Unmarshal(jsonbytes, &scriptResult)
-	if err != nil {
-		return nil, err
-	}
+func GenerateAccessProfileForUser(isAdmin bool, groups []string) *AccessProfile {
 	ap := new(AccessProfile)
-	ap.ownerID = userID
-	ap.certs = make(map[string]bool)
-	for _, s := range scriptResult.Certs {
-		ap.certs[s] = true
+	ap.isAdmin = isAdmin
+	ap.groups = make(map[string]bool, len(groups))
+	for _, g := range groups {
+		ap.groups[g] = true
 	}
-	ap.isAdmin = scriptResult.IsAdmin
-	return ap, nil
+	return ap
 }
 
 // ------------------------- http helpers -----------

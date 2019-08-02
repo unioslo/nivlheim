@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"database/sql"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"strconv"
@@ -38,10 +39,28 @@ func (vars *apiMethodGrep) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	}
 
 	var hitIDs []int64
-	if access.IsAdmin() {
+	if access.HasAccessToAllGroups() {
 		hitIDs = searchFiles(query)
 	} else {
-		hitIDs = searchFilesWithFilter(query, access)
+		// Compute a list of which certificates the user has access to,
+		// based on current hosts in hostinfo owned by one of the groups the user has access to.
+		list, err := QueryColumn(vars.db, "SELECT certfp FROM hostinfo WHERE ownergroup IN ("+
+			access.GetGroupListForSQLWHERE()+")")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			log.Println(err.Error())
+			return
+		}
+		// List is a slice of interface{}, so I must convert that to a map[string]bool
+		validCerts := make(map[string]bool, 100)
+		for _, s := range list {
+			str, ok := s.(string)
+			if ok {
+				validCerts[str] = true
+			}
+		}
+		// Finally, we can perform the search
+		hitIDs = searchFilesWithFilter(query, validCerts)
 	}
 
 	w.Header().Set("Content-Type", "text/plain")

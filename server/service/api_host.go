@@ -40,8 +40,20 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 		return
 	}
 
+	// Get the owner group
+	var ownerGroup sql.NullString
+	err = vars.db.QueryRow("SELECT ownergroup FROM hostinfo WHERE certfp=$1", certfp).Scan(&ownerGroup)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Host not found.", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
 	// Check that the user has access to this host
-	if !access.HasAccessTo(certfp) {
+	if !access.HasAccessToGroup(ownerGroup.String) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
@@ -56,7 +68,7 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 	// Make a complete list of allowed field names (standard + custom)
 	allowedFields := []string{"ipAddress", "hostname", "lastseen", "os", "osEdition",
 		"osFamily", "kernel", "manufacturer", "product", "serialNo", "certfp",
-		"clientVersion", "files", "support", "overrideHostname"}
+		"clientVersion", "files", "support", "overrideHostname", "ownerGroup"}
 	allowedFields = append(allowedFields, customFields...)
 
 	// The "fields" parameter says which fields I am supposed to return
@@ -130,6 +142,9 @@ func (vars *apiMethodHost) serveGET(w http.ResponseWriter, req *http.Request, ac
 	}
 	if fields["overrideHostname"] {
 		res["overrideHostname"] = jsonString(overrideHostname)
+	}
+	if fields["ownerGroup"] {
+		res["ownerGroup"] = jsonString(ownerGroup)
 	}
 	if fields["files"] {
 		files, err := makeFileList(vars.db, certfp)
@@ -251,11 +266,25 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 		}
 		return
 	}
+
+	// Get the owner group
+	var ownerGroup sql.NullString
+	err = vars.db.QueryRow("SELECT ownergroup FROM hostinfo WHERE certfp=$1", certfp).Scan(&ownerGroup)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Host not found.", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
 	// Check that the user has access to this host
-	if !access.HasAccessTo(certfp) {
+	if !access.HasAccessToGroup(ownerGroup.String) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
+
 	// Run the whole operation in a transaction
 	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		_, err := tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
@@ -293,11 +322,25 @@ func (vars *apiMethodHost) servePATCH(w http.ResponseWriter, req *http.Request, 
 		}
 		return
 	}
+
+	// Get the owner group
+	var ownerGroup sql.NullString
+	err = vars.db.QueryRow("SELECT ownergroup FROM hostinfo WHERE certfp=$1", certfp).Scan(&ownerGroup)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			http.Error(w, "Host not found.", http.StatusNotFound)
+		} else {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+		}
+		return
+	}
+
 	// Check that the user has access to this host
-	if !access.HasAccessTo(certfp) {
+	if !access.HasAccessToGroup(ownerGroup.String) {
 		http.Error(w, "Access denied", http.StatusForbidden)
 		return
 	}
+
 	// Run the whole operation in a transaction
 	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		// Get the new data values. Expect the body to be form/urlencoded, not json

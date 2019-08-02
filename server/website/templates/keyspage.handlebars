@@ -8,18 +8,18 @@
 					{{#if @first}}
 					<tr>
 						<th>Key</th>
-						<th>Comment</th>
-						<th>Filter</th>
-						<th>Readonly</th>
+						<th>Read-<br>only</th>
 						<th>Expires</th>
 						<th>ACL</th>
+						<th>Groups</th>
 						<th colspan="2"><!-- edit and delete buttons --></th>
 					</tr>
 					{{/if}}
 					<tr data-edit-action="/api/v2/keys/{{keyID}}">
-						<td><span data-name="name" class="all-copy">{{key}}</span></td>
-						<td>{{comment}}</td>
-						<td>{{filter}}</td>
+						<td>
+							<span data-name="name" class="all-copy">{{key}}</span>
+							<br><i>{{comment}}</i>
+						</td>
 						<td>
 							<label class="checkbox">
 								<input type="checkbox" name="readonly" value="1"
@@ -29,6 +29,13 @@
 						<td>{{formatDateTime expires}}</td>
 						<td>
 							{{#each ipRanges}}{{this}}<br>{{/each}}
+						</td>
+						<td>
+							{{#if allGroups}}
+							<span class="tag">All groups</span>
+							{{else}}
+							{{#each groups}}{{this}}<br>{{/each}}
+							{{/if}}
 						</td>
 						<td>
 							<a class="button" href="/#/keys/{{keyID}}">
@@ -70,14 +77,6 @@
 						</div>
 					</div>
 					<div class="field">
-						<label class="label">Restrict which hosts the key applies to</label>
-						<div class="control">
-							<input class="input" type="text" name="filter" size="60"
-								placeholder="hostname=*.acme.com">
-							<span data-error-for="filter" class="has-text-danger"></span>
-						</div>
-					</div>
-					<div class="field">
 						<label class="label">Expiry date</label>
 						<div class="control">
 							<input class="input" type="text" name="expires" size="20" 
@@ -91,6 +90,30 @@
 							<textarea name="ipRanges" class="textarea" placeholder="172.16.0.0/20
 123.134.145.0/24"></textarea>
 							<span data-error-for="ipRanges" class="has-text-danger"></span>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Which group owns the key</label>
+						<div class="control select">
+							<select name="ownerGroup" class="grouplist" required></select>
+						</div>
+					</div>
+					<div class="field">
+						<label class="label">Which groups shall this key have access to?</label>
+						<div class="columns">
+							<div class="column is-narrow">
+								<i>Either select some groups from this list...</i><br>
+								<div class="control select is-multiple">
+									<select multiple name="groups" class="grouplist"></select>
+								</div>
+							</div>
+							<div class="column is-narrow">
+								<i>.. or give it access to ALL groups:</i><br>
+								<label class="checkbox">
+									<input type="checkbox" class="checkbox" name="allGroups" value="true">
+									All groups
+								</label>
+							</div>
 						</div>
 					</div>
 					<div class="field">

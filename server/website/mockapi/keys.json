@@ -2,7 +2,8 @@
 	{
 		"key":"01234567890ABCDEF01234567890ABCDEF",
 		"comment": "Jada så fin nøkkel",
-		"filter": "hostname=a*",
+		"groups": ["somegroup", "othergroup"],
+		"allGroups": false,
 		"readonly": true,
 		"expires": "2019-06-18T11:00",
 		"ipranges": [
