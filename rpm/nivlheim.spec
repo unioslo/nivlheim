@@ -156,7 +156,7 @@ cd $A
 
 %build
 # Compile web templates
-handlebars server/website/templates --min -f server/website/js/templates.js
+handlebars server/website/templates -f server/website/js/templates.js
 # Compile system service
 export GOPATH=`pwd`/gopath
 rm -rf $GOPATH
@@ -283,6 +283,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Fri Aug 02 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.2.1-20190802
+- Had to remove the --min parameter from handlebars, it fails on Fedora 30
+
 * Thu Jul 18 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.2.1-20190718
 - Added sources for a Go LDAP library
 
