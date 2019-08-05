@@ -190,10 +190,33 @@ func TestApiMethodHostList(t *testing.T) {
 		// Test POST
 		{
 			methodAndPath: "POST /api/v2/hostlist",
-			body:          "[{\"createIfNotExists\":true,\"hostname\":\"postpostpost\",\"os\":\"ExampleOS\"}]",
-			expectStatus:  http.StatusOK,
-			expectContent: "Updated 0 hosts, created 1 new hosts",
+			body: `[{"createIfNotExists":true,"hostname":"postpostpost",` +
+				`"os":"ExampleOS","ownerGroup":"mygroup"}]`,
+			expectStatus:   http.StatusOK,
+			expectContent:  "Updated 0 hosts, created 1 new hosts",
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
 		},
+		// Create a host without supplying ownerGroup - should fail
+		{
+			methodAndPath: "POST /api/v2/hostlist",
+			body:          `[{"createIfNotExists":true,"hostname":"whatever"}]`,
+			expectStatus:  http.StatusBadRequest,
+		},
+		// Try to update a host I don't have access to, should fail
+		{
+			methodAndPath:  "POST /api/v2/hostlist",
+			body:           `[{"hostname":"postpostpost","product":"laptop"}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
+			expectStatus:   http.StatusForbidden,
+		},
+		// Try to update ownerGroup to another group I don't have access to, should fail
+		{
+			methodAndPath:  "POST /api/v2/hostlist",
+			body:           `[{"hostname":"postpostpost","ownerGroup":"someoneElsesGroup"}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
+			expectStatus:   http.StatusForbidden,
+		},
+		
 	}
 
 	db := getDBconnForTesting(t)
