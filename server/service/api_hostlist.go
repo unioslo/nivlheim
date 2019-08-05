@@ -2,7 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
+	"hash/fnv"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -61,13 +63,6 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 		allowedFields[i] = f.publicName
 	}
 	allowedFields = append(allowedFields, customFields...)
-
-	// Grouping changes the whole SQL statement and what's returned,
-	// so it is handled in a separate function
-	if req.FormValue("group") != "" {
-		performGroupQuery(w, req, vars.db, customFieldIDs, vars.devmode, access)
-		return
-	}
 
 	// Parse the "fields" parameter and verify that all given field names are valid
 	fields, hErr := unpackFieldParam(req.FormValue("fields"), allowedFields)
@@ -281,105 +276,43 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 		}
 	}
 
-	returnJSON(w, req, result)
-}
-
-func performGroupQuery(w http.ResponseWriter, req *http.Request,
-	db *sql.DB, customFieldIDs map[string]int, devmode bool, access *AccessProfile) {
-	if req.FormValue("fields") != "" {
-		http.Error(w, "Can't combine group and fields parameters",
-			http.StatusUnprocessableEntity)
-		return
-	}
-
-	err := req.ParseForm()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	allowedFields := make([]string, len(apiHostListStandardFields))
-	for i, f := range apiHostListStandardFields {
-		allowedFields[i] = f.publicName
-	}
-
-	// Find the column name to group by
-	group := req.FormValue("group")
-	var colname string
-	for _, f := range apiHostListStandardFields {
-		if group == f.publicName {
-			colname = f.columnName
+	if isTrueish(req.FormValue("count")) {
+		// Count the number of unique occurrences of each result row,
+		// pretty much like a SELECT DISTINCT ..., count(*) GROUP BY ... statement.
+		// (Didn't actually use SQL because this way turned out to be easier.
+		// Step 1: Compute a hash value for each record
+		resultHashes := make([]uint32, len(result))
+		for i, m := range result {
+			hash := fnv.New32a()
+			// Exploit the fact that the marshaller returns fields in a deterministic order
+			b, err := json.Marshal(m)
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			hash.Write(b)
+			resultHashes[i] = hash.Sum32()
 		}
-	}
-
-	// Is it a custom field?
-	var isCustomField = false
-	if colname == "" {
-		if _, ok := customFieldIDs[group]; !ok {
-			http.Error(w, "Unsupported group field", http.StatusUnprocessableEntity)
-			return
+		// Step 2: Tally up the hash values
+		countMap := make(map[uint32]int, 0)
+		for _, hashValue := range resultHashes {
+			countMap[hashValue]++
 		}
-		colname = group
-		allowedFields = append(allowedFields, group)
-		isCustomField = true
-	}
-
-	where, qparams, hErr := buildSQLWhere(req.URL.RawQuery, allowedFields)
-	if hErr != nil {
-		http.Error(w, hErr.message, hErr.code)
-		return
-	}
-
-	var statement string
-	if !isCustomField {
-		statement = "SELECT " + colname + ", count(*) FROM hostinfo "
-	} else {
-		statement = "SELECT (SELECT value FROM hostinfo_customfields hc " +
-			"WHERE hc.certfp=h.certfp AND hc.fieldid=" +
-			strconv.Itoa(customFieldIDs[group]) + ") as " + colname +
-			", count(*) FROM hostinfo h "
-	}
-
-	if len(where) > 0 {
-		statement += " WHERE " + where
-		if access != nil && !access.HasAccessToAllGroups() {
-			statement += " AND ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
+		// Step 3: Make a new result array, add each unique record only once,
+		//         and also add a "count" field.
+		result2 := make([]map[string]interface{}, 0, len(countMap))
+		for i := range result {
+			hashValue := resultHashes[i]
+			if countMap[hashValue] > 0 {
+				m := result[i]
+				m["count"] = countMap[hashValue]
+				result2 = append(result2, m)
+				countMap[hashValue] = 0
+			}
 		}
-	} else if access != nil && !access.HasAccessToAllGroups() {
-		statement += " WHERE ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
+		result = result2
 	}
-	statement += " GROUP BY " + colname
 
-	/*if devmode {
-		log.Println(statement)
-		log.Print(qparams)
-	}*/
-
-	rows, err := db.Query(statement, qparams...)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-	defer rows.Close()
-	result := make(map[string]int, 0)
-	for rows.Next() {
-		var groupName sql.NullString
-		var count int
-		err = rows.Scan(&groupName, &count)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		if groupName.Valid {
-			result[groupName.String] = count
-		} else {
-			result["null"] = count
-		}
-	}
-	if err = rows.Err(); err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
 	returnJSON(w, req, result)
 }
 
@@ -405,7 +338,7 @@ func buildSQLWhere(queryString string, allowedFields []string) (string, []interf
 
 		name, _ := url.QueryUnescape(m[1])
 		if name == "fields" || name == "sort" ||
-			name == "limit" || name == "offset" || name == "group" {
+			name == "limit" || name == "offset" || name == "count" {
 			continue
 		}
 

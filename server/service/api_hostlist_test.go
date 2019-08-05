@@ -150,34 +150,41 @@ func TestApiMethodHostList(t *testing.T) {
 		},
 		// Group query
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=hostname",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"bar.baz.no\":1,\"foo.bar.no\":1}",
+			expectJSON: "[{\"hostname\":\"bar.baz.no\",\"count\":1}," +
+				"{\"hostname\":\"foo.bar.no\",\"count\":1}]",
 		},
 		// Group query on a custom field
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=town",
+			methodAndPath: "GET /api/v2/hostlist?fields=town&count=1",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"duckville\":2}",
+			expectJSON:    `[{"town":"duckville","count":2}]`,
+		},
+		// Group query on two fields
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=osEdition,town&count=1",
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"town":"duckville","osEdition":"workstation","count":2}]`,
 		},
 		// Group on a field where the column name differs from the API name
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=osEdition",
+			methodAndPath: "GET /api/v2/hostlist?fields=osEdition&count=1",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"workstation\":2}",
+			expectJSON:    `[{"osEdition":"workstation","count":2}]`,
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v2/hostlist?group=osEdition",
+			methodAndPath:  "GET /api/v2/hostlist?fields=osEdition&count=1",
 			expectStatus:   http.StatusOK,
-			expectJSON:     "{\"workstation\":1}",
+			expectJSON:     `[{"osEdition":"workstation","count":1}]`,
 			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v2/hostlist?group=osEdition&hostname=*baz*",
+			methodAndPath:  "GET /api/v2/hostlist?fields=osEdition&hostname=*baz*&count=1",
 			expectStatus:   http.StatusOK,
-			expectJSON:     "{}",
+			expectJSON:     "[]",
 			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test POST

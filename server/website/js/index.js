@@ -392,16 +392,13 @@ function allHosts() {
 	// retrieve lists of OSes, Manufacturers, etc.
 	let pfx = getAPIURLprefix();
 	let promises = [];
-	promises.push($.get(pfx+"/api/v2/hostlist?group=os"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=osEdition"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=manufacturer"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=product"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=ownerGroup"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=os&count=1"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=osEdition&count=1"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=manufacturer&count=1"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=product&count=1"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=ownerGroup&count=1"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
-		// remove entries that are the string "null"
-		for (let i=0; i<arguments.length; i++)
-			delete arguments[i][0]["null"];
 		// compose an object to send to the handlebars template
 		var data = {
 			"os": arguments[0][0],
