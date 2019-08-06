@@ -8,7 +8,7 @@ import (
 	"strings"
 )
 
-// Configuration options (set in /etc/nivlheim/server.conf)
+// Config options (set in /etc/nivlheim/server.conf)
 type Config struct {
 	Oauth2ClientID              string
 	Oauth2ClientSecret          string
@@ -18,7 +18,6 @@ type Config struct {
 	Oauth2UserInfoEndpoint      string
 	Oauth2LogoutEndpoint        string
 	AuthRequired                bool
-	AuthPluginURL               string
 	ArchiveDayLimit             int
 	DeleteDayLimit              int
 	LDAPServer                  string
@@ -26,8 +25,14 @@ type Config struct {
 	LDAPMemberAttr              string
 	LDAPPrimaryAttr             string
 	LDAPAdminGroup              string
+	HostOwnerPluginURL          string
 }
 
+// ReadConfigFile reads a config file and returns a Config struct
+// where the values are filled in.
+// Options in the file must have the same name as fields in the struct,
+// disregarding upper/lowercase.
+// Options with names that aren't recognized are ignored.
 func ReadConfigFile(configFileName string) (*Config, error) {
 	// Open the config file
 	file, err := os.Open(configFileName)
@@ -66,6 +71,7 @@ func ReadConfigFile(configFileName string) (*Config, error) {
 
 			case reflect.Slice:
 				if structFieldValue.Type().Elem().Kind() == reflect.String {
+					// Lists of values are expected to be comma-separated.
 					structFieldValue.Set(reflect.ValueOf(strings.Split(value, ",")))
 				}
 

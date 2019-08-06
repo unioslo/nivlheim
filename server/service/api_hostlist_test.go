@@ -216,7 +216,6 @@ func TestApiMethodHostList(t *testing.T) {
 			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
 			expectStatus:   http.StatusForbidden,
 		},
-		
 	}
 
 	db := getDBconnForTesting(t)
