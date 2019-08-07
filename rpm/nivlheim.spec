@@ -2,7 +2,7 @@
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
-Version:  2.2.1
+Version:  2.3.0
 Release:  %{date}%{?dist}
 
 Summary:  File collector
