@@ -39,9 +39,9 @@
 						Owner
 					</p>
 					<ul class="menu-list">
-						{{#each ownerGroup}}{{#if ownerGroup}}
+						{{#each ownerGroup}}{{#if ownerGroup}}{{#ifcmp count ">" 1}}
 						<li><a class="ownerGroup"><span>{{ownerGroup}}</span><span> ({{count}})</span></a></li>
-						{{/if}}{{/each}}
+						{{/ifcmp}}{{/if}}{{/each}}
 					</ul>
 				</aside>
 			</div>

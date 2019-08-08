@@ -150,10 +150,17 @@ func TestApiMethodHostList(t *testing.T) {
 		},
 		// Group query
 		{
-			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1&sort=hostname",
 			expectStatus:  http.StatusOK,
 			expectJSON: "[{\"hostname\":\"bar.baz.no\",\"count\":1}," +
 				"{\"hostname\":\"foo.bar.no\",\"count\":1}]",
+		},
+		// Group query, reverse sorted
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1&sort=-hostname",
+			expectStatus:  http.StatusOK,
+			expectJSON: "[{\"hostname\":\"foo.bar.no\",\"count\":1}," +
+				"{\"hostname\":\"bar.baz.no\",\"count\":1}]",
 		},
 		// Group query on a custom field
 		{

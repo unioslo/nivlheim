@@ -392,11 +392,11 @@ function allHosts() {
 	// retrieve lists of OSes, Manufacturers, etc.
 	let pfx = getAPIURLprefix();
 	let promises = [];
-	promises.push($.get(pfx+"/api/v2/hostlist?fields=os&count=1"));
-	promises.push($.get(pfx+"/api/v2/hostlist?fields=osEdition&count=1"));
-	promises.push($.get(pfx+"/api/v2/hostlist?fields=manufacturer&count=1"));
-	promises.push($.get(pfx+"/api/v2/hostlist?fields=product&count=1"));
-	promises.push($.get(pfx+"/api/v2/hostlist?fields=ownerGroup&count=1"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=os&count=1&sort=os"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=osEdition&count=1&sort=osEdition"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=manufacturer&count=1&sort=manufacturer"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=product&count=1&sort=product"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=ownerGroup&count=1&sort=ownerGroup"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
 		// compose an object to send to the handlebars template

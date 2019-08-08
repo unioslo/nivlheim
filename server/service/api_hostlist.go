@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"net/url"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -130,32 +131,32 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	}
 
 	// Add an ORDER BY clause
-	if sort := req.FormValue("sort"); sort != "" {
-		var desc string
-		if sort[0] == '-' {
-			sort = sort[1:]
+	var sortBy, desc string
+	if sortBy = req.FormValue("sort"); sortBy != "" {
+		if sortBy[0] == '-' {
+			sortBy = sortBy[1:]
 			desc = "DESC"
 		}
-		if sort[0] == '+' {
-			sort = sort[1:]
+		if sortBy[0] == '+' {
+			sortBy = sortBy[1:]
 			// order is ASC by default
 		}
 		ok := false
 		for _, f := range apiHostListStandardFields {
-			if sort == f.publicName {
-				sort = f.columnName
+			if sortBy == f.publicName {
+				sortBy = f.columnName
 				ok = true
 				break
 			}
 		}
 		if !ok {
-			_, ok = customFieldIDs[sort]
+			_, ok = customFieldIDs[sortBy]
 		}
 		if !ok {
 			http.Error(w, "Unsupported sort field", http.StatusUnprocessableEntity)
 			return
 		}
-		statement += fmt.Sprintf(" ORDER BY %s %s", sort, desc)
+		statement += fmt.Sprintf(" ORDER BY %s %s", sortBy, desc)
 	} else {
 		// Default to sorting by hostname, ascending
 		statement += fmt.Sprintf(" ORDER BY hostname")
@@ -279,7 +280,7 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	if isTrueish(req.FormValue("count")) {
 		// Count the number of unique occurrences of each result row,
 		// pretty much like a SELECT DISTINCT ..., count(*) GROUP BY ... statement.
-		// (Didn't actually use SQL because this way turned out to be easier.
+		// (Didn't use SQL because this way turned out to be easier.)
 		// Step 1: Compute a hash value for each record
 		resultHashes := make([]uint32, len(result))
 		for i, m := range result {
@@ -309,6 +310,14 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 				result2 = append(result2, m)
 				countMap[hashValue] = 0
 			}
+		}
+		// Step 4: Optionally sort the result
+		if sortBy != "" { // The sort parameter was parsed earlier
+			sort.Slice(result2, func(i, j int) bool {
+				a, _ := result2[i][sortBy].(jsonString)
+				b, _ := result2[j][sortBy].(jsonString)
+				return (a.String < b.String) != (desc == "DESC")
+			})
 		}
 		result = result2
 	}
