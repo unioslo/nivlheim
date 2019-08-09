@@ -153,8 +153,6 @@ func scanOneRow(row RowScanner, fields map[string]bool, db *sql.DB) (map[string]
 	if fields["readonly"] {
 		result["readonly"] = jsonBool(readonly)
 	}
-	if fields["isAdmin"] {
-	}
 	if fields["expires"] {
 		result["expires"] = jsonTime(expires)
 	}
@@ -213,9 +211,9 @@ func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, acce
 		}
 	}
 
-	// If you try to create a key with access to ALL groups, you must be admin
-	if p.allGroups && !access.IsAdmin() {
-		http.Error(w, "Only admins can create keys with access to all groups.", http.StatusForbidden)
+	// If you try to create a key with access to ALL groups, you must have access to all groups
+	if p.allGroups && !access.HasAccessToAllGroups() {
+		http.Error(w, "You don't have access to all groups, so you can't create a key that does.", http.StatusForbidden)
 		return
 	}
 
@@ -300,16 +298,16 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 	}
 
 	// If the key has the all_groups flag set from before,
-	// you're not allowed to edit it unless you're admin.
-	if allGroups.Bool && !access.IsAdmin() {
-		http.Error(w, "Only admins can modify this key, since it gives access to all groups.",
+	// you're not allowed to edit it unless you have access to all groups.
+	if allGroups.Bool && !access.HasAccessToAllGroups() {
+		http.Error(w, "You are not allowed to modify this key, since it gives access to all groups.",
 			http.StatusForbidden)
 		return
 	}
 
-	// Only admins can modify a key so it has access to all groups
-	if p.allGroups && !access.IsAdmin() {
-		http.Error(w, "Only admins can create keys with access to all groups.",
+	// Only people with access to all groups can modify a key so it has access to all groups
+	if p.allGroups && !access.HasAccessToAllGroups() {
+		http.Error(w, "You are not allowed to create keys with access to all groups.",
 			http.StatusForbidden)
 		return
 	}
@@ -391,11 +389,11 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 	}
 
 	// If the key has the all_groups flag set from before,
-	// you're not allowed to delete it unless you're admin.
+	// you're not allowed to delete it unless also have that access.
 	// Reason: You wouldn't be able to re-create it.
 	// This rule basically exists to prevent people shooting themselves in the foot.
-	if allGroups.Bool && !access.IsAdmin() {
-		http.Error(w, "Only admins can delete this key, since it gives access to all groups.",
+	if allGroups.Bool && !access.HasAccessToAllGroups() {
+		http.Error(w, "You aren't allowed to delete this key, since it gives access to all groups and you wouldn't be able to re-create it.",
 			http.StatusForbidden)
 		return
 	}

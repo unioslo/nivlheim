@@ -25,6 +25,7 @@ type Config struct {
 	LDAPMemberAttr              string
 	LDAPPrimaryAttr             string
 	LDAPAdminGroup              string
+	AllAccessGroups             []string
 	HostOwnerPluginURL          string
 }
 

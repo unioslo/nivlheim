@@ -215,6 +215,17 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	session.AccessProfile = GenerateAccessProfileForUser(
 		session.userinfo.IsAdmin, session.userinfo.Groups)
 
+	// If the user is a member of one of the "all access" groups, the user gets access to all groups
+outer:
+	for _, gname := range config.AllAccessGroups {
+		for _, g2name := range session.userinfo.Groups {
+			if gname == g2name {
+				session.AccessProfile.allGroups = true
+				break outer
+			}
+		}
+	}
+
 	// Redirect to the page set in redirectAfterLogin.
 	log.Printf("Oauth2: Redirecting to %s", session.RedirectAfterLogin)
 	http.Redirect(w, req, session.RedirectAfterLogin, http.StatusTemporaryRedirect)
