@@ -6,8 +6,8 @@ Oauth2TokenEndpoint=https://auth.dataporten.no/oauth/token
 Oauth2UserInfoEndpoint=https://auth.dataporten.no/userinfo
 Oauth2LogoutEndpoint=https://auth.dataporten.no/logout
 AuthRequired=yes
-ArchiveAfterDays=30
-DeleteAfterDays=180
+ArchiveDayLimit=30
+DeleteDayLimit=180
 LDAPserver=ldap.example.com
 LDAPusertree=cn=users,cn=system,dc=example,dc=com
 LDAPmemberAttr=memberOf

@@ -166,7 +166,7 @@ func whatToDelete(m *map[int64]time.Time) []int64 {
 
 	// Ok, now we have a list of what to keep.
 	// Let's find what to delete.
-	del := make([]int64, 0, len(*m)-len(keep))
+	del := make([]int64, 0, len(*m))
 	for i := range *m {
 		if !keep[i] {
 			del = append(del, i)
