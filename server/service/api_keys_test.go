@@ -1,10 +1,12 @@
 package main
 
 import (
+	"database/sql"
 	"math/rand"
 	"net"
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 )
@@ -58,16 +60,17 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	defer db.Close()
 	// Setup some data for testing
 	setupStatements := []string{
-		"INSERT INTO apikeys(key,ownerid,expires,readonly,filter) " +
-			"VALUES('1000','foo',now()+interval '10 minutes',true,'')," +
-			"      ('1001','foo',now()+interval '10 minutes',false,'osEdition=server')",
+		"INSERT INTO apikeys(key,ownergroup,expires,readonly,all_groups,groups) " +
+			"VALUES('1000','foo',now()+interval '10 minutes',true,true,null)," +
+			"      ('1001','foo',now()+interval '10 minutes',false,false,'{\"servergroup\"}')",
 		"INSERT INTO apikey_ips(keyid,iprange) VALUES " +
 			"((SELECT keyid FROM apikeys WHERE key='1000'),'192.168.0.0/24')," +
 			"((SELECT keyid FROM apikeys WHERE key='1000'),'123.123.0.0/16')," +
 			"((SELECT keyid FROM apikeys WHERE key='1001'),'50.50.50.64/26')",
-		"INSERT INTO hostinfo(certfp,hostname,os_edition) " +
-			"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','server')," +
-			"      ('3333','nobody.example.com','server')",
+		"INSERT INTO hostinfo(certfp,hostname,os_edition,ownergroup) " +
+			"VALUES('1111','foo.bar.no','workstation','workgroup')," +
+			"      ('2222','bar.baz.no','server','servergroup')," +
+			"      ('3333','nobody.example.com','server','othergroup')",
 		"INSERT INTO customfields(name) VALUES('duck'),('town')",
 		"INSERT INTO hostinfo_customfields(certfp,fieldid,value) " +
 			"VALUES('1111',1,'donald'),('2222',1,'gladstone')," +
@@ -81,7 +84,7 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 	}
 	fakeUserAP := AccessProfile{
 		isAdmin: false,
-		certs:   map[string]bool{"1111": true, "2222": true},
+		groups:  map[string]bool{"firstgroup": true, "secondgroup": true},
 	}
 	// Define some tests
 	type aTest struct {
@@ -89,12 +92,12 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 		expectAccessTo []string
 	}
 	tests := []aTest{
-		// The key 1000 doesn't have any particular restrictions on hosts
+		// The key 1000 doesn't have any particular restrictions on groups
 		{
 			key:            "1000",
-			expectAccessTo: []string{"1111", "2222"},
+			expectAccessTo: []string{"1111", "2222", "3333"},
 		},
-		// The key 1001 restricts to osEdition=server, should only give access to bar.baz.no
+		// The key 1001 is restricted to the group "servergroup", should only give access to bar.baz.no
 		{
 			key:            "1001",
 			expectAccessTo: []string{"2222"},
@@ -111,13 +114,25 @@ func TestGetAccessProfileForAPIkey(t *testing.T) {
 			t.Errorf("Test %d: Didn't get an access profile at all", testNum+1)
 			continue
 		}
-		for _, s := range theTest.expectAccessTo {
-			if !ap.HasAccessTo(s) {
-				t.Errorf("\nTest %d: Expected access to %s but NO", testNum+1, s)
+		// Loop through all hosts and check for access
+		rows, _ := db.Query("SELECT certfp,ownergroup FROM hostinfo")
+		defer rows.Close()
+		for rows.Next() {
+			var cfp, gr string
+			rows.Scan(&cfp, &gr)
+			shouldHaveAccess := false
+			for _, s := range theTest.expectAccessTo {
+				if s == cfp {
+					shouldHaveAccess = true
+					break
+				}
 			}
-		}
-		if len(ap.certs) > len(theTest.expectAccessTo) {
-			t.Errorf("\nTest %d: Got more access than I should have.", testNum+1)
+			hasAccess := ap.HasAccessToGroup(gr)
+			if shouldHaveAccess && !hasAccess {
+				t.Errorf("\nTest %d: Expected access to %s, but I didn't get it :-(", testNum+1, gr)
+			} else if hasAccess && !shouldHaveAccess {
+				t.Errorf("\nTest %d: Got access to %s, even though I shouldn't!", testNum+1, gr)
+			}
 		}
 	}
 	// Test that it reads the correct readonly/ipranges/expires from the database
@@ -165,43 +180,48 @@ func TestKeyCRUD(t *testing.T) {
 		// create a key with default values
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "",
+			body:          "ownergroup=mygroup",
 			expectStatus:  http.StatusCreated,
 		},
 	}
 	muxer := createAPImuxer(db, true)
 	testAPIcalls(t, muxer, tests)
 
-	// get the key id
+	// get the key
+	var keyIDnum int
 	var keyID string
-	err := db.QueryRow("SELECT keyid FROM apikeys LIMIT 1").Scan(&keyID)
+	err := db.QueryRow("SELECT keyid FROM apikeys LIMIT 1").Scan(&keyIDnum)
+	if err == sql.ErrNoRows {
+		t.Fatal("Failed to create a key.")
+	}
 	if err != nil {
 		t.Fatal(err)
 	}
+	keyID = strconv.Itoa(keyIDnum)
 
 	// make more tests
 	tests = []apiCall{
 		// read the key list
 		{
-			methodAndPath: "GET /api/v2/keys?fields=keyID,readonly",
+			methodAndPath: "GET /api/v2/keys?fields=keyID,readonly,groups",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "[{\"keyID\":" + keyID + ",\"readonly\":true}]",
+			expectJSON:    "[{\"keyID\":" + keyID + ",\"readonly\":true,\"groups\":[],\"allGroups\":false}]",
 		},
 		// update a key
 		{
 			methodAndPath: "PUT /api/v2/keys/" + keyID,
-			body:          "comment=foo&filter=hostname%3Da%2A&expires=2020-12-24T18:00:00%2B01:00&readonly=no",
+			body:          "comment=foo&expires=2020-12-24T18:00:00%2B01:00&readonly=no&groups=aa,bb",
 			expectStatus:  http.StatusNoContent,
 		},
 		// read one key
 		{
-			methodAndPath: "GET /api/v2/keys/" + keyID + "?fields=comment,filter,readonly,expires",
+			methodAndPath: "GET /api/v2/keys/" + keyID + "?fields=comment,readonly,expires,groups",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"comment\":\"foo\",\"filter\":\"hostname=a*\",\"readonly\":false,\"expires\":\"2020-12-24T19:00:00+02:00\"}",
+			expectJSON:    "{\"comment\":\"foo\",\"readonly\":false,\"expires\":\"2020-12-24T19:00:00+02:00\",\"groups\":[\"aa\",\"bb\"],\"allGroups\":false}",
 		},
 		// try to read a non-existent key
 		{
-			methodAndPath: "GET /api/v2/keys/123?fields=comment,filter,readonly,expires",
+			methodAndPath: "GET /api/v2/keys/123?fields=comment,readonly,expires",
 			expectStatus:  http.StatusNotFound,
 		},
 		// update the key with some ip ranges. Also tests that short date format is allowed.
@@ -241,7 +261,7 @@ func TestKeyCRUD(t *testing.T) {
 		// create a new key with some ip ranges
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "ipRanges=192.168.1.0/24,172.16.0.0/20",
+			body:          "ipRanges=192.168.1.0/24,172.16.0.0/20&ownerGroup=mygroup",
 			expectStatus:  http.StatusCreated,
 		},
 		// read it back
@@ -253,13 +273,13 @@ func TestKeyCRUD(t *testing.T) {
 		// create a new key with an invalid ip range (bits set to the right of the netmask)
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "ipRanges=192.168.1.3/24",
+			body:          "ipRanges=192.168.1.3/24&ownerGroup=mygroup",
 			expectStatus:  http.StatusBadRequest,
 		},
 		// create a new key with invalid ip ranges
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "ipRanges=192.168.345.765/32",
+			body:          "ipRanges=192.168.345.765/32&ownerGroup=mygroup",
 			expectStatus:  http.StatusBadRequest,
 		},
 		// post garbage
@@ -269,6 +289,81 @@ func TestKeyCRUD(t *testing.T) {
 			expectStatus:  http.StatusBadRequest,
 		},
 	}
+	testAPIcalls(t, muxer, tests)
+
+	err = db.QueryRow("SELECT max(keyid) FROM apikeys").Scan(&keyIDnum)
+	if err != nil {
+		t.Fatal(err)
+	}
+	keyIDnum++ // The next key to be created will have the next ID value in the sequence
+	keyID = strconv.Itoa(keyIDnum)
+
+	// Test some API calls with a non-privileged (not admin) user
+	userap := GenerateAccessProfileForUser(false, []string{"mygroup"})
+	userap.AllowAllIPs()
+	otherUserAP := GenerateAccessProfileForUser(false, []string{"othergroup"})
+	otherUserAP.AllowAllIPs()
+	tests = []apiCall{
+		// Try to create a key that has access to all groups, should fail
+		{
+			methodAndPath: "POST /api/v2/keys",
+			body:          "ownergroup=mygroup&allGroups=true",
+			accessProfile: userap,
+			expectStatus:  http.StatusForbidden,
+		},
+		// Create a key without allGroups, should work
+		{
+			methodAndPath: "POST /api/v2/keys",
+			body:          "ownergroup=mygroup",
+			accessProfile: userap,
+			expectStatus:  http.StatusCreated,
+		},
+		// Try to extend the key's access to all groups, should fail
+		{
+			methodAndPath: "PUT /api/v2/keys/" + keyID,
+			body:          "allGroups=true",
+			accessProfile: userap,
+			expectStatus:  http.StatusForbidden,
+		},
+		// Try to delete a key you don't have access to, should fail
+		{
+			methodAndPath: "DELETE /api/v2/keys/" + keyID,
+			accessProfile: otherUserAP,
+			expectStatus:  http.StatusForbidden,
+		},
+		// Try to update a key you don't have access to, should fail
+		{
+			methodAndPath: "PUT /api/v2/keys/" + keyID,
+			body:          "ownergroup=othergroup,readonly=false,expires=2050-04-30",
+			accessProfile: otherUserAP,
+			expectStatus:  http.StatusForbidden,
+		},
+		// Delete that key
+		{
+			methodAndPath: "DELETE /api/v2/keys/" + keyID,
+			accessProfile: userap,
+			expectStatus:  http.StatusNoContent,
+		},
+		// Be admin and create a key with all groups access
+		{
+			methodAndPath: "POST /api/v2/keys",
+			body:          "ownergroup=mygroup&allGroups=true",
+			expectStatus:  http.StatusCreated,
+		},
+		// Read it back and verify that it has allGroups set
+		{
+			methodAndPath: "GET /api/v2/keys/" + strconv.Itoa(keyIDnum+1) + "?fields=groups",
+			expectStatus:  http.StatusOK,
+			expectJSON:    "{\"groups\":[],\"allGroups\":true}",
+		},
+		// Try to delete a key with all groups access as a non-admin user, should fail
+		{
+			methodAndPath: "DELETE /api/v2/keys/" + strconv.Itoa(keyIDnum+1),
+			accessProfile: userap,
+			expectStatus:  http.StatusForbidden,
+		},
+	}
+
 	testAPIcalls(t, muxer, tests)
 }
 
@@ -280,23 +375,30 @@ func TestAccessToEditingAPIkeys(t *testing.T) {
 	db := getDBconnForTesting(t)
 	defer db.Close()
 
-	firstUser := AccessProfile{isAdmin: false, ownerID: "firstUser"}
+	firstUser := AccessProfile{isAdmin: false, groups: map[string]bool{"firstGroup": true}}
 	firstUser.AllowAllIPs()
-	secondUser := AccessProfile{isAdmin: false, ownerID: "secondUser"}
+	secondUser := AccessProfile{isAdmin: false, groups: map[string]bool{"secondGroup": true}}
 	secondUser.AllowAllIPs()
 
 	tests := []apiCall{
-		// create two keys for two different users
+		// create two keys owned by two different groups
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "comment=first",
+			body:          "comment=first&ownerGroup=firstGroup",
 			expectStatus:  http.StatusCreated,
 			accessProfile: &firstUser,
 		},
 		{
 			methodAndPath: "POST /api/v2/keys",
-			body:          "comment=second",
+			body:          "comment=second&ownerGroup=secondGroup",
 			expectStatus:  http.StatusCreated,
+			accessProfile: &secondUser,
+		},
+		// try to create a key for a group the user is not a member of, it should fail
+		{
+			methodAndPath: "POST /api/v2/keys",
+			body:          "comment=wrong&ownerGroup=firstGroup",
+			expectStatus:  http.StatusForbidden,
 			accessProfile: &secondUser,
 		},
 		// read the key list, verify that you only see your own keys

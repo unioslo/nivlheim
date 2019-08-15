@@ -38,98 +38,148 @@ func (vars *apiMethodKeys) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
 	// See which fields I'm supposed to return
 	fields, hErr := unpackFieldParam(req.FormValue("fields"), []string{
-		"keyID", "key", "comment", "filter", "readonly", "expires", "ipRanges"})
+		"keyID", "key", "comment", "readonly", "expires", "ipRanges",
+		"groups", "ownerGroup"})
 	if hErr != nil {
 		http.Error(w, hErr.message, hErr.code)
 		return
 	}
-	columns := make([]string, len(fields))
-	i := 0
-	for k := range fields {
-		if k == "ipRanges" {
-			// ipranges isn't a column, but we'll need the "keyid" column in the SQL
-			// to be able to select ipranges belonging to that key
-			k = "keyID"
-		}
-		columns[i] = k
-		i++
-	}
-	// read key with a specific id?
+
+	// The function scanOneRow assumes the fields are ordered as in this statement:
+	const selectStatement = "SELECT keyid, key, ownergroup, comment, " +
+		"readonly, expires, all_groups, groups, " +
+		"array(SELECT iprange FROM apikey_ips WHERE keyid=k.keyid) as ipranges " +
+		"FROM apikeys k "
+
+	// Read a key with a specific id?
 	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
+
+		// Parse the key ID from the url
 		keyID, err := strconv.Atoi(req.URL.Path[i+6:])
 		if err != nil {
 			http.Error(w, "Invalid Key ID: "+req.URL.Path[i+6:], http.StatusBadRequest)
 			return
 		}
-		data, err := QueryList(vars.db, "SELECT ownerid,"+strings.Join(columns, ",")+
-			" FROM apikeys WHERE keyid=$1", keyID)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		} else if len(data) > 0 {
-			if data[0]["ownerid"] != access.OwnerID() {
-				http.Error(w, "This isn't your key.", http.StatusForbidden)
-				return
-			}
-			delete(data[0], "ownerid")
-			if fields["ipRanges"] {
-				data[0]["ipRanges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE keyid=$1", keyID)
-				if err != nil {
-					http.Error(w, err.Error(), http.StatusInternalServerError)
-					return
-				}
-				// Remove the keyid column if they didn't ask for it
-				if !fields["keyID"] {
-					delete(data[0], "keyid")
-				}
-			}
-			// keyID should be returned with a camelCase name
-			if val, ok := data[0]["keyid"]; ok {
-				data[0]["keyID"] = val
-				delete(data[0], "keyid")
-			}
-			returnJSON(w, req, data[0])
-		} else {
+
+		// Read the database table row
+		row := vars.db.QueryRow(selectStatement+"WHERE keyid=$1", keyID)
+
+		// Scan/parse the row
+		result, ownergroup, err := scanOneRow(row, fields, vars.db)
+
+		// Handle errors
+		if err == sql.ErrNoRows {
 			http.Error(w, "Key not found", http.StatusNotFound)
+			return
+		} else if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
 		}
+
+		// Verify access
+		if !access.HasAccessToGroup(ownergroup) {
+			http.Error(w, "You don't have access to this key.", http.StatusForbidden)
+			return
+		}
+
+		// Return the result
+		returnJSON(w, req, result)
 		return
 	}
-	// If no key id is given, return a list of all keys.
-	data, err := QueryList(vars.db, "SELECT "+strings.Join(columns, ",")+
-		" FROM apikeys WHERE ownerid=$1 ORDER BY created ASC", access.OwnerID())
+
+	// If no key ID was given, select a list of all keys you have access to.
+	var rows *sql.Rows
+	var err error
+	if access.HasAccessToAllGroups() {
+		// Admins can see all keys
+		rows, err = vars.db.Query(selectStatement)
+	} else {
+		rows, err = vars.db.Query(selectStatement +
+			"WHERE ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")")
+	}
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
+	defer rows.Close()
+
+	// Process the returned rows from the database
+	result := make([]map[string]interface{}, 0)
+	for rows.Next() {
+		// Scan/parse the current row and append it to the result array
+		rowMap, _, err := scanOneRow(rows, fields, vars.db)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		result = append(result, rowMap)
+	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	returnJSON(w, req, result)
+}
+
+// RowScanner lets you pass either a *sql.Row or *sql.Rows type to a function
+type RowScanner interface {
+	Scan(dest ...interface{}) error
+}
+
+func scanOneRow(row RowScanner, fields map[string]bool, db *sql.DB) (map[string]interface{}, string, error) {
+	// Scan the table row into local variables
+	var keyID int
+	var key, ownergroup, comment sql.NullString
+	var readonly, allGroups sql.NullBool
+	var expires pq.NullTime
+	var groups, ipranges []string
+	err := row.Scan(&keyID, &key, &ownergroup, &comment, &readonly, &expires,
+		&allGroups, pq.Array(&groups), pq.Array(&ipranges))
+	if err != nil {
+		return nil, "", err
+	}
+	// Put together the response
+	result := make(map[string]interface{}, len(fields))
+	if fields["keyID"] {
+		result["keyID"] = keyID
+	}
+	if fields["key"] {
+		result["key"] = jsonString(key)
+	}
+	if fields["ownerGroup"] {
+		result["ownerGroup"] = jsonString(ownergroup)
+	}
+	if fields["readonly"] {
+		result["readonly"] = jsonBool(readonly)
+	}
+	if fields["expires"] {
+		result["expires"] = jsonTime(expires)
+	}
+	if fields["comment"] {
+		result["comment"] = jsonString(comment)
+	}
+	if fields["groups"] {
+		if groups == nil {
+			groups = make([]string, 0)
+		}
+		result["groups"] = groups
+		result["allGroups"] = jsonBool(allGroups)
+	}
 	if fields["ipRanges"] {
-		for i := range data {
-			data[i]["ipRanges"], err = QueryColumn(vars.db, "SELECT iprange FROM apikey_ips WHERE keyid=$1",
-				data[i]["keyid"])
-			if err != nil {
-				http.Error(w, err.Error(), http.StatusInternalServerError)
-				return
-			}
-		}
+		result["ipRanges"] = ipranges
 	}
-	for i := range data {
-		if val, ok := data[i]["keyid"]; ok {
-			// Remove the keyID column if they didn't ask for it
-			if !fields["keyID"] {
-				delete(data[i], "keyid")
-			} else {
-				// keyID should be returned with a camelCase name
-				data[i]["keyID"] = val
-				delete(data[i], "keyid")
-			}
-		}
-	}
-	returnJSON(w, req, data)
+	return result, ownergroup.String, nil
 }
 
 type apiKeyParams struct {
-	comment, filter sql.NullString
-	expires         pq.NullTime
-	readonly        bool
-	ipranges        []net.IPNet
+	comment    sql.NullString
+	expires    pq.NullTime
+	readonly   bool
+	ipranges   []net.IPNet
+	ownerGroup sql.NullString
+	groups     []string
+	allGroups  bool
 }
 
 func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
@@ -138,14 +188,43 @@ func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, acce
 	if p == nil {
 		return
 	}
-	var newKeyID int
+
+	// If ownerGroup isn't supplied, that's an error
+	if !p.ownerGroup.Valid || strings.TrimSpace(p.ownerGroup.String) == "" {
+		http.Error(w, "Missing required parameter: ownerGroup", http.StatusBadRequest)
+		return
+	}
+
+	// ownerGroup must be one of the groups you have access to
+	if !access.HasAccessToGroup(p.ownerGroup.String) {
+		http.Error(w, "You can't create a key that belongs to a group you don't have access to: "+
+			p.ownerGroup.String, http.StatusForbidden)
+		return
+	}
+
+	// You must also have access to all the groups you attempt to give the key access to
+	for _, g := range p.groups {
+		if !access.HasAccessToGroup(g) {
+			http.Error(w, "You can't create a key that has access to "+
+				"a group you don't have access to: "+g, http.StatusForbidden)
+			return
+		}
+	}
+
+	// If you try to create a key with access to ALL groups, you must have access to all groups
+	if p.allGroups && !access.HasAccessToAllGroups() {
+		http.Error(w, "You don't have access to all groups, so you can't create a key that does.", http.StatusForbidden)
+		return
+	}
+
 	// Start a transaction
+	var newKeyID int
 	err := utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		// Insert the new key
-		err := tx.QueryRow("INSERT INTO apikeys(key,ownerid,readonly,comment,filter,expires) "+
-			"VALUES($1,$2,$3,$4,$5,$6) RETURNING keyid",
-			utility.RandomStringID(), access.OwnerID(), p.readonly,
-			p.comment, p.filter, p.expires).Scan(&newKeyID)
+		err := tx.QueryRow("INSERT INTO apikeys(key,ownergroup,readonly,comment,expires,groups,all_groups) "+
+			"VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING keyid",
+			utility.RandomStringID(), p.ownerGroup, p.readonly,
+			p.comment, p.expires, pq.Array(p.groups), p.allGroups).Scan(&newKeyID)
 		if err != nil {
 			return err
 		}
@@ -168,7 +247,7 @@ func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, acce
 }
 
 func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
-	// parse the key id from the URL
+	// parse the key ID from the URL
 	var keyID int
 	var err error
 	if i := strings.LastIndex(req.URL.Path, "/keys/"); i > -1 {
@@ -178,31 +257,69 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 			return
 		}
 	} else {
-		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
+		http.Error(w, "Missing key ID in URL path", http.StatusUnprocessableEntity)
 		return
 	}
+
 	// parse the rest of the parameters
 	p := vars.parseParameters(w, req)
 	if p == nil {
 		return
 	}
-	// Do you own the key?
-	var ownerID, key sql.NullString
-	err = vars.db.QueryRow("SELECT ownerid,key FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID, &key)
-	if err != nil && err != sql.ErrNoRows {
+
+	// Read a few things about the existing key
+	var ownerGroup, key sql.NullString
+	var allGroups sql.NullBool
+	err = vars.db.QueryRow("SELECT ownergroup,all_groups,key FROM apikeys WHERE keyid=$1", keyID).
+		Scan(&ownerGroup, &allGroups, &key)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Key not found", http.StatusNotFound)
+		return
+	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err != sql.ErrNoRows && ownerID.String != access.OwnerID() {
-		http.Error(w, "This isn't your key.", http.StatusForbidden)
+
+	// Do you have access to the key?
+	if !access.HasAccessToGroup(ownerGroup.String) {
+		http.Error(w, "You don't have access to this key.", http.StatusForbidden)
 		return
 	}
+
+	// If a new ownerGroup is supplied, it must be one of the groups you have access to
+	newOwnerGroup := ownerGroup.String // default to old value
+	if p.ownerGroup.Valid && strings.TrimSpace(p.ownerGroup.String) != "" {
+		if !access.HasAccessToGroup(p.ownerGroup.String) {
+			http.Error(w, "You can't give away a key to a group you don't have access to: "+
+				p.ownerGroup.String, http.StatusBadRequest)
+			return
+		}
+		newOwnerGroup = p.ownerGroup.String
+	}
+
+	// If the key has the all_groups flag set from before,
+	// you're not allowed to edit it unless you have access to all groups.
+	if allGroups.Bool && !access.HasAccessToAllGroups() {
+		http.Error(w, "You are not allowed to modify this key, since it gives access to all groups.",
+			http.StatusForbidden)
+		return
+	}
+
+	// Only people with access to all groups can modify a key so it has access to all groups
+	if p.allGroups && !access.HasAccessToAllGroups() {
+		http.Error(w, "You are not allowed to create keys with access to all groups.",
+			http.StatusForbidden)
+		return
+	}
+
 	// Start a transaction
 	var rows int64
 	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 		// Perform the update
-		res, err := tx.Exec("UPDATE apikeys SET readonly=$1,comment=$2,filter=$3,expires=$4 "+
-			"WHERE keyid=$5", p.readonly, p.comment, p.filter, p.expires, keyID)
+		res, err := tx.Exec("UPDATE apikeys SET readonly=$1,comment=$2,expires=$3,"+
+			"groups=$4,ownergroup=$5,all_groups=$6 WHERE keyid=$7",
+			p.readonly, p.comment, p.expires, pq.Array(p.groups), newOwnerGroup,
+			p.allGroups, keyID)
 		if err != nil {
 			return err
 		}
@@ -228,6 +345,7 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 	invalidateCacheForKey(key.String)
+
 	// Return
 	if rows > 0 {
 		http.Error(w, "", http.StatusNoContent)
@@ -247,23 +365,41 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 			return
 		}
 	} else {
-		http.Error(w, "Missing key in URL path", http.StatusUnprocessableEntity)
+		http.Error(w, "Missing key ID in URL path", http.StatusUnprocessableEntity)
 		return
 	}
-	// Do you own the key?
-	var ownerID, key sql.NullString
-	err = vars.db.QueryRow("SELECT ownerid, key FROM apikeys WHERE keyid=$1", keyID).Scan(&ownerID, &key)
-	if err != nil && err != sql.ErrNoRows {
+
+	// Read a few things about the existing key
+	var ownerGroup, key sql.NullString
+	var allGroups sql.NullBool
+	err = vars.db.QueryRow("SELECT ownergroup,all_groups,key FROM apikeys WHERE keyid=$1", keyID).
+		Scan(&ownerGroup, &allGroups, &key)
+	if err == sql.ErrNoRows {
+		http.Error(w, "Key not found", http.StatusNotFound)
+		return
+	} else if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
-	if err != sql.ErrNoRows && ownerID.String != access.OwnerID() {
-		http.Error(w, "This isn't your key.", http.StatusForbidden)
+
+	// Do you have access to the key?
+	if !access.HasAccessToGroup(ownerGroup.String) {
+		http.Error(w, "You don't have access to this key.", http.StatusForbidden)
 		return
 	}
+
+	// If the key has the all_groups flag set from before,
+	// you're not allowed to delete it unless also have that access.
+	// Reason: You wouldn't be able to re-create it.
+	// This rule basically exists to prevent people shooting themselves in the foot.
+	if allGroups.Bool && !access.HasAccessToAllGroups() {
+		http.Error(w, "You aren't allowed to delete this key, since it gives access to all groups and you wouldn't be able to re-create it.",
+			http.StatusForbidden)
+		return
+	}
+
 	// perform the query
-	res, err := vars.db.Exec("DELETE FROM apikeys WHERE keyid=$1 AND ownerid=$2",
-		keyID, access.OwnerID())
+	res, err := vars.db.Exec("DELETE FROM apikeys WHERE keyid=$1", keyID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -274,6 +410,7 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 	invalidateCacheForKey(key.String)
+
 	// Return
 	if rows > 0 {
 		http.Error(w, "", http.StatusNoContent)
@@ -294,7 +431,8 @@ func ifFormValue(form url.Values, caseInsensitiveKey string) (string, bool) {
 func formValue(form url.Values, caseInsensitiveKey string) string {
 	for k, v := range form {
 		if strings.EqualFold(k, caseInsensitiveKey) {
-			return v[0]
+			// If multiple values were given, return them comma-separated.
+			return strings.Join(v, ",")
 		}
 	}
 	return ""
@@ -312,19 +450,15 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 			http.StatusBadRequest)
 		return nil
 	}
+	ownerGroup := formValue(req.PostForm, "ownerGroup")
+	if ownerGroup != "" {
+		params.ownerGroup.String = ownerGroup
+		params.ownerGroup.Valid = true
+	}
 	comment := formValue(req.PostForm, "comment")
 	if comment != "" {
 		params.comment.String = comment
 		params.comment.Valid = true
-	}
-	filter := formValue(req.PostForm, "filter")
-	if filter != "" {
-		params.filter.String = filter
-		params.filter.Valid = true
-		_, _, err := buildSQLWhere(filter, nil)
-		if err != nil {
-			paramErrors["filter"] = err.message
-		}
 	}
 	expires := formValue(req.PostForm, "expires")
 	if expires != "" {
@@ -342,6 +476,12 @@ func (vars *apiMethodKeys) parseParameters(w http.ResponseWriter, req *http.Requ
 			params.expires.Valid = true
 		}
 	}
+	groups := formValue(req.PostForm, "groups")
+	if groups != "" {
+		params.groups = strings.Split(groups, ",")
+	}
+	ag := formValue(req.PostForm, "allGroups")
+	params.allGroups = ag != "" && isTrueish(ag)
 	ipranges := formValue(req.PostForm, "ipRanges")
 	if ipranges != "" {
 		// split the iprange list on any combination of commas and all types of whitespace

@@ -1,0 +1,16 @@
+Oauth2ClientID=abcde-12345
+Oauth2ClientSecret=secret-value-1234
+Oauth2Scopes=profile,userid-feide,email
+Oauth2AuthorizationEndpoint=https://auth.dataporten.no/oauth/authorization
+Oauth2TokenEndpoint=https://auth.dataporten.no/oauth/token
+Oauth2UserInfoEndpoint=https://auth.dataporten.no/userinfo
+Oauth2LogoutEndpoint=https://auth.dataporten.no/logout
+AuthRequired=yes
+ArchiveDayLimit=30
+DeleteDayLimit=180
+LDAPserver=ldap.example.com
+LDAPusertree=cn=users,cn=system,dc=example,dc=com
+LDAPmemberAttr=memberOf
+LDAPprimaryAttr=primaryAffiliation
+LDAPadminGroup=our-nivlheim-admins
+HostOwnerPluginURL=http://localhost/cgi-bin/owner.cgi

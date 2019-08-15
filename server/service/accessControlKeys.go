@@ -46,7 +46,7 @@ func GenerateTemporaryAPIKey(ap *AccessProfile) APIkey {
 func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessProfile) (*AccessProfile, error) {
 	const cacheTimeMinutes = 10
 
-	// 0. Check the cache
+	// 1. Check the cache
 	apiKeyCacheMutex.RLock()
 	c, ok := apiKeyCache[string(key)]
 	apiKeyCacheMutex.RUnlock()
@@ -54,14 +54,14 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 		return c.ap, nil
 	}
 
-	// 1. Read the entry from the database table
+	// 2. Read the entry from the database table
 	var keyID int
-	var ownerid, filter sql.NullString
 	var expires pq.NullTime
-	var readonly sql.NullBool
-	err := db.QueryRow("SELECT keyid, ownerid, expires, readonly, filter "+
+	var readonly, allGroups sql.NullBool
+	var groups []string
+	err := db.QueryRow("SELECT keyid, groups, expires, readonly, all_groups "+
 		"FROM apikeys WHERE key=$1", string(key)).
-		Scan(&keyID, &ownerid, &expires, &readonly, &filter)
+		Scan(&keyID, pq.Array(&groups), &expires, &readonly, &allGroups)
 	if err != nil {
 		if err != sql.ErrNoRows {
 			return nil, err
@@ -69,49 +69,28 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 		return nil, nil // No key was found, but this isn't an error
 	}
 
-	// 2. Call GenerateAccessProfileForUser on the ownerid to generate an accessprofile
+	// 3. Some of the test scripts supply an AccessProfile to create various testing scenarios.
+	//    In production, existingUserAP is always nil.
 	var ap *AccessProfile
 	if existingUserAP != nil {
 		ap = existingUserAP
 	} else {
-		ap, err = GenerateAccessProfileForUser(ownerid.String)
-		if err != nil {
-			return nil, err
-		}
+		ap = new(AccessProfile)
 	}
 
-	// 3. Call buildSQLwhere with the hostlist parameters,
-	//    and perform a query to get a list of certs. UNION the two lists.
-	if filter.Valid && strings.TrimSpace(filter.String) != "" {
-		newMap := make(map[string]bool, len(ap.certs))
-		where, args, httpErr := buildSQLWhere(filter.String, nil)
-		if httpErr != nil {
-			return nil, httpErr
-		}
-		rows, err := db.Query("SELECT certfp FROM hostinfo WHERE "+where, args...)
-		if err != nil {
-			return nil, err
-		}
-		defer rows.Close()
-		for rows.Next() {
-			var certfp sql.NullString
-			err = rows.Scan(&certfp)
-			if err != nil {
-				return nil, err
-			}
-			if certfp.Valid && ap.HasAccessTo(certfp.String) {
-				newMap[certfp.String] = true
-			}
-		}
-		rows.Close()
-		ap.certs = newMap
-	}
-
-	// 4. Set the readonly flag, and the ip ranges, and the expiration date
+	// 4. Set various fields in the struct
 	ap.readonly = readonly.Bool
+	ap.isAdmin = false // keys can't give you admin rights. This may change in the future.
+	ap.allGroups = allGroups.Bool
 	if expires.Valid {
 		ap.expires = expires.Time
 	}
+	ap.groups = make(map[string]bool, len(groups))
+	for _, g := range groups {
+		ap.groups[g] = true
+	}
+
+	// 5. Get the IP ranges
 	rows, err := db.Query("SELECT iprange FROM apikey_ips WHERE keyID=$1", keyID)
 	if err != nil {
 		return nil, err
@@ -132,12 +111,12 @@ func GetAccessProfileForAPIkey(key APIkey, db *sql.DB, existingUserAP *AccessPro
 	}
 	rows.Close()
 
-	// 5. Cache the AccessProfile, so that subsequent calls to GetAccessProfileForAPIkey can quickly use it.
+	// 6. Cache the AccessProfile, so that subsequent calls to GetAccessProfileForAPIkey can quickly use it.
 	apiKeyCacheMutex.Lock()
 	defer apiKeyCacheMutex.Unlock()
 	apiKeyCache[string(key)] = apiKeyCacheElem{ap: ap, created: time.Now()}
 
-	// 6. Purge expired keys from the cache sometimes
+	// 7. Purge expired keys from the cache sometimes
 	if rand.Intn(100) == 0 {
 		// the mutex is already locked, so it's safe to modify the map
 		for id, c := range apiKeyCache {

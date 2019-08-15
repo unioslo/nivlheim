@@ -14,13 +14,13 @@ func TestApiAccessControl(t *testing.T) {
 	}
 
 	adminAP := &AccessProfile{isAdmin: true}
-	userAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true}}
-	expiredAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
+	userAP := &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}}
+	expiredAP := &AccessProfile{isAdmin: false, groups: map[string]bool{"bargroup": true},
 		expires: time.Now().Add(-time.Duration(1) * time.Minute)}
 	expiredAP.AllowAllIPs()
-	readonlyAP := &AccessProfile{readonly: true, isAdmin: false, certs: map[string]bool{"1234": true}}
+	readonlyAP := &AccessProfile{readonly: true, isAdmin: false, groups: map[string]bool{"foogroup": true}}
 	readonlyAP.AllowAllIPs()
-	restrictedIPAP := &AccessProfile{isAdmin: false, certs: map[string]bool{"1234": true},
+	restrictedIPAP := &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true},
 		ipranges: []net.IPNet{{IP: []byte{192, 168, 0, 1}, Mask: []byte{255, 255, 255, 0}}}}
 
 	tests := []apiCall{
@@ -192,12 +192,16 @@ func TestApiAccessControl(t *testing.T) {
 
 	db := getDBconnForTesting(t)
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO hostinfo(hostname,certfp) VALUES('foo.acme.com','1234'),('bar.acme.com','5678')")
+	_, err := db.Exec("INSERT INTO hostinfo(hostname,certfp,ownergroup) VALUES" +
+		"('foo.acme.com','1234','foogroup')," +
+		"('bar.acme.com','5678','bargroup')")
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("INSERT INTO files(certfp,filename,content) VALUES('1234','roadrunner','beep,beep'),('5678','coyote','ep')")
+	_, err = db.Exec("INSERT INTO files(certfp,filename,content) VALUES" +
+		"('1234','roadrunner','beep,beep')," +
+		"('5678','coyote','ep')")
 	if err != nil {
 		t.Error(err)
 		return

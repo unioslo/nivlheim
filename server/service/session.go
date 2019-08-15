@@ -13,10 +13,13 @@ import (
 // Session holds session data for interactive user sessions (people, not scripts)
 type Session struct {
 	userinfo struct {
-		ID      string `json:"id"`
-		Name    string `json:"name"`
-		IsAdmin bool   `json:"isAdmin"`
+		Name         string   `json:"name"`
+		Username     string   `json:"username"`
+		IsAdmin      bool     `json:"isAdmin"`
+		Groups       []string `json:"groups"`
+		PrimaryGroup string   `json:"primaryGroup"`
 	}
+	userID             string
 	Oauth2AccessToken  *oauth2.Token
 	Oauth2Config       *oauth2.Config
 	Oauth2State        string
@@ -122,13 +125,13 @@ func deleteSession(req *http.Request) {
 
 // API call /api/vx/userinfo
 func apiGetUserInfo(w http.ResponseWriter, req *http.Request) {
-	if !authRequired {
+	if !config.AuthRequired {
 		w.Header().Set("Content-Type", "application/json; charset=utf-8")
 		w.Write([]byte("{\"authDisabled\":true,\"isAdmin\":true}"))
 		return
 	}
 	sess := getSessionFromRequest(req)
-	if sess == nil || sess.userinfo.ID == "" {
+	if sess == nil || sess.userID == "" {
 		var empty interface{}
 		returnJSON(w, req, empty)
 		return

@@ -189,7 +189,7 @@ function browseHostByCert(certfp) {
 			//"mockapi/browsehost.json",
 			"/api/v2/host/"+encodeURIComponent(certfp)+
 			"?fields=ipAddress,hostname,overrideHostname,lastseen,os,osEdition,osFamily,"+
-			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,"+
+			"kernel,manufacturer,product,serialNo,clientVersion,certfp,files,ownerGroup,"+
 				customfields.join(","), // also ask for the custom fields
 			"browsehost", "div#pageContent",
 			function(data){
@@ -392,21 +392,20 @@ function allHosts() {
 	// retrieve lists of OSes, Manufacturers, etc.
 	let pfx = getAPIURLprefix();
 	let promises = [];
-	promises.push($.get(pfx+"/api/v2/hostlist?group=os"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=osEdition"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=manufacturer"));
-	promises.push($.get(pfx+"/api/v2/hostlist?group=product"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=os&count=1&sort=os"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=osEdition&count=1&sort=osEdition"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=manufacturer&count=1&sort=manufacturer"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=product&count=1&sort=product"));
+	promises.push($.get(pfx+"/api/v2/hostlist?fields=ownerGroup&count=1&sort=ownerGroup"));
 	// wait for all the promises to complete
 	$.when.apply($, promises).then(function(){
-		// remove entries that are the string "null"
-		for (let i=0; i<arguments.length; i++)
-			delete arguments[i][0]["null"];
 		// compose an object to send to the handlebars template
 		var data = {
 			"os": arguments[0][0],
 			"osEdition": arguments[1][0],
 			"manufacturer": arguments[2][0],
 			"product": arguments[3][0],
+			"ownerGroup": arguments[4][0]
 		};
 		renderTemplate("allhosts", data, "div#pageContent")
 		.done(function(){
@@ -453,8 +452,12 @@ function reloadMatchingHosts() {
 	$("aside.menu li a.product.is-active span:first-of-type").each(function(i,e){
 		products.push(e.innerText.replace(",","%2C"));
 	});
+	let ownerGroups = [];
+	$("aside.menu li a.ownerGroup.is-active span:first-of-type").each(function(i,e){
+		ownerGroups.push(e.innerText.replace(",","%2C"));
+	});
 	// set the query string in the url
-	let q = oses.concat(editions).concat(manufacturers).concat(products).join('|');
+	let q = oses.concat(editions).concat(manufacturers).concat(products).concat(ownerGroups).join('|');
 	if (q) q = "?q="+q;
 	location.assign("/#/allhosts"+q);
 	// prepare the API call that loads the list of hosts that match
@@ -463,6 +466,7 @@ function reloadMatchingHosts() {
 	if (editions.length>0) q += "&osEdition="+editions.join(',');
 	if (manufacturers.length>0) q += "&manufacturer="+manufacturers.join(',');
 	if (products.length>0) q += "&product="+products.join(',');
+	if (ownerGroups.length>0) q += "&ownerGroup="+ownerGroups.join(',');
 	$("div#hostlist").data("query",q).data("offset",0).html("");
 	loadMoreHosts();
 }
@@ -515,7 +519,7 @@ function iprangesPage() {
 
 function keysPage() {
 	document.title = "API keys - Nivlheim";
-	APIcall("/api/v2/keys?fields=keyID,key,comment,filter,readonly,expires,ipRanges",
+	APIcall("/api/v2/keys?fields=keyID,key,comment,readonly,expires,ipRanges,groups",
 		"keyspage", "div#pageContent")
 	.done(function(){
 		attachHandlersToForms();
@@ -526,14 +530,22 @@ function keysPage() {
 
 function keyEditPage(keyid) {
 	document.title = "API keys - Nivlheim";
-	APIcall("/api/v2/keys/"+keyid+"?fields=keyID,key,comment,filter,readonly,expires,ipRanges", 
+	var groups, owner;
+	APIcall("/api/v2/keys/"+keyid+"?fields=keyID,key,comment,readonly,expires,ipRanges,ownerGroup,groups",
 		"keyeditpage", "div#pageContent", function(obj){
 			// Only show the expiry date, not the whole timestamp
 			if (obj["expires"] && obj["expires"].length>10)
 				obj["expires"] = obj["expires"].substr(0,10);
+			// Keep the group list for later
+			groups = obj["groups"];
+			owner = obj["ownerGroup"];
 			return obj;
 		})
 	.done(function(){
-		attachHandlersToForms();
+		attachHandlersToForms(); // This will also populate the group lists
+		// Pre-select the groups that the key can access
+		$("select#group_access").val(groups);
+		// Pre-select the owner group
+		$("select#owner").val(owner);
 	});
 }

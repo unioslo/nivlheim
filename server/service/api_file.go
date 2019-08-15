@@ -42,7 +42,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	}
 
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
-		"certfp,COALESCE(h.hostname,host(h.ipaddr)),current FROM files f " +
+		"certfp,h.ownergroup,COALESCE(h.hostname,host(h.ipaddr)),current FROM files f " +
 		"LEFT JOIN hostinfo h USING (certfp) "
 	var rows *sql.Rows
 	var err error
@@ -84,16 +84,16 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 
 	if rows.Next() {
 		var fileID int64
-		var filename, content, certfp, hostname sql.NullString
+		var filename, content, certfp, ownerGroup, hostname sql.NullString
 		var isCommand, isCurrent sql.NullBool
 		var mtime, rtime pq.NullTime
 		err = rows.Scan(&fileID, &filename, &isCommand, &mtime, &rtime, &content,
-			&certfp, &hostname, &isCurrent)
+			&certfp, &ownerGroup, &hostname, &isCurrent)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		if !access.HasAccessTo(certfp.String) {
+		if !access.HasAccessToGroup(ownerGroup.String) {
 			http.Error(w, "You don't have access to that resource.", http.StatusForbidden)
 			return
 		}

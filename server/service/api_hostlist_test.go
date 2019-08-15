@@ -150,49 +150,86 @@ func TestApiMethodHostList(t *testing.T) {
 		},
 		// Group query
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=hostname",
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1&sort=hostname",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"bar.baz.no\":1,\"foo.bar.no\":1}",
+			expectJSON: "[{\"hostname\":\"bar.baz.no\",\"count\":1}," +
+				"{\"hostname\":\"foo.bar.no\",\"count\":1}]",
+		},
+		// Group query, reverse sorted
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname&count=1&sort=-hostname",
+			expectStatus:  http.StatusOK,
+			expectJSON: "[{\"hostname\":\"foo.bar.no\",\"count\":1}," +
+				"{\"hostname\":\"bar.baz.no\",\"count\":1}]",
 		},
 		// Group query on a custom field
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=town",
+			methodAndPath: "GET /api/v2/hostlist?fields=town&count=1",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"duckville\":2}",
+			expectJSON:    `[{"town":"duckville","count":2}]`,
+		},
+		// Group query on two fields
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=osEdition,town&count=1",
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"town":"duckville","osEdition":"workstation","count":2}]`,
 		},
 		// Group on a field where the column name differs from the API name
 		{
-			methodAndPath: "GET /api/v2/hostlist?group=osEdition",
+			methodAndPath: "GET /api/v2/hostlist?fields=osEdition&count=1",
 			expectStatus:  http.StatusOK,
-			expectJSON:    "{\"workstation\":2}",
+			expectJSON:    `[{"osEdition":"workstation","count":2}]`,
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v2/hostlist?group=osEdition",
+			methodAndPath:  "GET /api/v2/hostlist?fields=osEdition&count=1",
 			expectStatus:   http.StatusOK,
-			expectJSON:     "{\"workstation\":1}",
-			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+			expectJSON:     `[{"osEdition":"workstation","count":1}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test with an access profile that should prevent some hosts from being counted
 		{
-			methodAndPath:  "GET /api/v2/hostlist?group=osEdition&hostname=*baz*",
+			methodAndPath:  "GET /api/v2/hostlist?fields=osEdition&hostname=*baz*&count=1",
 			expectStatus:   http.StatusOK,
-			expectJSON:     "{}",
-			sessionProfile: &AccessProfile{isAdmin: false, certs: map[string]bool{"1111": true}},
+			expectJSON:     "[]",
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
 		},
 		// Test POST
 		{
 			methodAndPath: "POST /api/v2/hostlist",
-			body:          "[{\"createIfNotExists\":true,\"hostname\":\"postpostpost\",\"os\":\"ExampleOS\"}]",
-			expectStatus:  http.StatusOK,
-			expectContent: "Updated 0 hosts, created 1 new hosts",
+			body: `[{"createIfNotExists":true,"hostname":"postpostpost",` +
+				`"os":"ExampleOS","ownerGroup":"mygroup"}]`,
+			expectStatus:   http.StatusOK,
+			expectContent:  "Updated 0 hosts, created 1 new hosts",
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
+		},
+		// Create a host without supplying ownerGroup - should fail
+		{
+			methodAndPath: "POST /api/v2/hostlist",
+			body:          `[{"createIfNotExists":true,"hostname":"whatever"}]`,
+			expectStatus:  http.StatusBadRequest,
+		},
+		// Try to update a host I don't have access to, should fail
+		{
+			methodAndPath:  "POST /api/v2/hostlist",
+			body:           `[{"hostname":"postpostpost","product":"laptop"}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
+			expectStatus:   http.StatusForbidden,
+		},
+		// Try to update ownerGroup to another group I don't have access to, should fail
+		{
+			methodAndPath:  "POST /api/v2/hostlist",
+			body:           `[{"hostname":"postpostpost","ownerGroup":"someoneElsesGroup"}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
+			expectStatus:   http.StatusForbidden,
 		},
 	}
 
 	db := getDBconnForTesting(t)
 	defer db.Close()
-	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition) " +
-		"VALUES('1111','foo.bar.no','workstation'),('2222','bar.baz.no','workstation')")
+	_, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,os_edition,ownergroup) VALUES" +
+		"('1111','foo.bar.no','workstation','foogroup')," +
+		"('2222','bar.baz.no','workstation','bargroup')")
 	if err != nil {
 		t.Error(err)
 	}
@@ -200,8 +237,8 @@ func TestApiMethodHostList(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) " +
-		"VALUES('1111',1,'donald'),('2222',1,'gladstone')," +
+	_, err = db.Exec("INSERT INTO hostinfo_customfields(certfp,fieldid,value) VALUES" +
+		"('1111',1,'donald'),('2222',1,'gladstone')," +
 		"('1111',2,'duckville'),('2222',2,'duckville')")
 	if err != nil {
 		t.Error(err)

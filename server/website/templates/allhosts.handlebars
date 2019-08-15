@@ -7,33 +7,41 @@
 						Operating system
 					</p>
 					<ul class="menu-list">
-						{{#each os}}
-						<li><a class="os"><span>{{@key}}</span><span> ({{.}})</span></a></li>
-						{{/each}}
+						{{#each os}}{{#if os}}
+						<li><a class="os"><span>{{os}}</span><span> ({{count}})</span></a></li>
+						{{/if}}{{/each}}
 					</ul>
 					<p class="menu-label">
 						Edition
 					</p>
 					<ul class="menu-list">
-						{{#each osEdition}}
-						<li><a class="osEdition"><span>{{@key}}</span><span> ({{.}})</span></a></li>
-						{{/each}}
+						{{#each osEdition}}{{#if osEdition}}
+						<li><a class="osEdition"><span>{{osEdition}}</span><span> ({{count}})</span></a></li>
+						{{/if}}{{/each}}
 					</ul>
 					<p class="menu-label">
 						Manufacturer
 					</p>
 					<ul class="menu-list">
-						{{#each manufacturer}}
-						<li><a class="manufacturer"><span>{{@key}}</span><span> ({{.}})</span></a></li>
-						{{/each}}
+						{{#each manufacturer}}{{#if manufacturer}}
+						<li><a class="manufacturer"><span>{{manufacturer}}</span><span> ({{count}})</span></a></li>
+						{{/if}}{{/each}}
 					</ul>
 					<p class="menu-label">
 						Product
 					</p>
 					<ul class="menu-list">
-						{{#each product}}
-						<li><a class="product"><span>{{@key}}</span><span> ({{.}})</span></a></li>
-						{{/each}}
+						{{#each product}}{{#if product}}
+						<li><a class="product"><span>{{product}}</span><span> ({{count}})</span></a></li>
+						{{/if}}{{/each}}
+					</ul>
+					<p class="menu-label">
+						Owner
+					</p>
+					<ul class="menu-list">
+						{{#each ownerGroup}}{{#if ownerGroup}}{{#ifcmp count ">" 1}}
+						<li><a class="ownerGroup"><span>{{ownerGroup}}</span><span> ({{count}})</span></a></li>
+						{{/ifcmp}}{{/if}}{{/each}}
 					</ul>
 				</aside>
 			</div>

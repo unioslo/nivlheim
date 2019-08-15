@@ -93,3 +93,8 @@ func TestWhatToDelete(t *testing.T) {
 		t.Errorf("Newest: %v\nOldest: %v", newest.mtime, oldest.mtime)
 	}
 }
+
+func TestShortList(t *testing.T) {
+	data := make(map[int64]time.Time)
+	whatToDelete(&data)
+}

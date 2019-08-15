@@ -5,6 +5,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"regexp"
+	"sort"
+	"strings"
 
 	"github.com/usit-gd/nivlheim/server/service/utility"
 	"golang.org/x/oauth2"
@@ -17,22 +20,22 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 	}
 
 	// Check if the user is already logged in.
-	// If so, just redirect to whereever.
 	session := getSessionFromRequest(req)
 	if session != nil {
-		if session.userinfo.ID == "" {
+		if session.userID == "" {
 			// If there's a session but the user isn't logged in,
 			// it might be a leftover from a failed login.
 			// Then delete that session and start over.
 			deleteSession(req)
 			session = nil
 		} else {
+			// The user is already logged in. Just redirect to the given url.
 			http.Redirect(w, req, redirectAfterLogin, http.StatusTemporaryRedirect)
 			return
 		}
 	}
 
-	// Assemble the redirect url
+	// Assemble the redirect url that the Oauth2 provider will use to redirect back to us.
 	var host = req.Host
 	fh, ok := req.Header["X-Forwarded-Host"]
 	if ok {
@@ -51,12 +54,12 @@ func startOauth2Login(w http.ResponseWriter, req *http.Request) {
 
 	// Oauth2 configuration
 	conf := &oauth2.Config{
-		ClientID:     oauth2ClientID,
-		ClientSecret: oauth2ClientSecret,
-		Scopes:       oauth2Scopes,
+		ClientID:     config.Oauth2ClientID,
+		ClientSecret: config.Oauth2ClientSecret,
+		Scopes:       config.Oauth2Scopes,
 		Endpoint: oauth2.Endpoint{
-			AuthURL:  oauth2AuthorizationEndpoint,
-			TokenURL: oauth2TokenEndpoint,
+			AuthURL:  config.Oauth2AuthorizationEndpoint,
+			TokenURL: config.Oauth2TokenEndpoint,
 		},
 		RedirectURL: s,
 	}
@@ -105,7 +108,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 	client := session.Oauth2Config.Client(oauth2.NoContext, tok)
 
 	// Retrieve user info
-	res, err := client.Get(oauth2UserInfoEndpoint)
+	res, err := client.Get(config.Oauth2UserInfoEndpoint)
 	if err != nil {
 		log.Printf("Oauth2 UserInfo error: %v", err)
 		http.Error(w, "Unable to retrieve user info from Oauth2 provider", http.StatusBadGateway)
@@ -122,7 +125,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		log.Printf("Oauth2: Userinfo: %s", string(body))
 	}
 
-	// Parse the JSON
+	// Parse the JSON with the userinfo
 	var userinfo interface{}
 	err = json.Unmarshal(body, &userinfo)
 	if err != nil {
@@ -131,23 +134,97 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 
-	// Store the interesting values in the session
-	if utility.GetString(userinfo, "audience") != oauth2ClientID {
+	// ====----====----====----====----====----====----====----====----====----====----
+	// The following code is specific to Feide. (www.feide.no)
+	// Oauth2 providers format their userinfo object slightly differently.
+	// If you wish to use another provider, you must add code to detect and parse that.
+	// See also:
+	// https://docs.feide.no/developer_oauth/technical_details/oauth_authentication.html
+
+	// Feide: When using the userinfo endpoint to authenticate the user,
+	// the application MUST verify that the audience property matches the client id of the application.
+	if utility.GetString(userinfo, "audience") != config.Oauth2ClientID {
 		log.Printf("Oauth2 audience mismatch")
 		http.Error(w, "Oauth2 audience mismatch", http.StatusInternalServerError)
 		return
 	}
-	session.userinfo.ID = utility.GetString(userinfo, "user.userid_sec.0")
-	session.userinfo.Name = utility.GetString(userinfo, "user.name")
 
-	// Generate an access profile for this user by calling an external service
-	session.AccessProfile, err = GenerateAccessProfileForUser(session.userinfo.ID)
-	if err != nil {
-		log.Printf("Error while generating an access profile: %s", err.Error())
-		http.Error(w, "Error while generating an access profile", http.StatusInternalServerError)
-		return
+	// Store the interesting values from userinfo in the session
+	session.userID = utility.GetString(userinfo, "user.userid_sec.0")
+	session.userinfo.Name = utility.GetString(userinfo, "user.name")
+	matches := regexp.MustCompile("feide:([\\w\\-]+)@").FindStringSubmatch(session.userID)
+	if matches != nil {
+		session.userinfo.Username = matches[1]
 	}
-	session.userinfo.IsAdmin = session.AccessProfile.IsAdmin()
+	// ====----====----====----==== End of Feide-specific code ====----====----====----
+
+	// If the config specifies an LDAP server, look up the user in LDAP
+	if config.LDAPServer != "" && session.userinfo.Username != "" {
+		user, err := LDAPLookupUser(session.userinfo.Username)
+		if err != nil {
+			log.Printf("Unable to LDAP: %v", err)
+			http.Error(w, "Unable to perform LDAP lookup", http.StatusInternalServerError)
+			return
+		}
+		// Also look up the "drift" user and add the groups from there.
+		// This solution is probably only used by UiO,
+		// but is likely to be harmless in other environments.
+		user2, err := LDAPLookupUser(session.userinfo.Username + "-drift")
+		if err != nil {
+			log.Printf("Unable to LDAP: %v", err)
+			http.Error(w, "Unable to perform LDAP lookup", http.StatusInternalServerError)
+			return
+		}
+		if user2 != nil {
+			// Add these groups to user's group list
+			user.Groups = append(user.Groups, user2.Groups...)
+		}
+		// Remove duplicate entries
+		user.Groups = utility.RemoveDuplicateStrings(user.Groups)
+		// Sort the group list
+		sort.Strings(user.Groups)
+		session.userinfo.Groups = user.Groups
+
+		// fuzzy logic to determine which group matches the primary affiliation best
+		lowerCaseAff := strings.ToLower(user.PrimaryAffiliation)
+		hit := -1
+		minDist := 10000
+		for i, g := range user.Groups {
+			dist := LevenshteinDistance(strings.ToLower(g), lowerCaseAff)
+			if hit == -1 || dist < minDist {
+				hit = i
+				minDist = dist
+			}
+		}
+		if hit > -1 {
+			session.userinfo.PrimaryGroup = user.Groups[hit]
+		}
+
+		// If the user is member of a special "admin" group, the user gets admin rights
+		if config.LDAPAdminGroup != "" {
+			for _, gname := range session.userinfo.Groups {
+				if gname == config.LDAPAdminGroup {
+					session.userinfo.IsAdmin = true
+					break
+				}
+			}
+		}
+	}
+
+	// Generate an access profile for this user
+	session.AccessProfile = GenerateAccessProfileForUser(
+		session.userinfo.IsAdmin, session.userinfo.Groups)
+
+	// If the user is a member of one of the "all access" groups, the user gets access to all groups
+outer:
+	for _, gname := range config.AllAccessGroups {
+		for _, g2name := range session.userinfo.Groups {
+			if gname == g2name {
+				session.AccessProfile.allGroups = true
+				break outer
+			}
+		}
+	}
 
 	// Redirect to the page set in redirectAfterLogin.
 	log.Printf("Oauth2: Redirecting to %s", session.RedirectAfterLogin)
@@ -156,5 +233,5 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 
 func oauth2Logout(w http.ResponseWriter, req *http.Request) {
 	deleteSession(req)
-	http.Redirect(w, req, oauth2LogoutEndpoint, http.StatusTemporaryRedirect)
+	http.Redirect(w, req, config.Oauth2LogoutEndpoint, http.StatusTemporaryRedirect)
 }

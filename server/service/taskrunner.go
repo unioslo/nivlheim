@@ -16,11 +16,12 @@ import (
 // The queue itself is stored in a database table.
 // Other parts of the system can create tasks by inserting rows.
 // A task will be retried until it succeeds, and then discarded.
-// A task has an url. To run a task, a http get request will be performed.
-// A return status of 200 is interpreted as success, everything else is a failure.
+// A task has a url. To run a task, a http get request will be performed.
+// A return status in the 2xx range is interpreted as success, everything else as failure.
 // In case of failure, the task will be retried after a while.
 // An exception is http status 410 which is interpreted as a permanent failure
 // that is pointless to retry.
+// Another exception is redirect status codes (3xx), the http client follows redirects.
 type Task struct {
 	taskid  int64
 	url     string
@@ -87,7 +88,7 @@ func taskRunner(db *sql.DB, devmode bool) {
 		rows.Close()
 
 		// Find tasks that should be run/re-tried right now
-		canWait := 20
+		canWaitMaxSeconds := 20
 		for _, task := range tasks {
 			if task.lasttry.IsZero() ||
 				time.Since(task.lasttry).Seconds() > float64(task.delay) {
@@ -102,15 +103,15 @@ func taskRunner(db *sql.DB, devmode bool) {
 				}(task)
 			} else {
 				timeleft := task.delay - int(time.Since(task.lasttry).Seconds())
-				if timeleft < canWait {
-					canWait = timeleft
+				if timeleft < canWaitMaxSeconds {
+					canWaitMaxSeconds = timeleft
 				}
 			}
 		}
 
 		// Sleep
 		freeSlots := len(taskSlots)
-		for second := 0; second < canWait; second++ {
+		for second := 0; second < canWaitMaxSeconds; second++ {
 			time.Sleep(time.Second)
 			if freeSlots != len(taskSlots) {
 				// A task finished. Stop sleeping and see if there's more work to do now
@@ -125,7 +126,9 @@ func executeTask(db *sql.DB, task Task) {
 	if err == nil {
 		task.status = resp.StatusCode
 		resp.Body.Close()
-		if resp.StatusCode == 200 || resp.StatusCode == 204 ||
+		// If the http status indicates success, or permanent failure,
+		// the task can be deleted.
+		if (resp.StatusCode >= 200 && resp.StatusCode <= 299) ||
 			resp.StatusCode == 410 {
 			db.Exec("DELETE FROM tasks WHERE taskid=$1", task.taskid)
 			return
