@@ -243,6 +243,9 @@ if ($have_cert) {
 		mkpath($dirname, {error => \my $err});
 		if (!-d $dirname) { printlog "The path $dirname doesn't exist, and I am unable to create it.\n"; exit 1; }
 	}
+	if (!-w $dirname) {
+		printlog "The path $dirname is not writable, I can't save my certificate files.\n"; exit 1;
+	}
 }
 
 # Is there a client certificate present? Test if it works
