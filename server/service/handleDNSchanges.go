@@ -120,7 +120,19 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 		// Yes, use DNS.
 		hostname := forwardConfirmReverseDNS(ipAddress)
 		if hostname == "" {
-			// If DNS lookup wasn't conclusive, it's best to do nothing.
+			// If DNS lookup wasn't conclusive, consider using the
+			// name given by the operating system (osHostname).
+			// First, check if it is free:
+			err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE (hostname=$1 OR override_hostname=$1)"+
+				" AND certfp!=$2", osHostname, certfp).Scan(&count)
+			if err != nil {
+				return "", err
+			}
+			if count == 0 {
+				// Nobody is using osHostname
+				return osHostname, nil
+			}
+			// If that name is taken by another machine, give up.
 			return "", nil
 		}
 		// Ok, we have a hostname. Is it in use by another row that has the same ip address
