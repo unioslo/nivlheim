@@ -207,21 +207,32 @@ func TestApiMethodHostList(t *testing.T) {
 		{
 			methodAndPath: "POST /api/v2/hostlist",
 			body:          `[{"createIfNotExists":true,"hostname":"whatever"}]`,
-			expectStatus:  http.StatusBadRequest,
+			expectStatus:  http.StatusOK,
+			expectContent: "Updated 0 hosts, created 0 new hosts, 1 errors.",
 		},
 		// Try to update a host I don't have access to, should fail
 		{
 			methodAndPath:  "POST /api/v2/hostlist",
 			body:           `[{"hostname":"postpostpost","product":"laptop"}]`,
 			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"foogroup": true}},
-			expectStatus:   http.StatusForbidden,
+			expectStatus:   http.StatusOK,
+			expectContent:  "Updated 0 hosts, created 0 new hosts, 1 errors.",
 		},
 		// Try to update ownerGroup to another group I don't have access to, should fail
 		{
 			methodAndPath:  "POST /api/v2/hostlist",
 			body:           `[{"hostname":"postpostpost","ownerGroup":"someoneElsesGroup"}]`,
 			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
-			expectStatus:   http.StatusForbidden,
+			expectStatus:   http.StatusOK,
+			expectContent:  "Updated 0 hosts, created 0 new hosts, 1 errors.",
+		},
+		// Try to update a custom field on a non-existent host
+		{
+			methodAndPath:  "POST /api/v2/hostlist",
+			body:           `[{"hostname":"giraffe","duck":"Louie"}]`,
+			sessionProfile: &AccessProfile{isAdmin: false, groups: map[string]bool{"mygroup": true}},
+			expectStatus:   http.StatusOK,
+			expectContent:  "Updated 0 hosts, created 0 new hosts, 0 errors.",
 		},
 	}
 

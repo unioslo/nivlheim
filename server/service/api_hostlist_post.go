@@ -53,19 +53,20 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 		return
 	}
 
-	updated, created := 0, 0
+	updated, created, errorCount := 0, 0, 0
 
-	// Run the whole thing in a transaction to prevent data inconsistency in case of error
-	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
+	// Process the entries
+	hash := fnv.New128a()
+	for _, entry := range postdata {
+		hostname, ok := entry["hostname"].(string)
+		if !ok {
+			// If no hostname was given, just skip that entry and continue down the list.
+			continue
+		}
 
-		// Process the entries
-		hash := fnv.New128a()
-		for _, entry := range postdata {
-			hostname, ok := entry["hostname"].(string)
-			if !ok {
-				// If no hostname was given, just skip that entry and continue down the list.
-				continue
-			}
+		// Run operations for each host in a transaction to prevent data inconsistency in case of error,
+		// and to be able to continue afterwards.
+		err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
 
 			// If createIfNotExists, the field ownerGroup is required.
 			// Can't create a new host without knowing which group owns it.
@@ -125,7 +126,9 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 				log.Printf("hostlist_post error: %s: %s", err.Error(), sql)
 				return err
 			}
-			if rowsAffected == 0 {
+			if rowsAffected > 0 {
+				updated++
+			} else {
 				// The host doesn't exist, perhaps create it?
 				b, ok := entry["createIfNotExists"].(bool)
 				if ok && b {
@@ -143,9 +146,11 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 						return err
 					}
 					created++
+				} else {
+					// The host doesn't exist and I'm not supposed to create it.
+					// Exit the transaction and go to the next host, then.
+					return nil
 				}
-			} else {
-				updated++
 			}
 
 			// handle any custom fields
@@ -171,18 +176,20 @@ func (vars *apiMethodHostList) ServePOST(w http.ResponseWriter, req *http.Reques
 					}
 				}
 			}
+			return nil
+		}) // End of transaction
+		if err != nil {
+			errorCount++
+			var message string
+			httpErr, ok := err.(*httpError)
+			if ok {
+				message = httpErr.message
+			} else {
+				message = err.Error()
+			}
+			fmt.Fprintf(w, "%s: %s\n", hostname, message)
 		}
-		return nil
-	})
-	if err != nil {
-		httpErr, ok := err.(*httpError)
-		if ok {
-			http.Error(w, httpErr.message, httpErr.code)
-		} else {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-		}
-		return
 	}
 
-	fmt.Fprintf(w, "Updated %d hosts, created %d new hosts\n", updated, created)
+	fmt.Fprintf(w, "Updated %d hosts, created %d new hosts, %d errors.\n", updated, created, errorCount)
 }
