@@ -101,6 +101,11 @@ func testOSdetection(db *sql.DB, t *testing.T) {
 			content:  "Red Hat Enterprise Linux Workstation release 7.4 (Maipo)",
 		},
 		{
+			osLabel:  "RHEL 8",
+			filename: "/etc/redhat-release",
+			content:  "Red Hat Enterprise Linux release 8.0 (Ootpa)",
+		},
+		{
 			osLabel:  "Fedora 27",
 			filename: "/etc/redhat-release",
 			content:  "Fedora release 27 (Twenty Seven)",

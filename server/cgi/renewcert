@@ -37,12 +37,12 @@ use Proc::PID::File;
 use DBI;
 use Crypt::OpenSSL::X509;
 
-# HTTP Header
-print "Content-Type: text/plain\r\n\r\n";
-
 # There is a race condition with openssl, so until that is solved
 # there can be only one instance of this script running at any time.
 if (Proc::PID::File->running({"dir" => "/tmp", "name" => "reqcert"})) {
+	print "Status: 503 Service unavailable\r\n";
+	print "Retry-After: 10\r\n";
+	print "Content-Type: text/plain\r\n\r\n";
 	print "Too busy, please try again later.\n";
 	exit;
 }
@@ -70,7 +70,7 @@ $fingerprint =~ s/://g;
 my %attr = ("AutoCommit" => 0);
 my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
 if (!$dbh) {
-	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
+	print "Status: 500 Internal server error\r\nContent-Type: text/plain\r\n\r\n";
 	print "Unable to connect to Postgres database:\n";
 	print $DBI::errstr . "\n";
 	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
@@ -83,26 +83,28 @@ my @row = $dbh->selectrow_array(
 	undef, ($fingerprint));
 if (@row && $row[0]) {
 	# This certificate is revoked. Reject the client
-	print "Status: 403\r\nContent-Type: text/plain\r\n\r\nYour certificate has been revoked.\n";
+	print "Status: 403 Forbidden\r\nContent-Type: text/plain\r\n\r\nYour certificate has been revoked.\n";
 	exit;
 }
 
-# Determine hostname by looking up the client certificate in the database.
-# Use the Common Name as a fallback.
+# Determine hostname by looking up the host in the hostinfo table.
+# Use the Common Name from the certificate as a fallback.
 my $hostname;
 @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
 	undef, ($fingerprint));
-if (@row) {
+if (@row && defined($row[0]) && $row[0] !~ /^\s*$/) { # check that hostname isn't null or empty
 	$hostname = $row[0];
 } else {
-	$hostname = "";
+	$hostname = undef;
 	if ($x509->subject() =~ /CN=(\S+)/) { $hostname = $1; }
 }
 if (!defined($hostname)) {
+	print "Status: 500 Internal server error\r\nContent-Type: text/plain\r\n\r\n";
 	print "Unable to determine the hostname.";
 	$logger->debug("Unable to determine the hostname.");
 	exit;
 }
+print "Status: 200 OK\r\nContent-Type: text/plain\r\n\r\n";
 print "Your hostname is: $hostname\n";
 $logger->debug("Hostname is: $hostname");
 

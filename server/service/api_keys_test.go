@@ -325,6 +325,13 @@ func TestKeyCRUD(t *testing.T) {
 			accessProfile: userap,
 			expectStatus:  http.StatusForbidden,
 		},
+		// Try to extend the key's access to groups that you don't have access to, should fail
+		{
+			methodAndPath: "PUT /api/v2/keys/" + keyID,
+			body:          "groups=mygroup,theirGroup,anotherGroup",
+			accessProfile: userap,
+			expectStatus:  http.StatusForbidden,
+		},
 		// Try to delete a key you don't have access to, should fail
 		{
 			methodAndPath: "DELETE /api/v2/keys/" + keyID,

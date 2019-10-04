@@ -54,7 +54,7 @@ my $cn = "";
 if ($x509->subject() =~ /CN=(\S+)/) { $cn = $1; }
 @row = $dbh->selectrow_array("SELECT hostname FROM hostinfo WHERE certfp=?",
 	undef, ($fingerprint));
-if (@row && $row[0] ne $cn) {
+if (@row && defined($row[0]) && $row[0] !~ /^\s*$/ && $row[0] ne $cn) {
 	# The machine has been renamed. It should renew its certificate.
 	print "Status: 403\r\nContent-Type: text/plain\r\n\r\nPlease renew your certificate.\n";
 	$dbh->disconnect;

@@ -297,6 +297,15 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 		newOwnerGroup = p.ownerGroup.String
 	}
 
+	// You must also have access to all the groups you attempt to give the key access to
+	for _, g := range p.groups {
+		if !access.HasAccessToGroup(g) {
+			http.Error(w, "You can't create a key that has access to "+
+				"a group you don't have access to: "+g, http.StatusForbidden)
+			return
+		}
+	}
+
 	// If the key has the all_groups flag set from before,
 	// you're not allowed to edit it unless you have access to all groups.
 	if allGroups.Bool && !access.HasAccessToAllGroups() {
