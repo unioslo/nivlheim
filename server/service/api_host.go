@@ -287,10 +287,29 @@ func (vars *apiMethodHost) serveDELETE(w http.ResponseWriter, req *http.Request,
 
 	// Run the whole operation in a transaction
 	err = utility.RunInTransaction(vars.db, func(tx *sql.Tx) error {
-		_, err := tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
+		// Remove all the files from the search cache
+		rows, err := tx.Query("SELECT fileid FROM files WHERE certfp=$1 AND current", certfp)
 		if err != nil {
 			return err
 		}
+		defer rows.Close()
+		for rows.Next() {
+			var fileID int64
+			err = rows.Scan(&fileID)
+			if err != nil {
+				return err
+			}
+			removeFileFromFastSearch(fileID)
+		}
+		if rows.Err() != nil {
+			return rows.Err()
+		}
+		// Mark all files from this certificate as "not current"
+		_, err = tx.Exec("UPDATE files SET current=false WHERE certfp=$1", certfp)
+		if err != nil {
+			return err
+		}
+		// Remove the machine from hostinfo
 		res, err := tx.Exec("DELETE FROM hostinfo WHERE certfp=$1", certfp)
 		if err != nil {
 			return err

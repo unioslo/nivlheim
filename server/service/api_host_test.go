@@ -49,6 +49,14 @@ func TestHostAPI(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"hostname\":\"foo.example.com\"}",
 		},
+		{
+			methodAndPath: "DELETE /api/v2/host/0123456789ABCDEF0123456789abcdef00001111",
+			expectStatus:  http.StatusNoContent,
+		},
+		{
+			methodAndPath: "DELETE /api/v2/host/bar.example.com",
+			expectStatus:  http.StatusNoContent,
+		},
 	}
 
 	db := getDBconnForTesting(t)
