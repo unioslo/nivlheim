@@ -41,20 +41,23 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		return
 	}
 
-	result := new(apiSearchPageResult)
 	err := req.ParseForm()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusBadRequest)
 		return
 	}
 
+	// Want to distinguish between q being empty and q missing
 	_, ok := req.Form["q"]
 	if !ok {
 		http.Error(w, "Missing parameter: q", http.StatusUnprocessableEntity)
 		return
 	}
+
+	result := new(apiSearchPageResult)
 	result.Query = req.FormValue("q")
 	if result.Query == "" {
+		// Search for an empty string yields a search result with no hits
 		result.Page = 1
 		result.Hits = make([]apiSearchPageHit, 0)
 		returnJSON(w, req, result)
@@ -69,6 +72,8 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	var pageSize = 10
 	if req.FormValue("hitsPerPage") != "" {
 		if req.FormValue("hitsPerPage") == "all" {
+			// Special case: You can say hitsPerPage=all to avoid pagination.
+			// This is handled internally by setting pageSize to a very large number.
 			const MaxUint = ^uint(0)
 			const MaxInt = int(MaxUint >> 1)
 			pageSize = MaxInt
@@ -83,15 +88,19 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		}
 	}
 
+	// When the system service starts up, it can take a few seconds before the cache is loaded.
+	// If we allowed search during this period, it would yield incomplete results.
 	if !isReadyForSearch() {
 		w.Header().Set("Retry-After", "60")
 		http.Error(w, "Not ready yet, still loading data", http.StatusServiceUnavailable)
 		return
 	}
 
+	filename := req.FormValue("filename")
+
 	var hitIDs []int64
 	if access.HasAccessToAllGroups() {
-		hitIDs = searchFiles(result.Query)
+		hitIDs = searchFiles(result.Query, filename)
 	} else {
 		// Compute a list of which certificates the user has access to,
 		// based on current hosts in hostinfo owned by one of the groups the user has access to.
@@ -111,14 +120,15 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 			}
 		}
 		// Finally, we can perform the search
-		hitIDs = searchFilesWithFilter(result.Query, validCerts)
+		hitIDs = searchFilesWithFilter(result.Query, filename, validCerts)
 	}
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
 	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
 
+	// Augment the search results with more data that's not in the cache.
 	statement := "SELECT filename,is_command," +
-		"COALESCE(hostname,host(files.ipaddr)),certfp,content " +
+		"COALESCE(hostname,host(hostinfo.ipaddr)),certfp,content " +
 		"FROM files LEFT JOIN hostinfo USING (certfp) " +
 		"WHERE fileid=$1"
 
