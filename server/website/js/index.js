@@ -520,7 +520,19 @@ function iprangesPage() {
 function keysPage() {
 	document.title = "API keys - Nivlheim";
 	APIcall("/api/v2/keys?fields=keyID,key,comment,readonly,expires,ipRanges,groups",
-		"keyspage", "div#pageContent")
+		"keyspage", "div#pageContent", function(arr){
+			// For each key...
+			for (var i=0; i<arr.length; i++) {
+				// Cut down the group list if it is too long to display properly
+				obj = arr[i];
+				if (obj["groups"].length > 5) {
+					let origLen = obj["groups"].length;
+					obj["groups"] = obj["groups"].slice(0,4);
+					obj["groups"][4] = "(+ " + (origLen-4) + " more)";
+				}
+			}
+			return arr;
+		})
 	.done(function(){
 		attachHandlersToForms();
 		let j = window.location.href.indexOf("/", 10);

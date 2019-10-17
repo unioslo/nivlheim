@@ -157,12 +157,19 @@ func (a hitList) Len() int           { return len(a) }
 func (a hitList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a hitList) Less(i, j int) bool { return a[i] > a[j] } // reverse sort
 
-func searchFiles(searchString string) []int64 {
+func searchFiles(searchString string, filename string) []int64 {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
 	for id, content := range fsContent {
 		if strings.Contains(content, searchString) {
+			if filename != "" {
+				key := fsKey[id]
+				ar := strings.SplitN(key, ":", 2)
+				if filename != ar[1] {
+					continue
+				}
+			}
 			hits = append(hits, id)
 		}
 	}
@@ -173,13 +180,16 @@ func searchFiles(searchString string) []int64 {
 	return hits
 }
 
-func searchFilesWithFilter(searchString string, validCerts map[string]bool) []int64 {
+func searchFilesWithFilter(searchString string, filename string, validCerts map[string]bool) []int64 {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
 	for key, id := range fsID {
-		// extract certfp from key
+		// extract certfp and filename from key
 		ar := strings.SplitN(key, ":", 2)
+		if filename != "" && filename != ar[1] {
+			continue
+		}
 		certfp := ar[0]
 		if validCerts[certfp] {
 			content := fsContent[id]

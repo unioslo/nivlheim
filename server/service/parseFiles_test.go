@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-func TestParseFile(t *testing.T) {
+func TestParseFilesLinux(t *testing.T) {
 	if os.Getenv("NOPOSTGRES") != "" {
 		t.Log("No Postgres, skipping test")
 		return
@@ -86,11 +86,107 @@ func TestParseFile(t *testing.T) {
 	case err != nil:
 		t.Fatal(err)
 	}
-
-	testOSdetection(db, t)
 }
 
-func testOSdetection(db *sql.DB, t *testing.T) {
+func TestParseFilesWindows(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+	// Create a database connection
+	db := getDBconnForTesting(t)
+	defer db.Close()
+	// Set up some test data
+	type file struct {
+		filename, content string
+	}
+	testfiles := []file{
+		{
+			filename: "Get-WmiObject Win32_computersystemproduct|Select Name,Vendor|ConvertTo-Json",
+			content: `{
+				"Name": "HP ProDesk 600 G2 DM",
+				"Vendor": "HP"
+			}`,
+		},
+		{
+			filename: "Get-WmiObject Win32_bios|Select smbiosbiosversion,manufacturer,name,serialnumber,version|ConvertTo-Json",
+			content: `{
+				"name": "Default System BIOS",
+				"serialnumber": "CZC712345678",
+				"version": "HPQOEM - 0"
+			}`,
+		},
+		{
+			filename: "[System.Environment]::OSVersion|ConvertTo-Json",
+			content: `{
+				"Platform": 2,
+				"ServicePack": "",
+				"Version": {
+					"Major": 10,
+					"Minor": 0,
+					"Build": 17763,
+					"Revision": 0,
+					"MajorRevision": 0,
+					"MinorRevision": 0
+					},
+				"VersionString": "Microsoft Windows NT 10.0.17763.0"
+			}`,
+		},
+	}
+	for _, f := range testfiles {
+		_, err := db.Exec("INSERT INTO files(certfp,filename,content,received) "+
+			"VALUES('1234',$1,$2,now())", f.filename, f.content)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// run the parseFiles Job
+	job := parseFilesJob{}
+	job.Run(db)
+
+	// verify the results
+	var kernel, manufacturer, product, serial sql.NullString
+	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
+		"FROM hostinfo WHERE certfp='1234'").
+		Scan(&kernel, &manufacturer, &product, &serial)
+	if err == sql.ErrNoRows {
+		t.Fatal("No hostinfo row found")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedManufacturer := "HP"
+	if manufacturer.String != expectedManufacturer {
+		t.Errorf("Manufacturer = %s, expected %s", manufacturer.String, expectedManufacturer)
+	}
+
+	expectedProduct := "HP ProDesk 600 G2 DM"
+	if product.String != expectedProduct {
+		t.Errorf("Product = %s, expected %s", product.String, expectedProduct)
+	}
+
+	expectedSerial := "CZC712345678"
+	if serial.String != expectedSerial {
+		t.Errorf("Serial no = %s, expected %s", serial.String, expectedSerial)
+	}
+
+	expectedKernel := "10.0.17763.0"
+	if kernel.String != expectedKernel {
+		t.Errorf("Kernel = %s, expected %s", kernel.String, expectedKernel)
+	}
+}
+
+func TestOSdetection(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+	// Create a database connection
+	db := getDBconnForTesting(t)
+	defer db.Close()
+
 	type os struct {
 		osLabel, filename, content string
 	}

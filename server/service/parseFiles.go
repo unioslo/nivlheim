@@ -3,6 +3,7 @@ package main
 // Create tasks to parse new files that have been read into the database
 import (
 	"database/sql"
+	"encoding/json"
 	"fmt"
 	"log"
 	"regexp"
@@ -225,7 +226,7 @@ func parseFile(database *sql.DB, fileId int64) {
 		return
 	}
 
-	if filename.String == "(Get-WmiObject Win32_OperatingSystem).Caption" {
+	if strings.EqualFold(filename.String, "(Get-WmiObject Win32_OperatingSystem).Caption") {
 		reWinX := regexp.MustCompile(`Microsoft Windows (\d+)`)
 		reWinServer := regexp.MustCompile(`Microsoft®? Windows Server®? (\d+)( R2)?`)
 		if m := reWinX.FindStringSubmatch(content.String); m != nil {
@@ -320,12 +321,58 @@ func parseFile(database *sql.DB, fileId int64) {
 		return
 	}
 
-	if filename.String == "[System.Environment]::OSVersion|ConvertTo-Json" {
-		//m := make(map[string]interface{})
-		//err = json.Unmarshal(([]byte)content.String, m)
+	if strings.EqualFold(filename.String,
+		"Get-WmiObject Win32_computersystemproduct|Select Name,Vendor|ConvertTo-Json") {
+		m := make(map[string]interface{})
+		err = json.Unmarshal([]byte(content.String), &m)
+		if err == nil {
+			manufacturer, product := "", ""
+			for k, v := range m {
+				switch strings.ToLower(k) {
+				case "vendor":
+					manufacturer, _ = v.(string)
+				case "name":
+					product, _ = v.(string)
+				}
+			}
+			_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2 "+
+				"WHERE certfp=$3", manufacturer, product, certfp.String)
+		}
+		return
 	}
 
-	if filename.String == "Get-WmiObject Win32_computersystemproduct|Select Name,Vendor|ConvertTo-Json" {
+	if strings.EqualFold(filename.String,
+		"Get-WmiObject Win32_bios|Select smbiosbiosversion,manufacturer,name,serialnumber,version|ConvertTo-Json") {
+		m := make(map[string]interface{})
+		err = json.Unmarshal([]byte(content.String), &m)
+		if err == nil {
+			serial := ""
+			for k, v := range m {
+				if strings.ToLower(k) == "serialnumber" {
+					serial, _ = v.(string)
+				}
+			}
+			_, err = tx.Exec("UPDATE hostinfo SET serialno=$1 WHERE certfp=$2", serial, certfp.String)
+		}
+		return
+	}
+
+	if strings.EqualFold(filename.String, "[System.Environment]::OSVersion|ConvertTo-Json") {
+		m := make(map[string]interface{})
+		err = json.Unmarshal([]byte(content.String), &m)
+		if err == nil {
+			v, ok := m["VersionString"]
+			if ok {
+				str, ok := v.(string)
+				if ok {
+					re := regexp.MustCompile(`([\d\.]+)`)
+					m := re.FindStringSubmatch(str)
+					if m != nil {
+						_, err = tx.Exec("UPDATE hostinfo SET kernel=$1 WHERE certfp=$2", m[1], certfp.String)
+					}
+				}
+			}
+		}
 	}
 }
 

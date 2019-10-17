@@ -37,6 +37,8 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 		wrapRequireAuth(&apiMethodHost{db: theDB}, theDB))
 	api.Handle("/api/v2/hostlist",
 		wrapRequireAuth(&apiMethodHostList{db: theDB, devmode: devmode}, theDB))
+	api.Handle("/api/v2/search",
+		wrapRequireAuth(&apiMethodSearch{db: theDB}, theDB))
 	api.Handle("/api/v2/searchpage",
 		wrapRequireAuth(&apiMethodSearchPage{db: theDB, devmode: devmode}, theDB))
 	api.Handle("/api/v2/settings/customfields",

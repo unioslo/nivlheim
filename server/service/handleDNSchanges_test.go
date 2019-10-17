@@ -52,7 +52,7 @@ func TestHandleDNSchanges(t *testing.T) {
 	defer db.Close()
 	// Set up some test data
 	_, err := db.Exec("INSERT INTO ipranges(iprange,use_dns) " +
-		"VALUES('129.240.0.0/16',true),('193.157.111.0/24',false)")
+		"VALUES('129.240.0.0/16',true),('193.157.111.0/24',false),('2001:700:110::/44',true)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -145,9 +145,17 @@ func TestHandleDNSchanges(t *testing.T) {
 		},
 		// Testing a machine without IP address ... could happen if it is added by an external service
 		testname{
+			certfp:     "k",
 			ipAddress:  "",
 			osHostname: "noname.example.com",
 			expected:   "",
+		},
+		// IPv6
+		testname{
+			certfp:     "l",
+			ipAddress:  "2001:700:111:1::287",
+			osHostname: "p01-ns-prod01.tsd.usit.no",
+			expected:   "p01-ns-prod01.tsd.usit.no",
 		},
 	}
 	for _, test := range tests {
@@ -156,6 +164,7 @@ func TestHandleDNSchanges(t *testing.T) {
 			"os_hostname,hostname,override_hostname) VALUES($1,$2,$3,$4,$5)",
 			test.certfp, ipAddr, test.osHostname, test.hostname, test.overrideHostname)
 		if err != nil {
+			t.Logf("hostname: %s", test.hostname.String)
 			t.Fatal(err)
 		}
 	}
