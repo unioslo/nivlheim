@@ -31,6 +31,10 @@ func (ap *AccessProfile) IsAdmin() bool {
 	return ap.isAdmin
 }
 
+func (ap *AccessProfile) IsMemberOf(group string) bool {
+	return ap.groups[group]
+}
+
 func (ap *AccessProfile) HasExpired() bool {
 	return !ap.expires.IsZero() && time.Until(ap.expires) <= 0
 }
