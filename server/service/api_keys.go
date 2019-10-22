@@ -77,7 +77,7 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 		}
 
 		// Verify access
-		if !access.HasAccessToGroup(ownergroup) {
+		if !access.IsMemberOf(ownergroup) && !access.IsAdmin() {
 			http.Error(w, "You don't have access to this key.", http.StatusForbidden)
 			return
 		}
@@ -90,7 +90,7 @@ func (vars *apiMethodKeys) read(w http.ResponseWriter, req *http.Request, access
 	// If no key ID was given, select a list of all keys you have access to.
 	var rows *sql.Rows
 	var err error
-	if access.HasAccessToAllGroups() {
+	if access.IsAdmin() {
 		// Admins can see all keys
 		rows, err = vars.db.Query(selectStatement)
 	} else {
@@ -195,9 +195,9 @@ func (vars *apiMethodKeys) create(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 
-	// ownerGroup must be one of the groups you have access to
-	if !access.HasAccessToGroup(p.ownerGroup.String) {
-		http.Error(w, "You can't create a key that belongs to a group you don't have access to: "+
+	// ownerGroup must be one of the groups you are a member of
+	if !access.IsMemberOf(p.ownerGroup.String) && !access.IsAdmin() {
+		http.Error(w, "You can't create a key that belongs to a group you aren't a member of: "+
 			p.ownerGroup.String, http.StatusForbidden)
 		return
 	}
@@ -280,17 +280,17 @@ func (vars *apiMethodKeys) update(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 
-	// Do you have access to the key?
-	if !access.HasAccessToGroup(ownerGroup.String) {
+	// Do you have access to the key? (Are you a member of the ownerGroup?)
+	if !access.IsMemberOf(ownerGroup.String) && !access.IsAdmin() {
 		http.Error(w, "You don't have access to this key.", http.StatusForbidden)
 		return
 	}
 
-	// If a new ownerGroup is supplied, it must be one of the groups you have access to
+	// If a new ownerGroup is supplied, it must be one of the groups you are a member of
 	newOwnerGroup := ownerGroup.String // default to old value
 	if p.ownerGroup.Valid && strings.TrimSpace(p.ownerGroup.String) != "" {
-		if !access.HasAccessToGroup(p.ownerGroup.String) {
-			http.Error(w, "You can't give away a key to a group you don't have access to: "+
+		if !access.IsMemberOf(p.ownerGroup.String) && !access.IsAdmin() {
+			http.Error(w, "You can't give away a key to a group you aren't a member of: "+
 				p.ownerGroup.String, http.StatusBadRequest)
 			return
 		}
@@ -391,8 +391,8 @@ func (vars *apiMethodKeys) delete(w http.ResponseWriter, req *http.Request, acce
 		return
 	}
 
-	// Do you have access to the key?
-	if !access.HasAccessToGroup(ownerGroup.String) {
+	// Do you own the key?
+	if !access.IsMemberOf(ownerGroup.String) && !access.IsAdmin() {
 		http.Error(w, "You don't have access to this key.", http.StatusForbidden)
 		return
 	}

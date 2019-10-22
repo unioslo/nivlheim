@@ -559,5 +559,9 @@ function keyEditPage(keyid) {
 		$("select#group_access").val(groups);
 		// Pre-select the owner group
 		$("select#owner").val(owner);
+		// If the owner wasn't on the list, add it
+		if ($("select#owner").val() != owner) {
+			$("select#owner").append('<option selected="selected">'+owner+'</option>');
+		}
 	});
 }
