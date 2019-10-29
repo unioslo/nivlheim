@@ -103,12 +103,12 @@ eval {
 	my $clientversion =	$query->param('version');
 	if (!defined($clientversion)) { $clientversion = ''; }
 
-	# throw away the files if the system load is higher than 50
+	# throw away the files if the system load is higher than 200
 	open(my $LOAD, "/proc/loadavg");
 	my $load_avg = <$LOAD>;
 	close $LOAD;
 	my ( $one_min_avg ) = split /\s/, $load_avg;
-	if ($one_min_avg >= 50) {
+	if ($one_min_avg >= 200) {
 		print CGI::header(
 			-type => 'text/plain',
 			-status => '503 Service Unavailable'
