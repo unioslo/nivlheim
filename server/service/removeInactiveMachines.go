@@ -15,7 +15,7 @@ func init() {
 }
 
 func (job removeInactiveMachinesJob) HowOften() time.Duration {
-	return time.Hour * 24
+	return time.Hour * 6
 }
 
 func (job removeInactiveMachinesJob) Run(db *sql.DB) {
@@ -62,13 +62,25 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 	}
 	rows.Close()
 
-	// Delete old files where I haven't heard from the machine in a long time
+	// Delete old files and machines
 	deleteDayLimit := config.DeleteDayLimit
 	if deleteDayLimit == 0 {
 		deleteDayLimit = 180 // default value is 180 days
 	}
-	rows, err = db.Query("SELECT DISTINCT certfp FROM files GROUP BY certfp"+
-		" HAVING max(received) < now() - $1 * interval '1 days'", deleteDayLimit)
+	rows, err = db.Query(
+		// Delete machines where I haven't heard from the machine in a long time
+		"SELECT DISTINCT certfp FROM files GROUP BY certfp"+
+			" HAVING max(received) < now() - $1 * interval '1 days'"+
+
+			// Delete machines that we've stopped hearing from, and
+			// since then another machine has taken over the ip address and hostname.
+			// This is most likely a machine that got re-installed, decommissioned,
+			// or lost its certificate.
+			" UNION "+
+			"SELECT certfp FROM hostinfo WHERE hostname is null "+
+			"AND lastseen < now() - interval '6 hours' "+
+			"AND ipaddr IN (select ipaddr from hostinfo where hostname is not null)",
+		deleteDayLimit)
 	if err != nil {
 		log.Panic(err)
 	}
