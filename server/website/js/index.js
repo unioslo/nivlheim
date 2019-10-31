@@ -146,9 +146,9 @@ $(document).ready(function(){
 		}
 		// At this point, authentication is definitely taken care of.
 		router.init('/'); // Initialize the router (Tarantino) and go to the front page
-		// retrieve the version number from a static file and display it
-		$.get('/version.txt', function(data){
-			$("span#navbarVersion").text('Version ' + data);
+		// retrieve the version number from the API
+		$.getJSON(getAPIURLprefix()+'/api/v2/status', function(data){
+			$("span#navbarVersion").text('Version ' + data["version"]);
 		});
 	});
 
