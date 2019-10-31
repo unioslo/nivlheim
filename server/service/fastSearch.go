@@ -157,33 +157,36 @@ func (a hitList) Len() int           { return len(a) }
 func (a hitList) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a hitList) Less(i, j int) bool { return a[i] > a[j] } // reverse sort
 
-func searchFiles(searchString string, filename string) []int64 {
+func searchFiles(searchString string, filename string) ([]int64, map[string]int) {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
+	distinctFilenames := make(map[string]int, 0)
 	for id, content := range fsContent {
 		if strings.Contains(content, searchString) {
+			key := fsKey[id]
+			ar := strings.SplitN(key, ":", 2)
 			if filename != "" {
-				key := fsKey[id]
-				ar := strings.SplitN(key, ":", 2)
 				if filename != ar[1] {
 					continue
 				}
 			}
 			hits = append(hits, id)
+			distinctFilenames[ar[1]]++
 		}
 	}
 	fsMutex.RUnlock()
 	// The result list must be in the same order every time for pagination to work.
 	// The hits are reverse sorted so the newest files will show first.
 	sort.Sort(hits)
-	return hits
+	return hits, distinctFilenames
 }
 
-func searchFilesWithFilter(searchString string, filename string, validCerts map[string]bool) []int64 {
+func searchFilesWithFilter(searchString string, filename string, validCerts map[string]bool) ([]int64, map[string]int) {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
 	hits := make(hitList, 0, 0)
+	distinctFilenames := make(map[string]int, 0)
 	for key, id := range fsID {
 		// extract certfp and filename from key
 		ar := strings.SplitN(key, ":", 2)
@@ -195,6 +198,7 @@ func searchFilesWithFilter(searchString string, filename string, validCerts map[
 			content := fsContent[id]
 			if strings.Contains(content, searchString) {
 				hits = append(hits, id)
+				distinctFilenames[ar[1]]++
 			}
 		}
 	}
@@ -202,7 +206,7 @@ func searchFilesWithFilter(searchString string, filename string, validCerts map[
 	// The result list must be in the same order every time for pagination to work.
 	// The hits are reverse sorted so the newest files will show first.
 	sort.Sort(hits)
-	return hits
+	return hits, distinctFilenames
 }
 
 func findMatchesInFile(fileID int64, query string, maxMatches int) []int {

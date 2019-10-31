@@ -1,26 +1,52 @@
-<p>
-{{#if query}}<span>{{numberOfHits}}</span> hits{{#if hits}}:{{/if}}{{/if}}
-</p>
-{{#each hits}}
-<p>
-	<h1 class="title is-5">
-		<span class="has-text-link"><a href="/#/browsefile/{{fileId}}">
-			{{filename}}</a></span>
-	</h1>
-	<h1 class="subtitle is-6"
-		<span class="has-text-link"><a href="/#/browsehost/{{certfp}}">
-			{{hostname}}</a></span>
-		<br>
-		<span class="excerpt">{{{excerpt}}}</span>
-	</h1>
-</p>
-{{/each}}
+<div class="columns">
+	<div class="column is-narrow">
+		<p>
+		{{#if query}}<span>{{numberOfHits}}</span> hits{{#if hits}}:{{/if}}{{/if}}
+		</p>
+		{{#each hits}}
+		<p>
+			<h1 class="title is-5">
+				<span class="has-text-link"><a href="/#/browsefile/{{fileId}}">
+					{{filename}}</a></span>
+			</h1>
+			<h1 class="subtitle is-6"
+				<span class="has-text-link"><a href="/#/browsehost/{{certfp}}">
+					{{hostname}}</a></span>
+				<br>
+				<span class="excerpt">{{{excerpt}}}</span>
+			</h1>
+		</p>
+		{{/each}}
+	</div>
+	<div class="column is-narrow">
+		{{#if filename}}
+			Only showing:<br>
+			<a href="/#/search/1/{{urlescape query}}">
+				<span class="icon"><i class="far fa-window-close"></i></span></a>
+			<b>{{filename}}</b>
+		{{else}}
+			{{#if hits}}Filenames:<br>{{/if}}
+			{{#each filenames}}
+			<a href="/#/search/1/{{urlescape ../query}}/{{urlescape .}}">{{.}}</a><br>
+			{{/each}}
+		{{/if}}
+	</div>
+</div>
+
 <nav class="pagination" role="navigation" aria-label="pagination">
 	{{#previous page}}
+	{{#if ../filename}}
+	<a class="pagination-previous" href="/#/search/{{this}}/{{urlescape ../query}}/{{urlescape ../filename}}">Previous</a>
+	{{else}}
 	<a class="pagination-previous" href="/#/search/{{this}}/{{urlescape ../query}}">Previous</a>
+	{{/if}}
 	{{/previous}}
 	{{#next page maxPage}}
+	{{#if ../filename}}
+	<a class="pagination-next" href="/#/search/{{this}}/{{urlescape ../query}}/{{urlescape ../filename}}">Next page</a>
+	{{else}}
 	<a class="pagination-next" href="/#/search/{{this}}/{{urlescape ../query}}">Next page</a>
+	{{/if}}
 	{{/next}}
 	<ul class="pagination-list">
 		{{#pagination page maxPage}}
@@ -30,7 +56,11 @@
 			{{else}}
 			<a class="pagination-link {{#ifcmp this "=" ../page}}is-current{{/ifcmp}}"
 				aria-label="Page {{this}}"
+				{{#if ../filename}}
+				href="/#/search/{{this}}/{{urlescape ../query}}/{{urlescape ../filename}}"
+				{{else}}
 				href="/#/search/{{this}}/{{urlescape ../query}}"
+				{{/if}}
 				aria-current="page">{{this}}</a>
 			{{/ifcmp}}
 		</li>

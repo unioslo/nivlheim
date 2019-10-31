@@ -8,6 +8,7 @@ import (
 	"log"
 	"math"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -28,11 +29,12 @@ type apiSearchPageHit struct {
 }
 
 type apiSearchPageResult struct {
-	Query   string             `json:"query"`
-	Page    int                `json:"page"`
-	MaxPage int                `json:"maxPage"`
-	NumHits int                `json:"numberOfHits"`
-	Hits    []apiSearchPageHit `json:"hits"`
+	Query     string             `json:"query"`
+	Page      int                `json:"page"`
+	MaxPage   int                `json:"maxPage"`
+	NumHits   int                `json:"numberOfHits"`
+	Hits      []apiSearchPageHit `json:"hits"`
+	Filenames []string           `json:"filenames"`
 }
 
 func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Request, access *AccessProfile) {
@@ -99,8 +101,9 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	filename := req.FormValue("filename")
 
 	var hitIDs []int64
+	var distinctFilenames map[string]int
 	if access.HasAccessToAllGroups() {
-		hitIDs = searchFiles(result.Query, filename)
+		hitIDs, distinctFilenames = searchFiles(result.Query, filename)
 	} else {
 		// Compute a list of which certificates the user has access to,
 		// based on current hosts in hostinfo owned by one of the groups the user has access to.
@@ -120,11 +123,18 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 			}
 		}
 		// Finally, we can perform the search
-		hitIDs = searchFilesWithFilter(result.Query, filename, validCerts)
+		hitIDs, distinctFilenames = searchFilesWithFilter(result.Query, filename, validCerts)
 	}
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
 	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
+	result.Filenames = make([]string, len(distinctFilenames))
+	i := 0
+	for fn := range distinctFilenames {
+		result.Filenames[i] = fn
+		i++
+	}
+	sort.Strings(result.Filenames)
 
 	// Augment the search results with more data that's not in the cache.
 	statement := "SELECT filename,is_command," +
