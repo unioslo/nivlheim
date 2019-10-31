@@ -227,12 +227,12 @@ func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 	return result
 }
 
-// getFileFromCache returns 3 strings: certificate fingerprint, filename, content
-func getFileFromCache(fileID int64) (string, string, string) {
+// getCertAndFilenameFromFileID returns 2 strings: certificate fingerprint and filename
+func getCertAndFilenameFromFileID(fileID int64) (string, string) {
 	fsMutex.RLock()
 	defer fsMutex.RUnlock()
 	ar := strings.Split(fsKey[fileID], ":")
-	return ar[0], ar[1], fsContent[fileID]
+	return ar[0], ar[1]
 }
 
 // Job

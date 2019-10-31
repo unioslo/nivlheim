@@ -87,13 +87,34 @@ func (vars *apiMethodGrep) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	}
 	rows.Close()
 
+	// Prepare a statement to retrieve the content for a file
+	pstmt, err := vars.db.Prepare("SELECT content FROM files WHERE fileid=$1")
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	defer pstmt.Close()
+
 	bw := bufio.NewWriter(w)
 	lineCount := 0
 outer:
 	for _, fileID := range hitIDs {
 		matches := findMatchesInFile(fileID, query, math.MaxInt64)
-		certfp, filename, content := getFileFromCache(fileID)
+		certfp, filename := getCertAndFilenameFromFileID(fileID)
 		previousStart := -1
+
+		// Retrieve the file content from the database
+		var nstr sql.NullString
+		err := pstmt.QueryRow(fileID).Scan(&nstr)
+		if err != nil && err != sql.ErrNoRows {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err == sql.ErrNoRows || !nstr.Valid {
+			continue
+		}
+		content := nstr.String
+
 		for _, index := range matches {
 			// Find the start and end of the line where the match occurred
 			start := index
