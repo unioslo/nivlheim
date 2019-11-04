@@ -59,8 +59,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	} else if req.FormValue("filename") != "" {
 		statement += "WHERE filename=$1 "
 		if req.FormValue("hostname") != "" {
-			statement += "AND certfp=(SELECT certfp FROM hostinfo " +
-				"WHERE hostname=$2 OR host(ipaddr)=$2)"
+			statement += "AND h.hostname=$2"
 			rows, err = vars.db.Query(statement, req.FormValue("filename"),
 				req.FormValue("hostname"))
 		} else if req.FormValue("certfp") != "" {
