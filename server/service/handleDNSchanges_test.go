@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"os"
 	"testing"
+	"time"
 )
 
 func TestForwardConfirmReverseDNS(t *testing.T) {
@@ -69,6 +70,7 @@ func TestHandleDNSchanges(t *testing.T) {
 		hostname         sql.NullString
 		expected         string
 		overrideHostname sql.NullString
+		lastseen         time.Time
 	}
 	tests := []testname{
 		// this host will be renamed based on DNS PTR record for the ip address
@@ -157,12 +159,46 @@ func TestHandleDNSchanges(t *testing.T) {
 			osHostname: "p01-ns-prod01.tsd.usit.no",
 			expected:   "p01-ns-prod01.tsd.usit.no",
 		},
+		// Test: one host takes over the hostname from another host because of a newer lastseen value
+		// (using DNS)
+		testname{
+			certfp:     "m",
+			ipAddress:  "129.240.12.7",
+			hostname:   sql.NullString{Valid: true, String: "sauron.uio.no"},
+			osHostname: "sauron.uio.no",
+			lastseen:   time.Date(2020, 1, 1, 11, 0, 0, 0, time.UTC),
+			expected:   "",
+		},
+		testname{
+			certfp:     "n",
+			ipAddress:  "129.240.12.7",
+			osHostname: "sauron.uio.no",
+			lastseen:   time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			expected:   "sauron.uio.no",
+		},
+		// Test: one host takes over the hostname from another host because of a newer lastseen value
+		// (NOT using DNS)
+		testname{
+			certfp:     "o",
+			ipAddress:  "193.157.111.11",
+			hostname:   sql.NullString{Valid: true, String: "karakul.example.com"},
+			osHostname: "karakul.example.com",
+			lastseen:   time.Date(2020, 1, 1, 11, 0, 0, 0, time.UTC),
+			expected:   "",
+		},
+		testname{
+			certfp:     "p",
+			ipAddress:  "193.157.111.11",
+			osHostname: "karakul.example.com",
+			lastseen:   time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
+			expected:   "karakul.example.com",
+		},
 	}
 	for _, test := range tests {
 		ipAddr := sql.NullString{String: test.ipAddress, Valid: test.ipAddress != ""}
 		_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr,"+
-			"os_hostname,hostname,override_hostname) VALUES($1,$2,$3,$4,$5)",
-			test.certfp, ipAddr, test.osHostname, test.hostname, test.overrideHostname)
+			"os_hostname,hostname,override_hostname,lastseen) VALUES($1,$2,$3,$4,$5,$6)",
+			test.certfp, ipAddr, test.osHostname, test.hostname, test.overrideHostname, test.lastseen)
 		if err != nil {
 			t.Logf("hostname: %s", test.hostname.String)
 			t.Fatal(err)
@@ -180,14 +216,14 @@ func TestHandleDNSchanges(t *testing.T) {
 			t.Fatal(err)
 		}
 		if hostname.String != test.expected {
-			t.Errorf("Got hostname \"%s\", expected %s", hostname.String,
+			t.Errorf("Got hostname \"%s\", expected \"%s\"", hostname.String,
 				test.expected)
 		}
 	}
 	// Run again
 	db.Exec("UPDATE hostinfo SET dnsttl=null")
 	job.Run(db)
-	// Check the results again, to test for flip-flopping
+	// Check the results again, to check for flip-flopping
 	for _, test := range tests {
 		var hostname sql.NullString
 		err = db.QueryRow("SELECT hostname FROM hostinfo WHERE certfp=$1",
@@ -196,7 +232,7 @@ func TestHandleDNSchanges(t *testing.T) {
 			t.Fatal(err)
 		}
 		if hostname.String != test.expected {
-			t.Errorf("Got hostname \"%s\", expected %s", hostname.String,
+			t.Errorf("Got hostname \"%s\", expected \"%s\"", hostname.String,
 				test.expected)
 		}
 	}
