@@ -30,11 +30,24 @@ func TestApiMethodFile(t *testing.T) {
 			expectStatus:  http.StatusOK,
 			expectJSON:    "{\"content\":\"@echo off\"}",
 		},
+		// Retrieve multiple files
+		{
+			methodAndPath: "GET /api/v2/file?filename=autoexec.bat&fields=content",
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"content":"@echo off"},{"content":"device=emm386.exe"}]`,
+		},
+		// Can't use raw format when getting multiple files
+		{
+			methodAndPath: "GET /api/v2/file?filename=autoexec.bat&format=raw",
+			expectStatus:  400,
+		},
 	}
 
 	db := getDBconnForTesting(t)
 	defer db.Close()
-	db.Exec("INSERT INTO files(certfp,filename,content) VALUES('aaaa','autoexec.bat','@echo off');")
+	db.Exec("INSERT INTO files(certfp,filename,content) " +
+		"VALUES('aaaa','autoexec.bat','@echo off')," +
+		"('bbbb','autoexec.bat','device=emm386.exe')")
 
 	mux := http.NewServeMux()
 	mux.Handle("/api/v2/file", wrapRequireAuth(&apiMethodFile{db: db}, db))
