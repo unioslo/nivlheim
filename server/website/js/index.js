@@ -85,6 +85,7 @@ $(document).ready(function(){
 		'/browsefile/:fileId': browseFileById,
 		'/browsefile/:certfp/:filename': browseFileByName,
 		'/search/:page/:query': searchPage,
+		'/search/:page/:query/:filename': searchPage,
 		'/search': searchPage,
 		'/settings/ipranges': iprangesPage,
 		'/settings': settingsPage,
@@ -146,9 +147,9 @@ $(document).ready(function(){
 		}
 		// At this point, authentication is definitely taken care of.
 		router.init('/'); // Initialize the router (Tarantino) and go to the front page
-		// retrieve the version number from a static file and display it
-		$.get('/version.txt', function(data){
-			$("span#navbarVersion").text('Version ' + data);
+		// retrieve the version number from the API
+		$.getJSON(getAPIURLprefix()+'/api/v2/status', function(data){
+			$("span#navbarVersion").text('Version ' + data["version"]);
 		});
 	});
 
@@ -345,9 +346,11 @@ function newSearch() {
 	}
 }
 
-function searchPage(page, q) {
+function searchPage(page, q, filename) {
 	if (!q) q = "";
 	else q = decodeURIComponent(q);
+	if (!filename) filename = "";
+	else filename = decodeURIComponent(filename);
 	// if we're not already on the search page, render the template
 	renderTemplate("searchpage", {"query": q}, "div#pageContent")
 	.done(function(){
@@ -370,11 +373,16 @@ function searchPage(page, q) {
 			encodeURIComponent("*"+q.replace(' ','*')+"*"), "searchresulthostnames",
 			"div#searchResultHostnames2");
 		// search files
+		let url = "/api/v2/searchpage?q="+encodeURIComponent(q)+
+				"&page="+page+"&hitsPerPage=8";
+		if (filename) url += "&filename=" + encodeURIComponent(filename);
 		APIcall(
 			//"mockapi/searchpage.json",
-			"/api/v2/searchpage?q="+encodeURIComponent(q)+
-			"&page="+page+"&hitsPerPage=8",
-			"searchresultfiles", "div#searchResult")
+			url, "searchresultfiles", "div#searchResult",
+			function(data){
+				if (filename) data["filename"] = filename;
+				return data;
+			})
 		.always(function(){
 			// hide the spinner
 			$("div#searchSpinner").hide();

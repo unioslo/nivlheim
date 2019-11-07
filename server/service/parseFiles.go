@@ -52,13 +52,15 @@ func (s parseFilesJob) Run(db *sql.DB) {
 	}
 }
 
-func parseFile(database *sql.DB, fileId int64) {
+func parseFile(database *sql.DB, fileID int64) {
 	tx, err := database.Begin()
 	if err != nil {
 		log.Println(err)
 		return
 	}
 	defer func() {
+		// If there's a panic and/or an error, recover from it, log the error,
+		// and rollback the transaction.
 		if r := recover(); r != nil {
 			log.Println(r)
 			tx.Rollback()
@@ -66,7 +68,8 @@ func parseFile(database *sql.DB, fileId int64) {
 			log.Println(err)
 			tx.Rollback()
 		} else {
-			tx.Exec("UPDATE files SET parsed = true WHERE fileid = $1", fileId)
+			// Only if everything went well do we set parsed=true and commit the transaction.
+			tx.Exec("UPDATE files SET parsed = true WHERE fileid = $1", fileID)
 			tx.Commit()
 		}
 	}()
@@ -76,18 +79,18 @@ func parseFile(database *sql.DB, fileId int64) {
 	var isCommand, isCurrent sql.NullBool
 	err = tx.QueryRow("SELECT filename, content, received, is_command, certcn,"+
 		"ipaddr, certfp, clientversion, os_hostname, current FROM files "+
-		"WHERE fileid=$1", fileId).
+		"WHERE fileid=$1", fileID).
 		Scan(&filename, &content, &received, &isCommand, &certcn, &ipaddr,
 			&certfp, &cVersion, &osHostname, &isCurrent)
 	if err != nil {
 		return
 	}
 	if !certfp.Valid {
-		panic(fmt.Sprintf("certfp is null for file %d", fileId))
+		panic(fmt.Sprintf("certfp is null for file %d", fileID))
 	}
 	// add (or replace) the file to the in-memory content
 	if isCurrent.Bool {
-		addFileToFastSearch(fileId, certfp.String, filename.String, content.String)
+		addFileToFastSearch(fileID, certfp.String, filename.String, content.String)
 	}
 
 	// Workaround when PostgreSQL is too old to support "upsert"
@@ -299,10 +302,9 @@ func parseFile(database *sql.DB, fileId int64) {
 		if m := regexp.MustCompile(`Model Name: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			product.String = strings.TrimSpace(m[1])
-			product.String = strings.Title(strings.ToLower(product.String))
 			product.Valid = len(product.String) > 0
 		}
-		if m := regexp.MustCompile(`Serial Number (system): (\w+)`).
+		if m := regexp.MustCompile(`Serial Number \(system\): (\w+)`).
 			FindStringSubmatch(content.String); m != nil {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0

@@ -41,7 +41,7 @@ func (vars *apiMethodGrep) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	filename := req.FormValue("filename")
 	var hitIDs []int64
 	if access.HasAccessToAllGroups() {
-		hitIDs = searchFiles(query, filename)
+		hitIDs, _ = searchFiles(query, filename)
 	} else {
 		// Compute a list of which certificates the user has access to,
 		// based on current hosts in hostinfo owned by one of the groups the user has access to.
@@ -61,7 +61,7 @@ func (vars *apiMethodGrep) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 			}
 		}
 		// Finally, we can perform the search
-		hitIDs = searchFilesWithFilter(query, filename, validCerts)
+		hitIDs, _ = searchFilesWithFilter(query, filename, validCerts)
 	}
 
 	w.Header().Set("Content-Type", "text/plain")

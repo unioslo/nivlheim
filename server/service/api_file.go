@@ -30,6 +30,10 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 			http.Error(w, "Can't use format=raw with fields parameter", http.StatusBadRequest)
 			return
 		}
+		if req.FormValue("certfp") == "" && req.FormValue("hostname") == "" && req.FormValue("fileId") == "" {
+			http.Error(w, "Can't use format=raw without specifying a host", http.StatusBadRequest)
+			return
+		}
 	} else {
 		fields, hErr = unpackFieldParam(req.FormValue("fields"),
 			[]string{"fileId", "filename", "isCommand", "lastModified", "received",
@@ -46,6 +50,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 		"LEFT JOIN hostinfo h USING (certfp) "
 	var rows *sql.Rows
 	var err error
+	var expectingOneRow = true
 
 	if req.FormValue("fileId") != "" {
 		var fileID int64
@@ -57,18 +62,25 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 		statement += "WHERE fileid=$1"
 		rows, err = vars.db.Query(statement, fileID)
 	} else if req.FormValue("filename") != "" {
-		statement += "WHERE filename=$1 "
+		statement += "WHERE filename=$1"
+		var params = []interface{}{req.FormValue("filename")}
 		if req.FormValue("hostname") != "" {
-			statement += "AND certfp=(SELECT certfp FROM hostinfo " +
-				"WHERE hostname=$2 OR host(ipaddr)=$2)"
-			rows, err = vars.db.Query(statement, req.FormValue("filename"),
-				req.FormValue("hostname"))
+			statement += " AND h.hostname=$2 ORDER BY mtime DESC LIMIT 1"
+			params = append(params, req.FormValue("hostname"))
 		} else if req.FormValue("certfp") != "" {
-			statement += "AND certfp=$2"
-			rows, err = vars.db.Query(statement, req.FormValue("filename"),
-				req.FormValue("certfp"))
+			statement += " AND certfp=$2 ORDER BY mtime DESC LIMIT 1"
+			params = append(params, req.FormValue("certfp"))
+		} else {
+			// No host specified? Ok so you want all the files.
+			expectingOneRow = false
+			// Filter on current so you only get the current version of each file.
+			statement += " AND current"
+			// Filter out what you don't have access to
+			if !access.HasAccessToAllGroups() {
+				statement += " AND h.ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
+			}
 		}
-		statement += " ORDER BY mtime DESC LIMIT 1"
+		rows, err = vars.db.Query(statement, params...)
 	}
 
 	if rows == nil && err == nil {
@@ -82,7 +94,8 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	}
 	defer rows.Close()
 
-	if rows.Next() {
+	result := make([]map[string]interface{}, 0)
+	for rows.Next() {
 		var fileID int64
 		var filename, content, certfp, ownerGroup, hostname sql.NullString
 		var isCommand, isCurrent sql.NullBool
@@ -162,19 +175,26 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 			}
 			res["versions"] = versions
 		}
+		result = append(result, res)
+	}
+	if err = rows.Err(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if expectingOneRow {
+		if len(result) == 0 {
+			// No file found. Return a "not found" status instead
+			http.Error(w, "File not found.", http.StatusNotFound)
+			return
+		}
 		if rawFormat {
 			w.Header().Set("Content-Type", "text/plain; charset=utf-8")
-			str := res["content"].(jsonString)
+			str := result[0]["content"].(jsonString)
 			w.Write([]byte(str.String))
 			return
 		}
-		returnJSON(w, req, res)
+		returnJSON(w, req, result[0])
 	} else {
-		if err = rows.Err(); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-		// No file found. Return a "not found" status instead
-		http.Error(w, "File not found.", http.StatusNotFound)
+		returnJSON(w, req, result)
 	}
 }

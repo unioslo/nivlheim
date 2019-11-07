@@ -189,9 +189,11 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	}
 	if count > 0 {
 		// Automatic naming without using DNS.
-		// First, check if the name given by the operating system (osHostname) is free:
+		// First, check if the name given by the operating system (osHostname) is free.
+		// (If found another row that has that hostname and ip address but older lastseen, it doesn't count.)
 		err = tx.QueryRow("SELECT count(*) FROM hostinfo WHERE (hostname=$1 OR override_hostname=$1)"+
-			" AND certfp!=$2", osHostname, certfp).Scan(&count)
+			" AND certfp!=$2 AND NOT (ipaddr=$3 AND lastseen<$4)", osHostname, certfp,
+			ipAddress, lastseen).Scan(&count)
 		if err != nil {
 			return "", err
 		}

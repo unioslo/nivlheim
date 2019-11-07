@@ -178,6 +178,90 @@ func TestParseFilesWindows(t *testing.T) {
 	}
 }
 
+func TestParseFilesMacOS(t *testing.T) {
+	if os.Getenv("NOPOSTGRES") != "" {
+		t.Log("No Postgres, skipping test")
+		return
+	}
+
+	// Create a database connection
+	db := getDBconnForTesting(t)
+	defer db.Close()
+
+	// Set up some test data
+	type file struct {
+		filename, content string
+	}
+	testfiles := []file{
+		{
+			filename: "/usr/sbin/system_profiler SPHardwareDataType",
+			content: `Hardware:
+
+		Hardware Overview:
+
+		  Model Name: Mac mini
+		  Model Identifier: Macmini8,1
+		  Processor Name: Intel Core i3
+		  Processor Speed: 3,6 GHz
+		  Number of Processors: 1
+		  Total Number of Cores: 4
+		  L2 Cache (per Core): 256 KB
+		  L3 Cache: 6 MB
+		  Memory: 8 GB
+		  Boot ROM Version: 220.270.99.0.0 (iBridge: 16.16.6571.0.0,0)
+		  Serial Number (system): C07Z40T1JYVY
+		  Hardware UUID: E0853D3F-0083-555C-9D46-0985E06238A1`,
+		},
+		{
+			filename: "/usr/bin/uname -a",
+			content:  `Darwin casmac05.uio.no 18.7.0 Darwin Kernel Version 18.7.0: Tue Aug 20 16:57:14 PDT 2019; root:xnu-4903.271.2~2/RELEASE_X86_64 x86_64`,
+		},
+	}
+	for _, f := range testfiles {
+		_, err := db.Exec("INSERT INTO files(certfp,filename,content,received) "+
+			"VALUES('1234',$1,$2,now())", f.filename, f.content)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	// run the parseFiles Job
+	job := parseFilesJob{}
+	job.Run(db)
+
+	// verify the results
+	var kernel, manufacturer, product, serial sql.NullString
+	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
+		"FROM hostinfo WHERE certfp='1234'").
+		Scan(&kernel, &manufacturer, &product, &serial)
+	if err == sql.ErrNoRows {
+		t.Fatal("No hostinfo row found")
+	}
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	expectedManufacturer := "Apple"
+	if manufacturer.String != expectedManufacturer {
+		t.Errorf("Manufacturer = %s, expected %s", manufacturer.String, expectedManufacturer)
+	}
+
+	expectedProduct := "Mac mini"
+	if product.String != expectedProduct {
+		t.Errorf("Product = %s, expected %s", product.String, expectedProduct)
+	}
+
+	expectedSerial := "C07Z40T1JYVY"
+	if serial.String != expectedSerial {
+		t.Errorf("Serial no = %s, expected %s", serial.String, expectedSerial)
+	}
+
+	expectedKernel := "18.7.0"
+	if kernel.String != expectedKernel {
+		t.Errorf("Kernel = %s, expected %s", kernel.String, expectedKernel)
+	}
+}
+
 func TestOSdetection(t *testing.T) {
 	if os.Getenv("NOPOSTGRES") != "" {
 		t.Log("No Postgres, skipping test")
