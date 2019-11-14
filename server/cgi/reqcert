@@ -36,15 +36,24 @@ use MIME::Base64;
 use Proc::PID::File;
 use DBI;
 use Crypt::OpenSSL::X509;
+use CGI;
 
 sub forwardConfirmReverseDNS($);
-sub parse_query_string();
 
 # Config
 my $confdir = "/var/www/nivlheim";
 my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
 Log::Log4perl->init("$confdir/log4perl.conf");
 my $logger = Log::Log4perl->get_logger("reqcert");
+
+# Verify method
+if ($ENV{'REQUEST_METHOD'} !~ /(GET|POST)/) {
+	print "Status: 405\r\n\r\n";
+	exit 1;
+}
+
+# Parse parameters
+my $cgi = CGI->new;
 
 # Connect to database
 my %attr = ("AutoCommit" => 1);
@@ -57,18 +66,52 @@ if (!$dbh) {
 	exit 1;
 }
 
-# 1. Check to see if this ip address qualifies for automatic naming.
+# 1. If the client supplied a CFEngine key digest and signature, verify it
+my $trusted_by_cfengine = 0;
+if ($cgi->param('cfe_key_md5') =~ /^([a-f0-9]{32})$/ && $cgi->param('sign_b64')) {
+	my $md5 = $1;
+
+	my $pubkeyfile = "/var/cfengine/ppkeys/$md5.pub";
+	my $convertedkeyfile = "/tmp/pubkey.pub";
+	my $sigfile = "/tmp/content.txt.sign";
+	my $contentfile = "/tmp/content.txt";
+
+	# The public key file from CFEngine isn't in the format we need,
+	# so we must convert it.
+	$logger->debug("Converting CFEngine key from RSA format");
+	system("openssl rsa -in $pubkeyfile -RSAPublicKey_in > $convertedkeyfile");
+	open(my $F, $convertedkeyfile);
+	$logger->debug("First line: ".<$F>);
+	close($F);
+	
+	open($F,">$sigfile");
+	binmode $F;
+	my $base64 = $cgi->param('sign_b64');
+	$base64 =~ s/[\r\n]//g;
+	print $F decode_base64($base64);
+	close($F);
+
+	open($F,">$contentfile");
+	print $F "nivlheim";
+	close($F);
+
+	my $result = `openssl dgst -sha256 -verify $convertedkeyfile -signature $sigfile $contentfile 2>&1`;
+	unlink($convertedkeyfile, $sigfile, $contentfile);
+	$logger->debug("Verify signature: ".$result);
+	if ($result =~ /Verified OK/) { $trusted_by_cfengine = 1; }
+}
+
+# 2. Check to see if this ip address qualifies for automatic naming.
 my $hostname;
-my %params = parse_query_string();
 my $ipaddr = $ENV{'REMOTE_ADDR'};
 my @row = $dbh->selectrow_array("SELECT count(*) FROM ipranges "
 	."WHERE ? <<= iprange", undef, ($ipaddr));
-if (@row && $row[0]>0) {
+if ((@row && $row[0]>0) || $trusted_by_cfengine) {
 	# Determine what to put as "common name" in the new certificate,
 	# i.e. the hostname of the machine.
 	# This is just a qualified guess for now, it doesn't have to be correct.
 	# If it is wrong, a new certificate will be issued later with the correct value.
-	$hostname = forwardConfirmReverseDNS($ipaddr) || $params{'hostname'};
+	$hostname = forwardConfirmReverseDNS($ipaddr) || $cgi->param('hostname');
 } else {
 	# Check if this client has been approved, and if not,
 	# add them to the waiting list.
@@ -77,7 +120,7 @@ if (@row && $row[0]>0) {
 		undef, ($ipaddr));
 	if (!@row) {
 		$logger->debug("The host $ipaddr has not been pre-approved");
-		$hostname = $params{'hostname'};
+		$hostname = $cgi->param('hostname');
 		if (!defined($hostname) || $hostname eq "") {
 			print "Status: 400\r\nContent-Type: text/plain\r\n\r\n";
 			print "Missing required parameter: hostname\n";
@@ -85,7 +128,7 @@ if (@row && $row[0]>0) {
 			$dbh->disconnect;
 			exit 1;
 		}
-		$logger->debug("$ipaddr says its hostname is \"" . $params{'hostname'} . "\"");
+		$logger->debug("$ipaddr says its hostname is \"" . $cgi->param('hostname') . "\"");
 		my $dnsresult = forwardConfirmReverseDNS($ipaddr);
 		if (defined($dnsresult)) {
 			$hostname = $dnsresult;
@@ -175,8 +218,8 @@ eval {
 	my $new_fingerprint = $x509->fingerprint_sha1();
 	$new_fingerprint =~ s/://g;
 	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
-		."commonname,cert) VALUES(now(),?,?,?)");
-	$sth->execute(($new_fingerprint, $hostname, $cert));
+		."commonname,cert,trusted_by_cfengine) VALUES(now(),?,?,?,?)");
+	$sth->execute(($new_fingerprint, $hostname, $cert, $trusted_by_cfengine));
 	$sth->finish;
 	# Separate UPDATE statement because it needs the auto-incremented id value from INSERT
 	$dbh->do("UPDATE certificates SET first=".
@@ -260,13 +303,4 @@ sub forwardConfirmReverseDNS($) {
 		}
 	}
 	return;
-}
-
-sub parse_query_string() {
-	my %result = ();
-	foreach (split /&/, $ENV{'QUERY_STRING'}) {
-		my ($key, $value) = split /=/;
-		$result{$key} = $value;
-	}
-	return %result;
 }

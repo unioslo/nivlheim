@@ -142,12 +142,13 @@ eval {
 	unlink("$confdir/certs/$id.pem");
 
 	# Keep the certificate in the database
-	my ($previous, $first);
-	@row = $dbh->selectrow_array("SELECT certid,first FROM certificates WHERE fingerprint=?",
+	my ($previous, $first, $trusted_by_cfengine);
+	@row = $dbh->selectrow_array("SELECT certid,first,trusted_by_cfengine FROM certificates WHERE fingerprint=?",
 		undef, ($fingerprint));
 	if (@row) {
 		$previous = $row[0];
 		$first = $row[1];
+		$trusted_by_cfengine = $row[2];
 	}
 	my $cert;
 	{
@@ -161,8 +162,8 @@ eval {
 	my $new_fingerprint = $x509->fingerprint_sha1();
 	$new_fingerprint =~ s/://g;
 	my $sth = $dbh->prepare("INSERT INTO certificates(issued,fingerprint,"
-		."commonname,previous,first,cert) VALUES(now(),?,?,?,?,?)");
-	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert))
+		."commonname,previous,first,cert,trusted_by_cfengine) VALUES(now(),?,?,?,?,?,?)");
+	$sth->execute(($new_fingerprint, $hostname, $previous, $first, $cert, $trusted_by_cfengine))
 		or die $DBI::errstr;
 	$sth->finish;
 

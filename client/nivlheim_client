@@ -32,7 +32,7 @@ use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
 
 sub http_get($$);
-sub http_post($$);
+sub http_post($$$);
 sub test_without_client_cert();
 sub readconfig($);
 sub printlog($);
@@ -41,6 +41,7 @@ sub reverse_dns_lookup($$);
 sub parse_certificate_response($);
 sub createPKCS8();
 sub getpassword();
+sub sign_with_cfengine_key();
 
 # Options with default values
 my %defaultopt = (
@@ -55,6 +56,7 @@ my %defaultopt = (
 	'version'   => 0,  # plugin version info
 	'sleeprandom' => 0,
 	'minperiod' => 0,
+	'nocfe' => 0,
 	);
 
 # Version information
@@ -104,6 +106,7 @@ GetOptions('c|config=s' => \$opt{config},
 	   'd|debug'        => \$opt{debug},
 	   'h|help'         => \$opt{help},
 	   'V|version'      => \$opt{version},
+	   'nocfe'          => \$opt{nocfe},
 	  ) or do { print $USAGE; exit 1 };
 
 # If user requested help
@@ -277,7 +280,20 @@ if (!$have_cert || !$cert_works) {
 if (!$have_cert) {
 	eval {
 		printlog "Requesting a certificate..\n";
-		my $response = http_get($server_url . "reqcert?hostname=".hostname, 0);
+		my %postdata = (
+			'hostname' => hostname,
+		);
+		unless ($opt{'nocfe'}) {
+			# Try to use the local CFEngine key to sign something that the server can verify
+			my ($cfengine_key_md5,$signature) = sign_with_cfengine_key();
+			if ($opt{'debug'}) {
+				printf "CFEngine key md5 digest: %s\nCFEngine signature: %d chars base64\n",
+					$cfengine_key_md5, length($signature);
+			}
+			$postdata{'cfe_key_md5'} = $cfengine_key_md5;
+			$postdata{'sign_b64'} = $signature;
+		}
+		my $response = http_post($server_url . "reqcert", \%postdata, 0);
 		my ($cert, $key) = parse_certificate_response($response);
 		if (defined($cert) && defined($key)) {
 			printlog "Received a certificate.\n";
@@ -471,7 +487,7 @@ my %postdata = (
 	'nonce' => $nonce
 );
 eval {
-	my $result = http_post($server_url . 'secure/post', \%postdata);
+	my $result = http_post($server_url . 'secure/post', \%postdata, 1);
 	if ($result =~ /OK/) {
 		# touch a file
 		my $file = "/var/run/nivlheim_client_last_run";
@@ -635,6 +651,7 @@ sub http_get($$) {
 	# opening an SSL connection that way.
 
 	my $url = shift;
+	print "GET $url\n" if ($opt{'debug'});
 	my $use_client_cert = shift;
 	if (!defined($use_client_cert)) { $use_client_cert = 1; }
 
@@ -676,12 +693,14 @@ sub http_get($$) {
 	return $result;
 }
 
-sub http_post($$) {
+sub http_post($$$) {
 	# Yes, it would have been nice to use LWP for this,
 	# but I see no way of using my own function for
 	# opening an SSL connection that way.
 
-	my ($url, $postdataref) = @_;
+	my ($url, $postdataref, $use_client_cert) = @_;
+	print "POST $url\n" if ($opt{'debug'});
+	if (!defined($use_client_cert)) { $use_client_cert = 1; }
 	my ($proto, $host, $port, $path) = split_url($url);
 	if (!defined($proto)) {
 		die "Invalid url: $url\n";
@@ -690,7 +709,7 @@ sub http_post($$) {
 		die "http (without ssl) is not supported.";
 	}
 
-	my $ssl = ssl_connect($host, $port, 1);
+	my $ssl = ssl_connect($host, $port, $use_client_cert);
 	if (!$ssl) {
 		die "SSL connection failed: $url\n";
 	}
@@ -772,7 +791,7 @@ sub readconfig($) {
 sub printlog($) {
 	my $msg = shift;
 	chomp $msg;
-	if (-t STDOUT) {
+	if (-t STDOUT || $opt{'debug'}) {
 		print $msg . "\n";
 	}
 	else {
@@ -840,4 +859,40 @@ sub createPKCS8() {
 	print $F getpassword();
 	close($F);
 	chmod(0600, "/var/nivlheim/pkcs8.key");
+}
+
+sub sign_with_cfengine_key() {
+	my $md5_digest;
+	if (-x '/var/cfengine/bin/cf-key' && 
+		`/var/cfengine/bin/cf-key -p /var/cfengine/ppkeys/localhost.pub` =~ /MD5=([a-f0-9]{32})/) {
+		$md5_digest = $1;
+	} else {
+		# For the sake of integration testing, to make it work on a VM without cf-key installed,
+		# return the string 'xyz' if I'm unable to compute a normal md5 digest.
+		$md5_digest = '01234567890123456789012345678932';
+	}
+	my $contentfile = "/tmp/nivlheim_cfe_sign.txt";
+	my $sigfile = "$contentfile.sha256";
+	my $sig_base64;
+	eval {
+		unlink($sigfile,$contentfile);
+		open(my $F, ">$contentfile") or die;
+		print $F "nivlheim"; # should we use a challenge-response instead?
+		close($F);
+		die unless -r "/var/cfengine/ppkeys/localhost.priv";
+		open($F, "| openssl dgst -sha256 -sign /var/cfengine/ppkeys/localhost.priv -passin stdin -out $sigfile $contentfile") or die;
+		print $F "Cfengine passphrase";
+		close($F);
+		open($F,"openssl base64 -in $sigfile |") or die;
+		local $/; $/='';
+		$sig_base64 = <$F>;
+		close($F);
+	};
+	if ($@) {
+		unlink($sigfile,$contentfile);
+		return '','';
+	} else {
+		unlink($sigfile,$contentfile);
+		return $md5_digest, $sig_base64;
+	}
 }

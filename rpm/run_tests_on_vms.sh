@@ -129,7 +129,7 @@ for IMAGE in "${IMAGES[@]}"; do
 
 		scp -q -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null \
 			../tests/* $USER\@$IP:
-		for T in ../tests/*; do
+		for T in ../tests/*.sh; do
 			ssh $USER\@$IP -o StrictHostKeyChecking=no \
 				-q -o UserKnownHostsFile=/dev/null \
 				-C "~/$(basename $T) || echo 'FAIL'" >> "$LOGFILE" 2>&1

@@ -27,7 +27,7 @@ func TestForwardConfirmReverseDNS(t *testing.T) {
 		},
 		dnstest{
 			ipaddr: "193.157.198.51",
-			name:   "1x-193-157-198-51.uio.no",
+			name:   "eduroam-193-157-198-51.wlan.uio.no",
 		},
 		dnstest{
 			ipaddr: "192.168.0.1",
@@ -60,6 +60,11 @@ func TestHandleDNSchanges(t *testing.T) {
 	_, err = db.Exec("INSERT INTO waiting_for_approval(ipaddr,hostname,approved) " +
 		"VALUES('80.90.100.110', 'manual.example.com', true)," +
 		"('80.90.100.112', 'manual.example.com', true)")
+	if err != nil {
+		t.Fatal(err)
+	}
+	_, err = db.Exec("INSERT INTO certificates(issued,fingerprint,cert,commonname,trusted_by_cfengine) " +
+		"VALUES(now(), '123456', '', 'trustworthy.example.com', true)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -192,6 +197,14 @@ func TestHandleDNSchanges(t *testing.T) {
 			osHostname: "karakul.example.com",
 			lastseen:   time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
 			expected:   "karakul.example.com",
+		},
+		// Check that a host that has been verified to be trusted by CFEngine
+		// will be trusted by Nivlheim too
+		testname{
+			ipAddress: "10.1.2.3",
+			certfp: "123456",
+			osHostname: "trustworthy.example.com",
+			expected: "trustworthy.example.com",
 		},
 	}
 	for _, test := range tests {
