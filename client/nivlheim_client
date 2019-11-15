@@ -41,6 +41,7 @@ sub reverse_dns_lookup($$);
 sub parse_certificate_response($);
 sub createPKCS8();
 sub getpassword();
+sub extract_cmd($);
 
 # Options with default values
 my %defaultopt = (
@@ -403,16 +404,20 @@ foreach my $cmd (@cmdlist) {
 	}
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
-	# run
-	if (open(my $F, "$cmd 2>&1 |")) {
-		my $cmdresult = join('',<$F>);
-		close($F);
-		# the command should be the first line of the output file
-		$cmdresult = $cmd . "\n" . $cmdresult;
-		# generate a file name
-		my $cmdfname = "commands/" . shortencmd($cmd);
-		# add the file to the tar file
-		$tar->add_data($cmdfname, $cmdresult);
+	# extract just the command itself and check if it exists and is executable
+	my $actual_cmd = extract_cmd($cmd);
+	if ($actual_cmd && -x $actual_cmd) {
+		# run
+		if (open(my $F, "$cmd 2>&1 |")) {
+			my $cmdresult = join('',<$F>);
+			close($F);
+			# the command should be the first line of the output file
+			$cmdresult = $cmd . "\n" . $cmdresult;
+			# generate a file name
+			my $cmdfname = "commands/" . shortencmd($cmd);
+			# add the file to the tar file
+			$tar->add_data($cmdfname, $cmdresult);
+		}
 	}
 }
 
@@ -422,16 +427,20 @@ foreach my $alias (@aliaslist) {
 	my $cmd = $config{'commandalias'}{$alias};
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
-	# run the command
-	if (open(my $F, "$cmd 2>&1 |")) {
-		my $cmdresult = join('',<$F>);
-		close($F);
-		# the command should be the first line of the output file
-		$cmdresult = $alias . "\n" . $cmdresult;
-		# generate a file name
-		my $saveAs = "commands/" . shortencmd($alias);
-		# add the file to the tar file
-		$tar->add_data($saveAs, $cmdresult);
+	# extract just the command itself and check if it exists and is executable
+	my $actual_cmd = extract_cmd($cmd);
+	if ($actual_cmd && -x $actual_cmd) {
+		# run the command
+		if (open(my $F, "$cmd 2>&1 |")) {
+			my $cmdresult = join('',<$F>);
+			close($F);
+			# the command should be the first line of the output file
+			$cmdresult = $alias . "\n" . $cmdresult;
+			# generate a file name
+			my $saveAs = "commands/" . shortencmd($alias);
+			# add the file to the tar file
+			$tar->add_data($saveAs, $cmdresult);
+		}
 	}
 }
 
@@ -840,4 +849,16 @@ sub createPKCS8() {
 	print $F getpassword();
 	close($F);
 	chmod(0600, "/var/nivlheim/pkcs8.key");
+}
+
+sub extract_cmd($) {
+    # handles command lines of the format [envvar=val] command [arg1] [arg2] ..
+    my $cmd_line = shift;
+    my @cmd_parts = split(' ', $cmd_line);
+    for (my $i=0;$i<=$#cmd_parts;$i++) {
+        if ($cmd_parts[$i] !~ m/=/) {
+            return $cmd_parts[$i];
+        }
+    }
+    return 0;
 }
