@@ -27,7 +27,7 @@ func TestForwardConfirmReverseDNS(t *testing.T) {
 		},
 		dnstest{
 			ipaddr: "193.157.198.51",
-			name:   "1x-193-157-198-51.uio.no",
+			name:   "eduroam-193-157-198-51.wlan.uio.no",
 		},
 		dnstest{
 			ipaddr: "192.168.0.1",
