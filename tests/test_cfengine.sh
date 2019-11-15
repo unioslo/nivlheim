@@ -10,6 +10,13 @@ sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/www/nivlheim/queue/*
 echo -n | sudo tee /var/log/httpd/error_log
 sudo -u apache /var/nivlheim/installdb.sh --wipe
+
+# Configure the CFengine key dir setting in the server config
+if ! grep -s -e "^CFEngineKeyDir" /etc/nivlheim/server.conf > /dev/null; then
+    echo "CFEngineKeyDir=/var/cfekeys" | sudo tee -a /etc/nivlheim/server.conf
+fi
+
+# Start the server process again
 sudo systemctl start nivlheim
 sleep 4
 
@@ -38,11 +45,12 @@ if [[ ! -d /var/cfengine ]]; then
 	sudo mkdir -p /var/cfengine/ppkeys
 	sudo cp cfengine.priv /var/cfengine/ppkeys/localhost.priv
 	sudo cp cfengine.pub /var/cfengine/ppkeys/localhost.pub
-	sudo cp cfengine.pub /var/cfengine/ppkeys/01234567890123456789012345678932.pub   # default value for a machine without cf-key
+	sudo mkdir -p /var/cfekeys
+	sudo cp cfengine.pub /var/cfekeys/01234567890123456789012345678932.pub   # default value for a machine without cf-key
 	# Ensure the httpd process will have read access.
 	# This will probably be handled differently on the actual server.
-	sudo chmod -R go+r /var/cfengine
-	sudo chcon -R -t httpd_sys_content_t /var/cfengine
+	sudo chmod -R go+r /var/cfekeys
+	sudo chcon -R -t httpd_sys_content_t /var/cfekeys
 fi
 
 # Run the client. This will call reqcert and post.

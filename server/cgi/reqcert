@@ -71,7 +71,18 @@ my $trusted_by_cfengine = 0;
 if ($cgi->param('cfe_key_md5') =~ /^([a-f0-9]{32})$/ && $cgi->param('sign_b64')) {
 	my $md5 = $1;
 
-	my $pubkeyfile = "/var/cfengine/ppkeys/$md5.pub";
+	# grab directory from /etc/nivlheim/server.conf
+	my $cfengine_key_dir = '/var/cfengine/ppkeys';
+	if (open(my $F, "/etc/nivlheim/server.conf")) {
+		while (<$F>) {
+			if (/CFEngineKeyDir\s*=\s*(\S+)/i) {
+				$cfengine_key_dir = $1;
+			}
+		}
+		close($F);
+	}
+
+	my $pubkeyfile = "$cfengine_key_dir/$md5.pub";
 	my $convertedkeyfile = "/tmp/pubkey.pub";
 	my $sigfile = "/tmp/content.txt.sign";
 	my $contentfile = "/tmp/content.txt";

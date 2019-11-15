@@ -15,3 +15,4 @@ LDAPprimaryAttr=primaryAffiliation
 LDAPadminGroup=our-nivlheim-admins
 AllAccessGroups=a-list-of,ldap-groups,that-arent-admins-but-still-see-everything
 HostOwnerPluginURL=http://localhost/cgi-bin/owner.cgi
+CFEngineKeyDir=/var/cfekeys
