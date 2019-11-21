@@ -82,7 +82,7 @@ if ($cgi->param('cfe_key_md5') =~ /^([a-f0-9]{32})$/ && $cgi->param('sign_b64'))
 		close($F);
 	}
 
-	my $pubkeyfile = "$cfengine_key_dir/$md5.pub";
+	my $pubkeyfile = "$cfengine_key_dir/root-MD5=$md5.pub";
 	my $convertedkeyfile = "/tmp/pubkey.pub";
 	my $sigfile = "/tmp/content.txt.sign";
 	my $contentfile = "/tmp/content.txt";

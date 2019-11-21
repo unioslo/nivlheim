@@ -46,7 +46,7 @@ if [[ ! -d /var/cfengine ]]; then
 	sudo cp cfengine.priv /var/cfengine/ppkeys/localhost.priv
 	sudo cp cfengine.pub /var/cfengine/ppkeys/localhost.pub
 	sudo mkdir -p /var/cfekeys
-	sudo cp cfengine.pub /var/cfekeys/01234567890123456789012345678932.pub   # default value for a machine without cf-key
+	sudo cp cfengine.pub /var/cfekeys/root-MD5=01234567890123456789012345678932.pub   # default value for a machine without cf-key
 	# Ensure the httpd process will have read access.
 	# This will probably be handled differently on the actual server.
 	sudo chmod -R go+r /var/cfekeys
