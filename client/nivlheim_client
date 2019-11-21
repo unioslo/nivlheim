@@ -42,13 +42,14 @@ sub parse_certificate_response($);
 sub createPKCS8();
 sub getpassword();
 sub sign_with_cfengine_key();
+sub extract_cmd($);
 
 # Options with default values
 my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
 	'ca_file'   => '/var/nivlheim/nivlheimca.crt'
-	             . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.crt'
-	             . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/etc/ssl/cert.pem',
+				 . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.crt'
+				 . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/etc/ssl/cert.pem',
 	'cert_file' => '/var/nivlheim/my.crt',
 	'key_file'  => '/var/nivlheim/my.key',
 	'debug'     => 0,  # debugging / verbose output
@@ -111,14 +112,14 @@ GetOptions('c|config=s' => \$opt{config},
 
 # If user requested help
 if ($opt{help}) {
-    print $USAGE, $HELP;
-    exit 0;
+	print $USAGE, $HELP;
+	exit 0;
 }
 
 # If user requested version info
 if ($opt{version}) {
-    print $LICENSE;
-    exit 0;
+	print $LICENSE;
+	exit 0;
 }
 
 # sleep if cmdline parameter says so
@@ -198,8 +199,8 @@ foreach (keys %defaultopt) {
 # Verify that we have a server url. It must have trailing slash.
 if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
 	print "The config file $configfile must have a section [settings] "
-	     ."that contains a \"server\" option "
-	     ."with the hostname or ip address of the server.\n";
+		 ."that contains a \"server\" option "
+		 ."with the hostname or ip address of the server.\n";
 	exit 1;
 }
 $server_url = 'https://' . $config{'settings'}{'server'} . '/cgi-bin/';
@@ -419,16 +420,20 @@ foreach my $cmd (@cmdlist) {
 	}
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
-	# run
-	if (open(my $F, "$cmd 2>&1 |")) {
-		my $cmdresult = join('',<$F>);
-		close($F);
-		# the command should be the first line of the output file
-		$cmdresult = $cmd . "\n" . $cmdresult;
-		# generate a file name
-		my $cmdfname = "commands/" . shortencmd($cmd);
-		# add the file to the tar file
-		$tar->add_data($cmdfname, $cmdresult);
+	# extract just the command itself and check if it exists and is executable
+	my $actual_cmd = extract_cmd($cmd);
+	if ($actual_cmd && -x $actual_cmd) {
+		# run
+		if (open(my $F, "$cmd 2>&1 |")) {
+			my $cmdresult = join('',<$F>);
+			close($F);
+			# the command should be the first line of the output file
+			$cmdresult = $cmd . "\n" . $cmdresult;
+			# generate a file name
+			my $cmdfname = "commands/" . shortencmd($cmd);
+			# add the file to the tar file
+			$tar->add_data($cmdfname, $cmdresult);
+		}
 	}
 }
 
@@ -438,16 +443,20 @@ foreach my $alias (@aliaslist) {
 	my $cmd = $config{'commandalias'}{$alias};
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
-	# run the command
-	if (open(my $F, "$cmd 2>&1 |")) {
-		my $cmdresult = join('',<$F>);
-		close($F);
-		# the command should be the first line of the output file
-		$cmdresult = $alias . "\n" . $cmdresult;
-		# generate a file name
-		my $saveAs = "commands/" . shortencmd($alias);
-		# add the file to the tar file
-		$tar->add_data($saveAs, $cmdresult);
+	# extract just the command itself and check if it exists and is executable
+	my $actual_cmd = extract_cmd($cmd);
+	if ($actual_cmd && -x $actual_cmd) {
+		# run the command
+		if (open(my $F, "$cmd 2>&1 |")) {
+			my $cmdresult = join('',<$F>);
+			close($F);
+			# the command should be the first line of the output file
+			$cmdresult = $alias . "\n" . $cmdresult;
+			# generate a file name
+			my $saveAs = "commands/" . shortencmd($alias);
+			# add the file to the tar file
+			$tar->add_data($saveAs, $cmdresult);
+		}
 	}
 }
 
@@ -868,7 +877,7 @@ sub sign_with_cfengine_key() {
 		$md5_digest = $1;
 	} else {
 		# For the sake of integration testing, to make it work on a VM without cf-key installed,
-		# return the string 'xyz' if I'm unable to compute a normal md5 digest.
+		# return a test string if I'm unable to compute a normal md5 digest.
 		$md5_digest = '01234567890123456789012345678932';
 	}
 	my $contentfile = "/tmp/nivlheim_cfe_sign.txt";
@@ -895,4 +904,16 @@ sub sign_with_cfengine_key() {
 		unlink($sigfile,$contentfile);
 		return $md5_digest, $sig_base64;
 	}
+}
+
+sub extract_cmd($) {
+	# handles command lines of the format [envvar=val] command [arg1] [arg2] ..
+	my $cmd_line = shift;
+	my @cmd_parts = split(' ', $cmd_line);
+	for (my $i=0;$i<=$#cmd_parts;$i++) {
+		if ($cmd_parts[$i] !~ m/=/) {
+			return $cmd_parts[$i];
+		}
+	}
+	return 0;
 }
