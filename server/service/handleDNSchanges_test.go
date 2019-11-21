@@ -63,6 +63,11 @@ func TestHandleDNSchanges(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
+	_, err = db.Exec("INSERT INTO certificates(issued,fingerprint,cert,commonname,trusted_by_cfengine) " +
+		"VALUES(now(), '123456', '', 'trustworthy.example.com', true)")
+	if err != nil {
+		t.Fatal(err)
+	}
 	type testname struct {
 		certfp           string
 		ipAddress        string
@@ -192,6 +197,14 @@ func TestHandleDNSchanges(t *testing.T) {
 			osHostname: "karakul.example.com",
 			lastseen:   time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
 			expected:   "karakul.example.com",
+		},
+		// Check that a host that has been verified to be trusted by CFEngine
+		// will be trusted by Nivlheim too
+		testname{
+			ipAddress: "10.1.2.3",
+			certfp: "123456",
+			osHostname: "trustworthy.example.com",
+			expected: "trustworthy.example.com",
 		},
 	}
 	for _, test := range tests {

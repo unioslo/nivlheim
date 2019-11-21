@@ -187,7 +187,14 @@ func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	if err != nil {
 		return "", err
 	}
-	if count > 0 {
+	// Check if the certificate was given based on CFEngine trust
+	var trust sql.NullBool
+	err = tx.QueryRow("SELECT trusted_by_cfengine FROM certificates WHERE fingerprint=$1",
+		certfp).Scan(&trust)
+	if err != nil && err != sql.ErrNoRows {
+		return "", err
+	}
+	if count > 0 || (trust.Bool && trust.Valid) {
 		// Automatic naming without using DNS.
 		// First, check if the name given by the operating system (osHostname) is free.
 		// (If found another row that has that hostname and ip address but older lastseen, it doesn't count.)
