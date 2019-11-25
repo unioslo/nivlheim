@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
 	"strconv"
 	"strings"
 )
@@ -191,12 +192,19 @@ func (vars *apiMethodMultiStageSearch) ServeHTTP(w http.ResponseWriter, req *htt
 		scanpointers[i] = &scanvars[i]
 	}
 
-	// For each host found in the search, pick out the desired return fields and add them to a data structure.
+	// Sort by certificate, to make unit testing easier
+	list := make([]string, 0, len(resultingCerts))
 	for certFP, isThere := range resultingCerts {
 		// The map shouldn't contain entries where the value is false, but just in case...
 		if !isThere {
 			continue
 		}
+		list = append(list, certFP)
+	}
+	sort.Strings(list)
+
+	// For each host found in the search, pick out the desired return fields and add them to a data structure.
+	for _, certFP := range list {
 		details := make(map[string]interface{}, len(fields))
 		if fields["certfp"] {
 			details["certfp"] = certFP

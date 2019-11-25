@@ -84,7 +84,7 @@ func TestSearchCaseSensitivity(t *testing.T) {
 			expectJSON:    `[{"certfp":"ABFF"}]`,
 		},
 		// Test the multi-stage search
-		// First: AND (union)
+		// First: AND (intersection)
 		{
 			methodAndPath: "GET /api/v2/msearch?q1=sugar&f1=" + filename +
 				"&op2=and&q2=spice&f2=" + filename +
@@ -92,7 +92,7 @@ func TestSearchCaseSensitivity(t *testing.T) {
 			expectStatus: http.StatusOK,
 			expectJSON:   `[{"hostname":"` + hostname + `"}]`,
 		},
-		// OR (intersection)
+		// OR (union)
 		{
 			methodAndPath: "GET /api/v2/msearch?q1=sugar&f1=" + filename +
 				"&op2=or&q2=nice&f2=" + filename +
