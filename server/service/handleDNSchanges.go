@@ -64,11 +64,16 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 			if hostname == "" {
 				return nil
 			}
-			_, err = tx.Exec("UPDATE hostinfo SET hostname=null WHERE hostname=$1 AND certfp!=$2",
+			// We have determined the name for this host.
+			// If any other hosts are occupying that name, take it from them..
+			_, err = tx.Exec("UPDATE hostinfo SET hostname=null"+
+				" WHERE hostname=$1 AND certfp!=$2",
 				hostname, m.certfp.String)
 			if err != nil {
 				log.Panic(err)
 			}
+			// Set the hostname for this host.
+			// Even if the hostname hasn't changed, we need to update dnsttl.
 			_, err = tx.Exec("UPDATE hostinfo SET hostname=$1, dnsttl=now()+interval'1h' "+
 				"WHERE certfp=$2", hostname, m.certfp.String)
 			if err != nil {
@@ -87,8 +92,7 @@ func (j handleDNSchangesJob) Run(db *sql.DB) {
 // This method tries to determine what hostname a machine has.
 // Sometimes there's conflicting data, for example if DNS gives a different
 // answer than the machine itself.
-// This method is used from several parts of the software, to keep the logic
-// in one place only.
+// This is an attempt to keep all the logic in one place.
 func nameMachine(tx *sql.Tx, ipAddress string, osHostname string, certfp string,
 	lastseen time.Time) (string, error) {
 	// First, see if a name has been manually set for the host, that overrides automatics
