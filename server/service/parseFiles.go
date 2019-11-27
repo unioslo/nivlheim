@@ -62,10 +62,10 @@ func parseFile(database *sql.DB, fileID int64) {
 		// If there's a panic and/or an error, recover from it, log the error,
 		// and rollback the transaction.
 		if r := recover(); r != nil {
-			log.Println(r)
+			log.Printf("Panic while parsing file %d: %s", fileID, r)
 			tx.Rollback()
 		} else if err != nil {
-			log.Println(err)
+			log.Printf("Error while parsing file %d: %s", fileID, err)
 			tx.Rollback()
 		} else {
 			// Only if everything went well do we set parsed=true and commit the transaction.
@@ -339,6 +339,13 @@ func parseFile(database *sql.DB, fileID int64) {
 			}
 			_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2 "+
 				"WHERE certfp=$3", manufacturer, product, certfp.String)
+		} else {
+			// If the JSON parsing fails, it's not going to change
+			// (the file contents will stay the same).
+			// Log the message and set err=nil here, so the system
+			// won't re-try parsing this file.
+			log.Printf("Error while parsing JSON from file %d: %s", fileID, err)
+			err = nil
 		}
 		return
 	}
@@ -355,6 +362,9 @@ func parseFile(database *sql.DB, fileID int64) {
 				}
 			}
 			_, err = tx.Exec("UPDATE hostinfo SET serialno=$1 WHERE certfp=$2", serial, certfp.String)
+		} else {
+			log.Printf("Error while parsing JSON from file %d: %s", fileID, err)
+			err = nil
 		}
 		return
 	}
@@ -374,6 +384,9 @@ func parseFile(database *sql.DB, fileID int64) {
 					}
 				}
 			}
+		} else {
+			log.Printf("Error while parsing JSON from file %d: %s", fileID, err)
+			err = nil
 		}
 	}
 }

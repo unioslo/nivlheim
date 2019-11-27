@@ -209,6 +209,25 @@ func searchFilesWithFilter(searchString string, filename string, validCerts map[
 	return hits, distinctFilenames
 }
 
+func searchForHosts(searchString string, filename string) map[string]bool {
+	fsMutex.RLock()
+	defer fsMutex.RUnlock()
+	searchString = strings.ToLower(searchString)
+	resultMap := make(map[string]bool, 0)
+	for key, id := range fsID {
+		// extract certfp and filename from key
+		ar := strings.SplitN(key, ":", 2)
+		if filename != "" && filename != ar[1] {
+			continue
+		}
+		// match strings
+		if strings.Contains(fsContent[id], searchString) {
+			resultMap[ar[0]] = true
+		}
+	}
+	return resultMap
+}
+
 func findMatchesInFile(fileID int64, query string, maxMatches int) []int {
 	fsMutex.RLock()
 	content, ok := fsContent[fileID]
