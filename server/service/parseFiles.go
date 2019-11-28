@@ -287,7 +287,7 @@ func parseFile(database *sql.DB, fileID int64) {
 			product.String = strings.Title(strings.ToLower(product.String))
 			product.Valid = len(product.String) > 0
 		}
-		if m := regexp.MustCompile(`Serial Number: (\w+)`).
+		if m := regexp.MustCompile(`Serial Number: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0
@@ -304,7 +304,7 @@ func parseFile(database *sql.DB, fileID int64) {
 			product.String = strings.TrimSpace(m[1])
 			product.Valid = len(product.String) > 0
 		}
-		if m := regexp.MustCompile(`Serial Number \(system\): (\w+)`).
+		if m := regexp.MustCompile(`Serial Number \(system\): (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0
