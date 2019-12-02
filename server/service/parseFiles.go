@@ -297,7 +297,8 @@ func parseFile(database *sql.DB, fileID int64) {
 		return
 	}
 
-	if filename.String == "/usr/sbin/system_profiler SPHardwareDataType" {
+	if filename.String == "/usr/sbin/system_profiler SPHardwareDataType" ||
+		filename.String == "/etc/uio/info/hardware-info.txt" /* deprecated file */ {
 		var product, serial sql.NullString
 		if m := regexp.MustCompile(`Model Name: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
