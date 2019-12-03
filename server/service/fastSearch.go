@@ -73,6 +73,19 @@ func removeFileFromFastSearch(fileID int64) {
 	delete(fsKey, fileID)
 }
 
+func removeHostFromFastSearch(certFingerprint string) {
+	fsMutex.Lock()
+	defer fsMutex.Unlock()
+	for key, fileID := range fsID {
+		ar := strings.SplitN(key, ":", 2)
+		if ar[0] == certFingerprint {
+			delete(fsContent, fileID)
+			delete(fsKey, fileID)
+			delete(fsID, key)
+		}
+	}
+}
+
 func numberOfFilesInFastSearch() int {
 	// Don't want to return a count if the cache isn't fully loaded yet, it would be misleading
 	if !isReadyForSearch() {

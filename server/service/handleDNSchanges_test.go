@@ -161,7 +161,7 @@ func TestHandleDNSchanges(t *testing.T) {
 		testname{
 			certfp:     "l",
 			ipAddress:  "2001:700:111:1::287",
-			osHostname: "p01-ns-prod01.tsd.usit.no",
+			osHostname: "shouldnt.matter",
 			expected:   "p01-ns-prod01.tsd.usit.no",
 		},
 		// Test: one host takes over the hostname from another host because of a newer lastseen value
@@ -201,10 +201,10 @@ func TestHandleDNSchanges(t *testing.T) {
 		// Check that a host that has been verified to be trusted by CFEngine
 		// will be trusted by Nivlheim too
 		testname{
-			ipAddress: "10.1.2.3",
-			certfp: "123456",
+			ipAddress:  "10.1.2.3",
+			certfp:     "123456",
 			osHostname: "trustworthy.example.com",
-			expected: "trustworthy.example.com",
+			expected:   "trustworthy.example.com",
 		},
 	}
 	for _, test := range tests {

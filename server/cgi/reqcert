@@ -68,7 +68,8 @@ if (!$dbh) {
 
 # 1. If the client supplied a CFEngine key digest and signature, verify it
 my $trusted_by_cfengine = 0;
-if ($cgi->param('cfe_key_md5') =~ /^([a-f0-9]{32})$/ && $cgi->param('sign_b64')) {
+if ($cgi->param('cfe_key_md5') && $cgi->param('sign_b64') &&
+	$cgi->param('cfe_key_md5') =~ /^([a-f0-9]{32})$/) {
 	my $md5 = $1;
 
 	# grab directory from /etc/nivlheim/server.conf
@@ -123,6 +124,13 @@ if ((@row && $row[0]>0) || $trusted_by_cfengine) {
 	# This is just a qualified guess for now, it doesn't have to be correct.
 	# If it is wrong, a new certificate will be issued later with the correct value.
 	$hostname = forwardConfirmReverseDNS($ipaddr) || $cgi->param('hostname');
+	if (!defined($hostname) || $hostname eq "") {
+		print "Status: 400\r\nContent-Type: text/plain\r\n\r\n";
+		print "Missing parameter: hostname\n";
+		$logger->warn("Missing parameter: hostname");
+		$dbh->disconnect;
+		exit 1;
+	}
 } else {
 	# Check if this client has been approved, and if not,
 	# add them to the waiting list.
