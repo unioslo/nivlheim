@@ -701,8 +701,8 @@ sub http_get($$$) {
 	if ($httpstatus =~ m#^HTTP/1.1 [45]\d\d#) {
 		printlog("$url: $httpstatus");
 		return undef;
-	} elsif ($httpstatus =~ m#^HTTP/1.1 30[12]#) {
-		if ($num_redirects <= $max_redirects) {
+	} elsif ($httpstatus =~ m#^HTTP/1.1 30[1278]#) {
+		if ($num_redirects <= $opt{max_redirects}) {
 			$num_redirects++;
 			$headers =~ m#Location:\s+(.*?)[\r\n]+#;
 			my $redirect_url = $1;
@@ -769,8 +769,8 @@ sub http_post($$$$) {
 	$ssl->close(SSL_ctx_free => 1);
 	if ($httpstatus =~ m#^HTTP/1.1 [45]\d\d#) {
 		die "$url: $httpstatus";
-	} elsif ($httpstatus =~ m#^HTTP/1.1 30[12]#) {
-		if ($num_redirects <= $max_redirects) {
+	} elsif ($httpstatus =~ m#^HTTP/1.1 30[1278]#) {
+		if ($num_redirects <= $opt{max_redirects}) {
 			$num_redirects++;
 			$headers =~ m#Location:\s+(.*?)[\r\n]+#;
 			my $redirect_url = $1;
