@@ -548,7 +548,16 @@ sub ssl_connect($$$) {
 	}
 	else {
 		my $dnsresolver = Net::DNS::Resolver->new;
-		my $dnsresponse = $dnsresolver->query($hostname, 'A');
+		my $dnsresponse = $dnsresolver->query($hostname, 'CNAME');
+		if ($dnsresponse) {
+			foreach my $rr ($dnsresponse->answer) {
+				if ($rr->type eq 'CNAME') {
+					$hostname = $rr->cname;
+					last;
+				}
+			}
+		}
+		$dnsresponse = $dnsresolver->query($hostname, 'A');
 		if ($dnsresponse) {
 			foreach my $rr ($dnsresponse->answer) {
 				push @addrlist, $rr->address;
