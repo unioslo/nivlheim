@@ -19,7 +19,7 @@ nivlheim_client.ps1
 .Inputs
 None
 .Notes
-Last Updated: 2019-04-11
+Last Updated: 2019-12-09
 Authors     : Øyvind Hagberg, Mustafa Ocak
 #>
 
@@ -29,7 +29,8 @@ param(
 	[string]$logfile = "C:\Program Files (x86)\Nivlheim\logs\nivlheim.log",
 	[string]$server = "",
 	[bool]$trustallcerts = $false,
-	[bool]$dryrun = $false
+	[bool]$dryrun = $false,
+	[bool]$nosleep = $false
 )
 
 Set-Variable version -option Constant -value "2.6.3"
@@ -415,6 +416,14 @@ function ParseAndSaveCertificateFromResult($r) {
 	return $true
 }
 
+# Sleep a random interval, so not all the machines try to contact the server 
+# at the same time every hour.
+if (-Not $nosleep) {
+	$delay = Get-Random -Minimum 1 -Maximum 3300
+	Write-Host "Sleeping for $delay seconds..."
+	Start-Sleep -Seconds $delay
+}
+
 if (-Not $dryrun) {
 	# show an error message if I can't write to the log file
 	try { [io.file]::OpenWrite($logfile).close() }
@@ -724,7 +733,7 @@ try {
 try {
 	$url = $serverbaseurl + "secure/post"
 	$params = @{
-		"hostname" = [System.Net.Dns]::GetHostName();
+		"hostname" = [System.Net.Dns]::GetHostByName(($env:computerName)).Hostname;
 		"version" = $version;
 		"signature_base64" = [System.Convert]::ToBase64String($sig);
 		"archive_base64" = [System.Convert]::ToBase64String([IO.File]::ReadAllBytes($zipname));
