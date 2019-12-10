@@ -7,7 +7,7 @@ index f14dcb0..6678cc6 100644
  my $CONTACT = 'oyvind.hagberg@usit.uio.no';
  my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
 -my $VERSION = '0.0.0'; # Will be replaced during package building
-+my $VERSION = '2.2.0';
++my $VERSION = '2.6.3';
  
  # Usage text
  my $USAGE = <<"END_USAGE";
