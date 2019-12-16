@@ -34,10 +34,14 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	}
 	status := Status{}
 
-	// Machines last hour
+	// 2019-10-16: After adding a random sleep to the start of the Powershell
+	// client, Windows machines may take up to 2 hours (worst case) between reporting.
+	// The point of the "ReportingPercentageLastHour" status value is to say
+	// how many machines are actively reporting, and to get a meaningful count
+	// one should actually look at the last two hours.
 	var machinesLastHour int
 	vars.db.QueryRow("SELECT count(*) FROM hostinfo WHERE lastseen > " +
-		"now() - interval '1 hour'").Scan(&machinesLastHour)
+		"now() - interval '2 hours'").Scan(&machinesLastHour)
 
 	// NumOfMachines
 	vars.db.QueryRow("SELECT count(*) FROM hostinfo").Scan(&status.NumOfMachines)
