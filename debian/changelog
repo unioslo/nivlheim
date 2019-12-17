@@ -1,3 +1,9 @@
+nivlheim (2.6.3-1) stretch; urgency=low
+
+  * Upstream changes
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Tue, 10 Dec 2019 11:07:00 +0100
+
 nivlheim (2.2.0-1) stretch; urgency=low
 
   * Upstream changes

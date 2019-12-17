@@ -406,7 +406,8 @@ my @cmdlist = keys %{$config{'commands'}};
 	"/bin/uname -a",
 	"/usr/bin/dpkg-query -l",
 	"/usr/bin/sw_vers",
-	"/usr/sbin/dmidecode -t system"
+	"/usr/sbin/dmidecode -t system",
+	"/usr/sbin/system_profiler SPHardwareDataType"
 );
 foreach my $e (@essentials) {
 	if (!grep {$e eq $_} @cmdlist) {
@@ -548,7 +549,16 @@ sub ssl_connect($$$) {
 	}
 	else {
 		my $dnsresolver = Net::DNS::Resolver->new;
-		my $dnsresponse = $dnsresolver->query($hostname, 'A');
+		my $dnsresponse = $dnsresolver->query($hostname, 'CNAME');
+		if ($dnsresponse) {
+			foreach my $rr ($dnsresponse->answer) {
+				if ($rr->type eq 'CNAME') {
+					$hostname = $rr->cname;
+					last;
+				}
+			}
+		}
+		$dnsresponse = $dnsresolver->query($hostname, 'A');
 		if ($dnsresponse) {
 			foreach my $rr ($dnsresponse->answer) {
 				push @addrlist, $rr->address;
