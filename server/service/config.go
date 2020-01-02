@@ -27,6 +27,9 @@ type Config struct {
 	LDAPAdminGroup              string
 	AllAccessGroups             []string
 	HostOwnerPluginURL          string
+	PGhost, PGdatabase, PGuser  string
+	PGpassword, PGsslmode       string
+	PGport                      int
 }
 
 // ReadConfigFile reads a config file and returns a Config struct
