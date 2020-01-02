@@ -15,6 +15,7 @@ use Log::Log4perl;
 use POSIX qw(strftime);
 use Symbol qw(gensym);
 use LWP::Simple;
+use Nivlheim::Database;
 
 sub parse_query_string();
 sub run_command($);
@@ -69,15 +70,8 @@ unless (-r $archivefile) {
 
 # Connect to database
 $logger->debug("Connecting to database");
-my %attr = ("AutoCommit" => 0);
-my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
-if (!$dbh) {
-	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
-	print "Unable to connect to Postgres database:\n";
-	print $DBI::errstr . "\n";
-	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-	exit 1;
-}
+my $dbh = Nivlheim::Database->connect_to_db();
+$dbh->begin_work(); # start a transaction
 
 # Unpack the archive
 eval{

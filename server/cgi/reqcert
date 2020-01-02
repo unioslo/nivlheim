@@ -37,6 +37,7 @@ use Proc::PID::File;
 use DBI;
 use Crypt::OpenSSL::X509;
 use CGI;
+use Nivlheim::Database;
 
 sub forwardConfirmReverseDNS($);
 
@@ -56,15 +57,7 @@ if ($ENV{'REQUEST_METHOD'} !~ /(GET|POST)/) {
 my $cgi = CGI->new;
 
 # Connect to database
-my %attr = ("AutoCommit" => 1);
-my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
-if (!$dbh) {
-	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
-	print "Unable to connect to Postgres database:\n";
-	print $DBI::errstr . "\n";
-	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-	exit 1;
-}
+my $dbh = Nivlheim::Database->connect_to_db();
 
 # 1. If the client supplied a CFEngine key digest and signature, verify it
 my $trusted_by_cfengine = 0;

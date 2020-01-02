@@ -84,8 +84,8 @@ Requires: perl(Sys::Syslog)
 %package server
 Summary:  Server components of Nivlheim
 Group:    Applications/System
+AutoReqProv : no
 Requires: perl, openssl, httpd, mod_ssl, systemd, cronie
-Requires: postgresql, postgresql-server, postgresql-contrib
 %{?fedora:Requires: policycoreutils-python-utils}
 %{?rhel:Requires: policycoreutils-python}
 Requires: unzip, file
@@ -195,6 +195,7 @@ mkdir -p %{buildroot}/var/www/cgi-bin/secure
 mkdir -p %{buildroot}/var/www/html/libs
 mkdir -p %{buildroot}/var/log/nivlheim
 mkdir -p %{buildroot}%{_unitdir}
+mkdir -p %{buildroot}%{_prefix}/%{_lib}/perl5/Nivlheim
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
@@ -205,6 +206,7 @@ install -p -m 0755 server/cgi/ping2 %{buildroot}/var/www/cgi-bin/secure/ping
 install -p -m 0755 server/cgi/reqcert %{buildroot}/var/www/cgi-bin/
 install -p -m 0755 server/cgi/renewcert %{buildroot}/var/www/cgi-bin/secure/
 install -p -m 0755 server/cgi/post %{buildroot}/var/www/cgi-bin/secure/
+install -p -m 0644 server/cgi/Database.pm %{buildroot}%{_prefix}/%{_lib}/perl5/Nivlheim/
 install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
@@ -234,6 +236,7 @@ sed -i 's/href="\(.\+.css\)"/href="\1?%{version}"/g' %{buildroot}%{_localstatedi
 
 %check
 perl -c %{buildroot}%{_sbindir}/nivlheim_client
+export PERL5LIB=%{buildroot}%{_prefix}/%{_lib}/perl5
 perl -c %{buildroot}/var/www/cgi-bin/secure/renewcert
 perl -c %{buildroot}/var/www/cgi-bin/secure/ping
 perl -c %{buildroot}/var/www/cgi-bin/secure/post
@@ -271,6 +274,7 @@ rm -rf %{buildroot}
 /var/www/html/*
 %attr(0644, root, apache) /var/www/nivlheim/log4perl.conf
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
+%{_prefix}/%{_lib}/perl5/Nivlheim/Database.pm
 
 %post server
 %{_localstatedir}/nivlheim/setup.sh || exit 1
@@ -283,6 +287,10 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Fri Dec 20 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.6.4-20191220
+- Removed dependencies on Postgres packages for the server
+- Added a custom Perl module for Nivlheim
+
 * Fri Aug 02 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.2.1-20190802
 - Had to remove the --min parameter from handlebars, it fails on Fedora 30
 
