@@ -88,6 +88,11 @@ if ! sudo systemctl is-active --quiet nivlheim; then
 	exit 1
 fi
 
+if [[ "$1" == "--installonly" ]]; then
+	echo "Installed and set up Nivlheim and Postgres."
+	exit 0
+fi
+
 # Verify that the API is available by direct connection
 if ! curl -sSfo /dev/null http://localhost:4040/api/v2/status; then
 	echo "The API is unavailable at port 4040."
