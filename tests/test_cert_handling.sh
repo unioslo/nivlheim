@@ -23,11 +23,12 @@ sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
 	/var/www/nivlheim/queue/*
 echo -n | sudo tee /var/log/httpd/error_log
-sudo -u apache /var/nivlheim/installdb.sh --wipe
+/var/nivlheim/installdb.sh --wipe
 sudo systemctl start nivlheim
 sleep 4
 
 # Run the client. This will call reqcert and post
+echo "Running the client"
 if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
     echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 fi
@@ -80,19 +81,31 @@ echo ""
 # Stop the system daemon to prevent it from messing with the tests
 sudo systemctl stop nivlheim
 
+# Read database connection options from server.conf and set ENV vars for psql
+if [[ -r "/etc/nivlheim/server.conf" ]]; then
+	# grep out the postgres config options and make the names upper case
+	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
+	source /tmp/dbconf
+	rm /tmp/dbconf
+else
+	echo "Unable to read server.conf"
+	exit 1
+fi
+export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
-sudo psql apache -c "UPDATE hostinfo SET hostname='abcdef'"
+psql -c "UPDATE hostinfo SET hostname='abcdef'"
 sudo /usr/sbin/nivlheim_client
 # one more time
-sudo psql apache -c "UPDATE hostinfo SET hostname='ghijkl'"
+psql -c "UPDATE hostinfo SET hostname='ghijkl'"
 sudo /usr/sbin/nivlheim_client
 
 # Verify the certificate chain
-chain=$(sudo psql apache --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
+chain=$(psql --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
 expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "Certificate chain differs from expected value:"
-	sudo psql apache -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
+	psql -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
 	exit 1
 fi
 
@@ -117,7 +130,7 @@ sudo mv -f my.old.key my.key # restore the old key file
 popd
 
 # Blacklist and check response
-sudo psql apache -q -c "UPDATE certificates SET revoked=true"
+psql -q -c "UPDATE certificates SET revoked=true"
 # Test ping
 if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/ping; then

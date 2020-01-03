@@ -68,7 +68,6 @@ eval {
 
 	# Connect to Postgres
 	my $dbh = Nivlheim::Database->connect_to_db();
-	$dbh->begin_work();
 
 	# Check if the certificate has been revoked, and check the nonce
 	my @row = $dbh->selectrow_array(
@@ -251,12 +250,8 @@ eval {
 	# Enqueue the files
 	move($archivefile, $queuedir);
 	move("$archivefile.meta", $queuedir);
-
-	$dbh->commit;
-	$dbh->disconnect;
 };
 if ($@) {
-	$dbh->disconnect if ($dbh);
 	$logger->error("[$shorthost] " . $@);
 	print CGI::header(
 		-type => 'text/plain',
@@ -265,6 +260,7 @@ if ($@) {
 };
 
 # Clean up
+$dbh->disconnect if ($dbh);
 unlink($archivefile) if (defined($archivefile));
 unlink($signaturefile) if (defined($signaturefile));
 unlink("$archivefile.meta") if (defined($archivefile));

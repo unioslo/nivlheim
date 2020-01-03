@@ -10,7 +10,7 @@ if [[ "$1" != "--skipsetup" ]]; then
 		/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
 		/var/www/nivlheim/queue/*
 	echo -n | sudo tee /var/log/httpd/error_log
-	sudo -u apache /var/nivlheim/installdb.sh --wipe
+	/var/nivlheim/installdb.sh --wipe
 	sudo systemctl start nivlheim
 	sleep 4
 

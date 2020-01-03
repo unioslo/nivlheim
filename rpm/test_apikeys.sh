@@ -1,14 +1,20 @@
 #!/bin/bash
 
 if [[ "$1" == "--setup" ]]; then
-	sudo sed -i 's/AuthRequired=no/AuthRequired=yes/' /etc/nivlheim/server.conf
+	sudo sed -i 's/AuthRequired=.*/AuthRequired=yes/' /etc/nivlheim/server.conf
 	sudo systemctl restart nivlheim
 	sleep 5
+	# Read database connection options from server.conf and set ENV vars for psql
+	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
+	source /tmp/dbconf
+	rm /tmp/dbconf
+	export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+	# Create an API key (Can't do this through the API because, duh, I don't have an API key)
 	cd /tmp
-	sudo -u apache PGOPTIONS='--client-min-messages=warning' \
-		psql -q -c "TRUNCATE TABLE apikeys RESTART IDENTITY CASCADE;INSERT INTO apikeys(key,ownergroup) VALUES('abcd','CI');"
+	PGOPTIONS='--client-min-messages=warning' \
+		psql -X -q -c "TRUNCATE TABLE apikeys RESTART IDENTITY CASCADE;INSERT INTO apikeys(key,ownergroup) VALUES('abcd','CI');"
 	A=$(echo $SSH_CLIENT | awk '{print $1}')
-	sudo -u apache psql -q -c "INSERT INTO apikey_ips(keyid,iprange) VALUES(1,'$A/32');"
+	psql -X -q -c "INSERT INTO apikey_ips(keyid,iprange) VALUES(1,'$A/32');"
 	exit
 fi
 

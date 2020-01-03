@@ -46,5 +46,6 @@ for P in $(seq -w 1 999); do
 		break
 	fi
 	echo "Applying $FILE"
-	psql -X -1 -w -v ON_ERROR_STOP=1 -f $FILE
+	psql -X -1 -w -q -v ON_ERROR_STOP=1 --pset pager=off -f $FILE
+	# See also: http://petereisentraut.blogspot.com/2010/03/running-sql-scripts-with-psql.html
 done
