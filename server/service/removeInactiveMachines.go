@@ -40,12 +40,12 @@ func (job removeInactiveMachinesJob) Run(db *sql.DB) {
 	// Find hostinfo rows that are duplicates of the same machine.
 	// This often happens if a machine is re-installed.
 	// It can also happen if the certificate files are deleted somehow.
-	const query2 = "SELECT certfp FROM "+
-	" (SELECT certfp,rank() OVER (PARTITION BY ipaddr,os_hostname,serialno,product "+
-	" ORDER BY lastseen DESC) AS pos "+
-	" FROM hostinfo WHERE serialno IS NOT null AND product IS NOT null) AS ss "+
-	" WHERE pos>1"
-	
+	const query2 = "SELECT certfp FROM " +
+		" (SELECT certfp,rank() OVER (PARTITION BY os_hostname,serialno,product " +
+		" ORDER BY lastseen DESC) AS pos " +
+		" FROM hostinfo WHERE serialno IS NOT null AND product IS NOT null) AS ss " +
+		" WHERE pos>1"
+
 	// Archive the machines (delete the hostinfo entry, but keep the files)
 	rows, err := db.Query(query1+" UNION "+query2, archiveDayLimit)
 	if err != nil {
