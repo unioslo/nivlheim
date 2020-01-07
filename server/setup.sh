@@ -65,10 +65,12 @@ setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 systemctl restart httpd
 
 # update the database schema
+# Ensure the system service isn't running
+systemctl stop nivlheim
 /var/nivlheim/installdb.sh
 
-# restart the Nivlheim service
-systemctl restart nivlheim
+# start the Nivlheim service
+systemctl start nivlheim
 
 # enable the services
 systemctl enable httpd nivlheim
