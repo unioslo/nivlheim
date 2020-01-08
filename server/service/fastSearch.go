@@ -86,6 +86,20 @@ func removeHostFromFastSearch(certFingerprint string) {
 	}
 }
 
+func replaceCertificateInCache(oldCertFingerprint, newCertFingerprint string) {
+	fsMutex.Lock()
+	defer fsMutex.Unlock()
+	for key, fileID := range fsID {
+		ar := strings.SplitN(key, ":", 2)
+		if ar[0] == oldCertFingerprint {
+			newKey := newCertFingerprint + ":" + ar[1]
+			fsID[newKey] = fileID
+			fsKey[fileID] = newKey
+			delete(fsID, key)
+		}
+	}
+}
+
 func numberOfFilesInFastSearch() int {
 	// Don't want to return a count if the cache isn't fully loaded yet, it would be misleading
 	if !isReadyForSearch() {

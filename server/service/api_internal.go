@@ -82,3 +82,20 @@ func doNothing(w http.ResponseWriter, req *http.Request) {
 	//	fmt.Fprintln(w, k+" = "+strings.Join(v, ", "))
 	//}
 }
+
+// When a machine gets a new certificate to replace the old one,
+// the search cache must be updated.
+func replaceCertificate(w http.ResponseWriter, req *http.Request) {
+	if !isLocal(req) {
+		http.Error(w, "Only local requests are allowed", http.StatusForbidden)
+		return
+	}
+	old := req.FormValue("old")
+	new := req.FormValue("new")
+	if old != "" && new != "" {
+		replaceCertificateInCache(old, new)
+		http.Error(w, "OK", http.StatusNoContent)
+	} else {
+		http.Error(w, "Missing/empty parameters: old new", http.StatusBadRequest)
+	}
+}
