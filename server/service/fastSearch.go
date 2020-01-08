@@ -56,8 +56,14 @@ func loadContentForFastSearch(db *sql.DB) {
 func addFileToFastSearch(fileID int64, certfp string, filename string, content string) {
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
-	fsContent[fileID] = strings.ToLower(content)
 	key := certfp + ":" + filename
+	// If a previous version of the file is in the cache, it should be removed
+	oldID, ok := fsID[key]
+	if ok {
+		delete(fsKey, oldID)
+		delete(fsContent, oldID)
+	}
+	fsContent[fileID] = strings.ToLower(content)
 	fsID[key] = fileID
 	fsKey[fileID] = key
 }
@@ -86,6 +92,20 @@ func removeHostFromFastSearch(certFingerprint string) {
 	}
 }
 
+func replaceCertificateInCache(oldCertFingerprint, newCertFingerprint string) {
+	fsMutex.Lock()
+	defer fsMutex.Unlock()
+	for key, fileID := range fsID {
+		ar := strings.SplitN(key, ":", 2)
+		if ar[0] == oldCertFingerprint {
+			newKey := newCertFingerprint + ":" + ar[1]
+			fsID[newKey] = fileID
+			fsKey[fileID] = newKey
+			delete(fsID, key)
+		}
+	}
+}
+
 func numberOfFilesInFastSearch() int {
 	// Don't want to return a count if the cache isn't fully loaded yet, it would be misleading
 	if !isReadyForSearch() {
@@ -101,49 +121,80 @@ func compareSearchCacheToDB(db *sql.DB) {
 	if !isReadyForSearch() {
 		return
 	}
-	// read a list of "current" file IDs from the database
-	source := make(map[int64]bool, 10000)
-	rows, err := db.Query("SELECT fileid FROM files WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
-	if err != nil {
-		log.Panic(err)
-	}
-	defer rows.Close()
-	for rows.Next() {
-		var fileID int64
-		err = rows.Scan(&fileID)
+
+	// Files are added and removed all the time.
+	// Even when locking the cache by mutex, there's a chance that something
+	// updates the database simultaneously and the cache won't be 100% in sync
+	// at the time of testing.
+	// A way to get around this is to run two passes with a few seconds in between,
+	// and only use the results that are persistent.
+	const passes = 2
+	obsolete := make([]map[int64]bool, passes)
+	missing := make([]map[int64]bool, passes)
+	for pass := 0; pass < passes; pass++ {
+
+		// Read a list of the IDs of "current" and parsed files from the database
+		source := make(map[int64]bool, 10000)
+		rows, err := db.Query("SELECT fileid FROM files WHERE current AND certfp IN (SELECT certfp FROM hostinfo)")
 		if err != nil {
 			log.Panic(err)
 		}
-		source[fileID] = true
-	}
-	if rows.Err() != nil {
-		log.Panic(rows.Err())
-	}
-	// find entries in the cache that should have been removed
-	obsolete := make([]int64, 0, 128)
-	fsMutex.RLock()
-	for fileID := range fsKey {
-		if _, ok := source[fileID]; !ok {
-			obsolete = append(obsolete, fileID)
+		defer rows.Close()
+		for rows.Next() {
+			var fileID int64
+			err = rows.Scan(&fileID)
+			if err != nil {
+				log.Panic(err)
+			}
+			source[fileID] = true
+		}
+		if rows.Err() != nil {
+			log.Panic(rows.Err())
+		}
+
+		// Allocate maps
+		obsolete[pass] = make(map[int64]bool)
+		missing[pass] = make(map[int64]bool)
+
+		// Find entries in the cache that should have been removed
+		fsMutex.RLock()
+		for fileID := range fsKey {
+			if _, ok := source[fileID]; !ok {
+				obsolete[pass][fileID] = true
+			}
+		}
+
+		// Find files that are missing from the cache
+		for fileID := range source {
+			_, ok := fsKey[fileID]
+			if !ok {
+				missing[pass][fileID] = true
+			}
+		}
+		fsMutex.RUnlock()
+
+		// Sleep between passes
+		if pass < passes-1 {
+			time.Sleep(time.Second * 5)
 		}
 	}
-	fsMutex.RUnlock()
-	// fix it by removing the obsolete entries
-	for _, fileID := range obsolete {
-		removeFileFromFastSearch(fileID)
+
+	// Remove the obsolete entries
+	rem := 0
+	for fileID, b := range obsolete[0] {
+		if b && obsolete[1][fileID] {
+			removeFileFromFastSearch(fileID)
+			rem++
+		}
 	}
-	if len(obsolete) > 0 {
-		log.Printf("The search cache had %d files that were obsolete", len(obsolete))
+	if rem > 0 {
+		log.Printf("The search cache had %d files that were obsolete", rem)
 	}
-	// find missing entries
-	var missingCount int
-	for fileID := range source {
-		fsMutex.RLock()
-		_, ok := fsKey[fileID]
-		fsMutex.RUnlock()
-		if !ok {
-			missingCount++
-			// fix it by loading the missing entry
+
+	// Load the missing files
+	mis := 0
+	for fileID, b := range missing[0] {
+		if b && missing[1][fileID] {
 			var filename, certfp, content sql.NullString
 			err := db.QueryRow("SELECT filename,certfp,content FROM files "+
 				"WHERE fileid=$1 AND current", fileID).
@@ -157,10 +208,11 @@ func compareSearchCacheToDB(db *sql.DB) {
 				continue
 			}
 			addFileToFastSearch(fileID, certfp.String, filename.String, content.String)
+			mis++
 		}
 	}
-	if missingCount > 0 {
-		log.Printf("The search cache was missing %d files", missingCount)
+	if mis > 0 {
+		log.Printf("The search cache was missing %d files", mis)
 	}
 }
 

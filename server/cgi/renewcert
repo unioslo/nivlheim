@@ -36,6 +36,7 @@ use MIME::Base64;
 use Proc::PID::File;
 use DBI;
 use Crypt::OpenSSL::X509;
+use LWP::Simple;
 
 # There is a race condition with openssl, so until that is solved
 # there can be only one instance of this script running at any time.
@@ -174,6 +175,9 @@ eval {
 		($new_fingerprint, $fingerprint)) or die $DBI::errstr;
 	$dbh->commit;
 	# No need to update certfp in hostinfo_customfields, because it has ON UPDATE CASCADE.
+
+	# Update the search cache, if the service is running
+	get("http://localhost:4040/api/internal/replaceCertificate?old=$fingerprint&new=$new_fingerprint");
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "

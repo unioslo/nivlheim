@@ -175,7 +175,6 @@ eval{
 
 	my $sth_clearcurrent = $dbh->prepare("UPDATE files SET current=false "
 		."WHERE fileid=? AND current");
-	my @no_longer_current = ();
 
 	my $sth_clearparsed = $dbh->prepare("UPDATE files SET parsed=false WHERE fileid=?");
 
@@ -288,7 +287,6 @@ eval{
 		# Set current to false for the previous version of this file
 		if (exists($currentfiles->{$originalfilename})) {
 			$sth_clearcurrent->execute(($currentfiles->{$originalfilename}->{'fileid'}));
-			push @no_longer_current, $currentfiles->{$originalfilename}->{'fileid'};
 			delete $currentfiles->{$originalfilename};
 		}
 
@@ -306,6 +304,7 @@ eval{
 
 	# clear the "current" flag for files that weren't in this package
 	$logger->debug("Clear the current flag for deleted files");
+	my @no_longer_current = ();
 	foreach (keys %{$currentfiles}) {
 		my $fileid = $currentfiles->{$_}->{'fileid'};
 		$sth_clearcurrent->execute(($fileid));

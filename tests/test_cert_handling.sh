@@ -77,15 +77,20 @@ if [ $OK -eq 0 ]; then
 fi
 echo ""
 
-# Stop the system daemon to prevent it from messing with the tests
-sudo systemctl stop nivlheim
-
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
 sudo psql apache -c "UPDATE hostinfo SET hostname='abcdef'"
 sudo /usr/sbin/nivlheim_client
 # one more time
 sudo psql apache -c "UPDATE hostinfo SET hostname='ghijkl'"
 sudo /usr/sbin/nivlheim_client
+
+# Verify that the GREP api returns data with the new hostname (regression test; had a bug earlier)
+curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
+if ! grep -q 'ghijkl' $tempdir/grepout; then
+	echo "The grep API returned unexpected results:"
+	cat $tempdir/grepout
+	exit 1
+fi
 
 # Verify the certificate chain
 chain=$(sudo psql apache --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
