@@ -3,7 +3,7 @@ cd "$(dirname "$0")"
 cd ../server/service
 if [[ `pwd` == *"src/github"* ]]; then
     # Looks like there is a Go folder structure in place
-    # ( $GOPATH/src/github.com/usit-gd/nivlheim/... )
+    # ( $GOPATH/src/github.com/unioslo/nivlheim/... )
     go get
     go test -v
     exit
@@ -14,10 +14,10 @@ function finish {
     rm -rf "$scratch"
 }
 trap finish EXIT
-mkdir -p $scratch/src/github.com/usit-gd/nivlheim/server
-ln -s -t $scratch/src/github.com/usit-gd/nivlheim/server "`pwd`"
+mkdir -p $scratch/src/github.com/unioslo/nivlheim/server
+ln -s -t $scratch/src/github.com/unioslo/nivlheim/server "`pwd`"
 export GOPATH="$scratch"
 export GOBIN="$GOPATH/bin"
 cd $GOPATH
-go get github.com/usit-gd/nivlheim/server/service
-go test -v github.com/usit-gd/nivlheim/server/service
+go get github.com/unioslo/nivlheim/server/service
+go test -v github.com/unioslo/nivlheim/server/service

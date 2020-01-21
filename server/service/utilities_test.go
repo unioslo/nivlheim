@@ -4,7 +4,7 @@ import (
 	"os"
 	"testing"
 
-	"github.com/usit-gd/nivlheim/server/service/utility"
+	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 func TestTransaction(t *testing.T) {

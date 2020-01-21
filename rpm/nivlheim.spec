@@ -10,8 +10,8 @@ Summary:  File collector
 Group:    Applications/System
 License:  GPLv3+
 
-URL:      https://github.com/usit-gd/nivlheim
-Source0:  https://github.com/usit-gd/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
+URL:      https://github.com/unioslo/nivlheim
+Source0:  https://github.com/unioslo/nivlheim/archive/%{getenv:GIT_BRANCH}.tar.gz
 Source1:  https://github.com/lib/pq/archive/master.tar.gz#/pq-master.tar.gz
 Source2:  https://github.com/golang/oauth2/archive/master.tar.gz#/oauth2-master.tar.gz
 Source3:  https://github.com/golang/net/archive/master.tar.gz#/net-master.tar.gz
@@ -162,8 +162,8 @@ export GOPATH=`pwd`/gopath
 rm -rf $GOPATH
 mkdir -p $GOPATH/{src,bin}
 export GOBIN="$GOPATH/bin"
-mkdir -p $GOPATH/src/github.com/usit-gd/nivlheim
-mv server $GOPATH/src/github.com/usit-gd/nivlheim
+mkdir -p $GOPATH/src/github.com/unioslo/nivlheim
+mv server $GOPATH/src/github.com/unioslo/nivlheim
 mkdir -p $GOPATH/src/github.com/lib/
 mv ../pq-master $GOPATH/src/github.com/lib/pq
 mkdir -p $GOPATH/src/golang.org/x
@@ -172,7 +172,7 @@ mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
 mkdir -p $GOPATH/src/gopkg.in/
 mv ../ldap-3.0.3 $GOPATH/src/gopkg.in/ldap.v3
 mv ../asn1-ber-1.3 $GOPATH/src/gopkg.in/asn1-ber.v1
-pushd $GOPATH/src/github.com/usit-gd/nivlheim/server/service
+pushd $GOPATH/src/github.com/unioslo/nivlheim/server/service
 NONETWORK=1 NOPOSTGRES=1 go test -v
 rm -f $GOPATH/bin/*
 # The linkmode=external flag is a fix for the error "No build ID note found in ...".
@@ -180,7 +180,7 @@ rm -f $GOPATH/bin/*
 # By using -w and -s we avoid the unstripped-binary-or-object warning from rpmlint
 go install -ldflags='-linkmode=external -w -s -X main.version=%{version}%{SUFFIX}'
 popd
-mv $GOPATH/src/github.com/usit-gd/nivlheim/server .
+mv $GOPATH/src/github.com/unioslo/nivlheim/server .
 # Replace the version number in nivlheim_client
 sed -i 's/0.0.0/%{version}%{SUFFIX}/g' client/nivlheim_client
 

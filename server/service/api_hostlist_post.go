@@ -11,7 +11,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/usit-gd/nivlheim/server/service/utility"
+	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 var apiHostListWritableFields = map[string]string{
