@@ -320,6 +320,10 @@ func getCertAndFilenameFromFileID(fileID int64) (string, string) {
 	fsMutex.RLock()
 	defer fsMutex.RUnlock()
 	ar := strings.Split(fsKey[fileID], ":")
+	if ar == nil || len(ar) < 2 {
+		// Should not happen, but if it does, do this to avoid a crash.
+		return "", ""
+	}
 	return ar[0], ar[1]
 }
 
