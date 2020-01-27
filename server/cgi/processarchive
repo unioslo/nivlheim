@@ -145,7 +145,7 @@ eval{
 
 	# TEMPORARY FIX:
 	# There's a bug in the Windows client, in some cases it gives the hostname without the domain.
-	# See: https://github.com/usit-gd/nivlheim/issues/138
+	# See: https://github.com/unioslo/nivlheim/issues/138
 	if (($meta{os_hostname} !~ /\./) && (-r "${dir}/commands/DomainName")) {
 		if (open($F,"${dir}/commands/DomainName")) {
 			<$F>; # discard the first line, which is the command itself

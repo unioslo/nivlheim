@@ -51,7 +51,7 @@ func (vars *apiMethodMultiStageSearch) ServeHTTP(w http.ResponseWriter, req *htt
 	}
 
 	// The user can specify a search that goes over several stages.
-	// For more information, see https://github.com/usit-gd/nivlheim/issues/121
+	// For more information, see https://github.com/unioslo/nivlheim/issues/121
 	var resultingCerts = make(map[string]bool, 0)
 	for stage := 1; ; stage++ {
 

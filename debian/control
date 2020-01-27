@@ -5,9 +5,9 @@ Maintainer: Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>
 Build-Depends: debhelper (>= 9~),
 	       quilt
 Standards-Version: 2.6.3
-Homepage: https://github.com/usit-gd/nivlheim
-Vcs-Git: git://github.com/usit-gd/nivlheim.git
-Vcs-Browser: https://github.com/usit-gd/nivlheim
+Homepage: https://github.com/unioslo/nivlheim
+Vcs-Git: git://github.com/unioslo/nivlheim.git
+Vcs-Browser: https://github.com/unioslo/nivlheim
 
 Package: nivlheim-client
 Architecture: all

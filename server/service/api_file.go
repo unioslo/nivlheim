@@ -2,8 +2,11 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"net/http"
+	"regexp"
 	"strconv"
+	"strings"
 
 	"github.com/lib/pq"
 )
@@ -21,6 +24,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	var fields map[string]bool
 	var hErr *httpError
 
+	// Output format: Just the raw contents, or a json structure with fields?
 	var rawFormat = req.FormValue("format") == "raw"
 
 	if rawFormat {
@@ -45,6 +49,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 		}
 	}
 
+	// Here's the SELECT/FROM part of the SQL statement
 	statement := "SELECT fileid,filename,is_command,mtime,received,content," +
 		"certfp,h.ownergroup,COALESCE(h.hostname,host(h.ipaddr)),current FROM files f " +
 		"LEFT JOIN hostinfo h USING (certfp) "
@@ -53,6 +58,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	var expectingOneRow = true
 
 	if req.FormValue("fileId") != "" {
+		// If a fileId is given, it tells us not only which file but which revision and from which host.
 		var fileID int64
 		fileID, err = strconv.ParseInt(req.FormValue("fileId"), 10, 64)
 		if err != nil {
@@ -64,6 +70,7 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	} else if req.FormValue("filename") != "" {
 		statement += "WHERE filename=$1"
 		var params = []interface{}{req.FormValue("filename")}
+		// A filename was given. There could be more than one revision, we shall select the latest.
 		if req.FormValue("hostname") != "" {
 			statement += " AND h.hostname=$2 ORDER BY mtime DESC LIMIT 1"
 			params = append(params, req.FormValue("hostname"))
@@ -71,13 +78,26 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 			statement += " AND certfp=$2 ORDER BY mtime DESC LIMIT 1"
 			params = append(params, req.FormValue("certfp"))
 		} else {
-			// No host specified? Ok so you want all the files.
+			// No host specified? Ok so you want this file from all the hosts.
 			expectingOneRow = false
 			// Filter on current so you only get the current version of each file.
 			statement += " AND current"
 			// Filter out what you don't have access to
 			if !access.HasAccessToAllGroups() {
 				statement += " AND h.ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
+			}
+			// Any requirement for lastseen?
+			matches := regexp.MustCompile(`lastseen([<>=])(\d+)([smhd])`).
+				FindStringSubmatch(req.URL.RawQuery)
+			if matches != nil {
+				operator := matches[1]
+				count, _ := strconv.Atoi(matches[2])
+				unit := matches[3]
+				statement += fmt.Sprintf(" AND now()-interval '%d%s' %s lastseen",
+					count, unit, operator)
+			} else if strings.Contains(req.URL.RawQuery, "lastseen") {
+				http.Error(w, "Wrong format for lastseen parameter", http.StatusBadRequest)
+				return
 			}
 		}
 		rows, err = vars.db.Query(statement, params...)
