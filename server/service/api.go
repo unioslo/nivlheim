@@ -81,6 +81,7 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	internal.HandleFunc("/api/internal/triggerJob/", runJob)
 	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
 	internal.HandleFunc("/api/internal/countFiles", countFiles)
+	internal.HandleFunc("/api/internal/replaceCertificate", replaceCertificate)
 	mux.Handle("/api/internal/", wrapOnlyAllowLocal(internal))
 
 	//

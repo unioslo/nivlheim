@@ -100,6 +100,14 @@ sudo /usr/sbin/nivlheim_client
 psql -c "UPDATE hostinfo SET hostname='ghijkl'"
 sudo /usr/sbin/nivlheim_client
 
+# Verify that the GREP api returns data with the new hostname (regression test; had a bug earlier)
+curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
+if ! grep -q 'ghijkl' $tempdir/grepout; then
+	echo "The grep API returned unexpected results:"
+	cat $tempdir/grepout
+	exit 1
+fi
+
 # Verify the certificate chain
 chain=$(psql --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
 expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")

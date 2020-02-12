@@ -329,6 +329,7 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 // - Supports "*" as a wildcard
 // - If a value starts with "!" it means not equal to or not like
 // - If a value starts with "<" or ">" it affects the comparison
+// - Can match one of several values if they are comma-separated
 func buildSQLWhere(queryString string, allowedFields []string) (string, []interface{}, *httpError) {
 	// This slice will hold multiple clauses that will be ANDed together after
 	where := make([]string, 0)

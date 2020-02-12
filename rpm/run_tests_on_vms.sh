@@ -54,7 +54,7 @@ fi
 if [[ "$GITHUB_TOKEN" != "" ]] && [[ "$GIT_COMMIT" != "" ]]; then
 	for IMAGE in "${IMAGES[@]}"; do
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
-			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
+			https://api.github.com/repos/unioslo/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"pending\",
 			\"target_url\": \"\",
 			\"description\": \"Results are pending...\",
@@ -162,7 +162,7 @@ for IMAGE in "${IMAGES[@]}"; do
 			fi
 		fi
 		curl -XPOST -H "Authorization: token $GITHUB_TOKEN" \
-			https://api.github.com/repos/usit-gd/nivlheim/statuses/$GIT_COMMIT -d "{
+			https://api.github.com/repos/unioslo/nivlheim/statuses/$GIT_COMMIT -d "{
 			\"state\": \"$STATUS\",
 			\"target_url\": \"$URL\",
 			\"description\": \"$STATUS\",
