@@ -78,9 +78,6 @@ if [ $OK -eq 0 ]; then
 fi
 echo ""
 
-# Stop the system daemon to prevent it from messing with the tests
-sudo systemctl stop nivlheim
-
 # Read database connection options from server.conf and set ENV vars for psql
 if [[ -r "/etc/nivlheim/server.conf" ]]; then
 	# grep out the postgres config options and make the names upper case
