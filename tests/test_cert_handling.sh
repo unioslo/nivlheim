@@ -10,6 +10,9 @@
 echo "------------- Testing certificate handling ------------"
 set -e
 
+# Put a marker in the httpd access log
+curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' || true
+
 # tempdir
 tempdir=$(mktemp -d -t tmp.XXXXXXXXXX)
 function finish {
@@ -90,20 +93,16 @@ else
 fi
 export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
 
+# Let's see what's in hostinfo
+psql -c "SELECT hostname,certfp FROM hostinfo"
+
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
 psql -c "UPDATE hostinfo SET hostname='abcdef'"
-sudo /usr/sbin/nivlheim_client
+sudo /usr/sbin/nivlheim_client --debug > /tmp/first 2>&1
 # one more time
+sleep 3
 psql -c "UPDATE hostinfo SET hostname='ghijkl'"
-sudo /usr/sbin/nivlheim_client
-
-# Verify that the GREP api returns data with the new hostname (regression test; had a bug earlier)
-curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
-if ! grep -q 'ghijkl' $tempdir/grepout; then
-	echo "The grep API returned unexpected results:"
-	cat $tempdir/grepout
-	exit 1
-fi
+sudo /usr/sbin/nivlheim_client --debug > /tmp/second 2>&1
 
 # Verify the certificate chain
 chain=$(psql --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
@@ -111,6 +110,23 @@ expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "Certificate chain differs from expected value:"
 	psql -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
+	echo "================= httpd log:  ========================="
+	sudo tail -20 /var/log/httpd/access_log
+	echo "================= client output (1st time): ==========="
+	cat /tmp/first
+	echo "================= client output (2nd time): ==========="
+	cat /tmp/second
+	exit 1
+fi
+
+# Verify that the GREP api returns data with the new hostname (regression test; had a bug earlier)
+curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
+if ! grep -q 'ghijkl' $tempdir/grepout; then
+	echo "The grep API returned unexpected results:"
+	cat $tempdir/grepout
+	echo ""
+	echo "journal:"
+	journalctl -u nivlheim
 	exit 1
 fi
 
