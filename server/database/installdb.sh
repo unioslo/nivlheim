@@ -3,8 +3,26 @@
 # halt on errors
 set -e
 
+# read server.conf and set env vars for database connection parameters
+if [[ -r "/etc/nivlheim/server.conf" ]]; then
+	# grep out the postgres config options and make the names upper case
+	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
+	source /tmp/dbconf
+	rm /tmp/dbconf
+else
+	echo "Unable to read server.conf"
+	exit 1
+fi
+export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+
 # go to the script directory, where the sql files are
 cd $(dirname $0)
+
+# Verify that I am able to connect to the database
+if ! psql -X -w -c "SELECT version()" >/dev/null; then
+	echo "Unable to connect to the database"
+	exit 1
+fi
 
 # Determine the current patch level
 PATCHLEVEL=0
@@ -28,5 +46,6 @@ for P in $(seq -w 1 999); do
 		break
 	fi
 	echo "Applying $FILE"
-	psql -X -1 -w -v ON_ERROR_STOP=1 -f $FILE
+	psql -X -1 -w -q -v ON_ERROR_STOP=1 --pset pager=off -f $FILE
+	# See also: http://petereisentraut.blogspot.com/2010/03/running-sql-scripts-with-psql.html
 done

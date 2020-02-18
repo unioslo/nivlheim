@@ -23,7 +23,7 @@ sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
 	/var/www/nivlheim/queue/*
 echo -n | sudo tee /var/log/httpd/error_log
-sudo -u apache /var/nivlheim/installdb.sh --wipe
+/var/nivlheim/installdb.sh --wipe
 sudo systemctl start nivlheim
 sleep 4
 
@@ -63,6 +63,8 @@ fi
 if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key 'https://localhost/cgi-bin/secure/ping'
 then
 	echo "The certificate wasn't revoked!"
+	echo "----- access_log -----"
+	sudo tail -10 /var/log/httpd/access_log
 	exit 1
 fi
 
@@ -77,11 +79,23 @@ if sudo grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
 	exit 1
 fi
 
+# Read database connection options from server.conf and set ENV vars for psql
+if [[ -r "/etc/nivlheim/server.conf" ]]; then
+	# grep out the postgres config options and make the names upper case
+	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
+	source /tmp/dbconf
+	rm /tmp/dbconf
+else
+	echo "Unable to read server.conf"
+	exit 1
+fi
+export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+
 # Check that the database table contains 2 certs, 1 revoked
-chain=$(sudo psql apache --no-align -t -c "SELECT certid,revoked,first FROM certificates ORDER BY certid")
+chain=$(psql -X --no-align -t -c "SELECT certid,revoked,first FROM certificates ORDER BY certid")
 expect=$(echo -e "1|t|1\n")
 if [[ "$chain" != "$expect" ]]; then
-	sudo psql apache -c "SELECT certid,revoked,first FROM certificates ORDER BY certid"
+	psql -X -c "SELECT certid,revoked,first FROM certificates ORDER BY certid"
 	echo "The certificate list differ from expectation"
 	exit 1
 fi

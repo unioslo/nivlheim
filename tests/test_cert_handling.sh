@@ -10,6 +10,9 @@
 echo "------------- Testing certificate handling ------------"
 set -e
 
+# Put a marker in the httpd access log
+curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' || true
+
 # tempdir
 tempdir=$(mktemp -d -t tmp.XXXXXXXXXX)
 function finish {
@@ -23,11 +26,12 @@ sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
 	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
 	/var/www/nivlheim/queue/*
 echo -n | sudo tee /var/log/httpd/error_log
-sudo -u apache /var/nivlheim/installdb.sh --wipe
+/var/nivlheim/installdb.sh --wipe
 sudo systemctl start nivlheim
 sleep 4
 
 # Run the client. This will call reqcert and post
+echo "Running the client"
 if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
     echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
 fi
@@ -77,27 +81,52 @@ if [ $OK -eq 0 ]; then
 fi
 echo ""
 
+# Read database connection options from server.conf and set ENV vars for psql
+if [[ -r "/etc/nivlheim/server.conf" ]]; then
+	# grep out the postgres config options and make the names upper case
+	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
+	source /tmp/dbconf
+	rm /tmp/dbconf
+else
+	echo "Unable to read server.conf"
+	exit 1
+fi
+export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
+
+# Let's see what's in hostinfo
+psql -c "SELECT hostname,certfp FROM hostinfo"
+
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
-sudo psql apache -c "UPDATE hostinfo SET hostname='abcdef'"
-sudo /usr/sbin/nivlheim_client
+psql -c "UPDATE hostinfo SET hostname='abcdef'"
+sudo /usr/sbin/nivlheim_client --debug > /tmp/first 2>&1
 # one more time
-sudo psql apache -c "UPDATE hostinfo SET hostname='ghijkl'"
-sudo /usr/sbin/nivlheim_client
+sleep 3
+psql -c "UPDATE hostinfo SET hostname='ghijkl'"
+sudo /usr/sbin/nivlheim_client --debug > /tmp/second 2>&1
+
+# Verify the certificate chain
+chain=$(psql --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
+expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
+if [[ "$chain" != "$expect" ]]; then
+	echo "Certificate chain differs from expected value:"
+	psql -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
+	echo "================= httpd log:  ========================="
+	sudo tail -20 /var/log/httpd/access_log
+	echo "================= client output (1st time): ==========="
+	cat /tmp/first
+	echo "================= client output (2nd time): ==========="
+	cat /tmp/second
+	exit 1
+fi
 
 # Verify that the GREP api returns data with the new hostname (regression test; had a bug earlier)
 curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
 if ! grep -q 'ghijkl' $tempdir/grepout; then
 	echo "The grep API returned unexpected results:"
 	cat $tempdir/grepout
-	exit 1
-fi
-
-# Verify the certificate chain
-chain=$(sudo psql apache --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
-expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
-if [[ "$chain" != "$expect" ]]; then
-	echo "Certificate chain differs from expected value:"
-	sudo psql apache -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
+	echo ""
+	echo "journal:"
+	journalctl -u nivlheim
 	exit 1
 fi
 
@@ -122,7 +151,7 @@ sudo mv -f my.old.key my.key # restore the old key file
 popd
 
 # Blacklist and check response
-sudo psql apache -q -c "UPDATE certificates SET revoked=true"
+psql -q -c "UPDATE certificates SET revoked=true"
 # Test ping
 if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/ping; then

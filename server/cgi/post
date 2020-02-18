@@ -35,6 +35,7 @@ use Encode qw(from_to);
 use Archive::Zip qw( :ERROR_CODES :CONSTANTS );
 use File::Copy;
 use DBI;
+use Nivlheim::Database;
 
 sub run_command($);
 
@@ -66,14 +67,7 @@ eval {
 	$logger->debug("cert fingerprint: '$fingerprint' from $ipaddr");
 
 	# Connect to Postgres
-	my $dbh = DBI->connect("dbi:Pg:", "", "");
-	if (!$dbh) {
-		print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
-		print "Unable to connect to Postgres database:\n";
-		print $DBI::errstr . "\n";
-		$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-		exit 1;
-	}
+	my $dbh = Nivlheim::Database->connect_to_db();
 
 	# Check if the certificate has been revoked, and check the nonce
 	my @row = $dbh->selectrow_array(
@@ -256,11 +250,8 @@ eval {
 	# Enqueue the files
 	move($archivefile, $queuedir);
 	move("$archivefile.meta", $queuedir);
-
-	$dbh->disconnect;
 };
 if ($@) {
-	$dbh->disconnect if ($dbh);
 	$logger->error("[$shorthost] " . $@);
 	print CGI::header(
 		-type => 'text/plain',
@@ -269,6 +260,7 @@ if ($@) {
 };
 
 # Clean up
+$dbh->disconnect if ($dbh);
 unlink($archivefile) if (defined($archivefile));
 unlink($signaturefile) if (defined($signaturefile));
 unlink("$archivefile.meta") if (defined($archivefile));

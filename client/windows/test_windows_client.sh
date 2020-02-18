@@ -93,9 +93,9 @@ bootend=`date +%s`
 boottime=$((bootend-bootstart))
 echo "That only took $boottime seconds, good job."
 
-# Install the Nivlheim server package
-sshnokey fedora\@$FEDIP -C "sudo dnf copr -y enable oyvindh/Nivlheim-test"
-sshnokey fedora\@$FEDIP -C "sudo dnf install -y nivlheim-server"
+# Install and set up Nivlheim and PostgresSQL
+scpnokey "$(dirname "$0")/../../rpm/test_packages.sh" fedora\@$FEDIP:/tmp/
+sshnokey fedora\@$FEDIP -C "chmod 755 /tmp/test_packages.sh && sudo /tmp/test_packages.sh --installonly"
 
 # Pre-approve the Windows machine
 curl -sSk --data "hostname=foo.example.com&ipAddress=$WINIP&approved=true" "https://$FEDIP/api/v2/manualApproval"
@@ -109,7 +109,7 @@ encoded=$(base64 --wrap=0 client.conf)
 sshnokey admin\@$WINIP -C "reg add HKEY_LOCAL_MACHINE\\SOFTWARE\\Nivlheim /f /v config /t REG_SZ /d $encoded"
 
 # run the script with -certfile and -logfile pointing to a place the script is allowed to write
-sshnokey admin\@$WINIP -C "powershell -Command ./nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -server $FEDIP -trustallcerts:1"
+sshnokey admin\@$WINIP -C "powershell -Command ./nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -server $FEDIP -trustallcerts:1 -nosleep:1"
 
 # verify that the Powershell script actually sent some data
 OK=0

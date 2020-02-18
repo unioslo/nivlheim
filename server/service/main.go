@@ -2,13 +2,13 @@ package main
 
 import (
 	"database/sql"
+	"fmt"
 	"log"
 	"math/rand"
 	"os"
 	"os/signal"
 	"reflect"
 	"regexp"
-	"runtime"
 	"syscall"
 	"time"
 )
@@ -73,13 +73,19 @@ func main() {
 
 	// Connect to database
 	var dbConnectionString string
-	if runtime.GOOS == "windows" {
-		dbConnectionString = "sslmode=disable host=127.0.0.1 port=5432"
+	if config.PGhost != "" {
+		if config.PGport == 0 {
+			config.PGport = 5432
+		}
+		dbConnectionString = fmt.Sprintf(
+			"host=%s port=%d dbname=%s user=%s password='%s' sslmode=%s",
+			config.PGhost, config.PGport, config.PGdatabase,
+			config.PGuser, config.PGpassword, config.PGsslmode)
+		log.Printf("Connecting to database %s on host %s\n",
+			config.PGdatabase, config.PGhost)
 	} else {
-		dbConnectionString = "host=/var/run/postgresql"
-	}
-	if !devmode {
-		dbConnectionString += " dbname=apache"
+		log.Println("Missing database connection parameters in server.conf")
+		return
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {

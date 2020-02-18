@@ -2,6 +2,7 @@
 use Time::Piece;
 use Crypt::OpenSSL::X509;
 use DBI;
+use Nivlheim::Database;
 
 # If the client cert will expire soon, politely ask it to renew
 my $timestamp = $ENV{'SSL_CLIENT_V_END'};
@@ -30,15 +31,7 @@ my $fingerprint = $x509->fingerprint_sha1();
 $fingerprint =~ s/://g;
 
 # Check revoked status
-my %attr = ("AutoCommit" => 1);
-my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
-if (!$dbh) {
-	print "Status: 500\r\nContent-Type: text/plain\r\n\r\n";
-	print "Unable to connect to Postgres database:\n";
-	print $DBI::errstr . "\n";
-	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-	exit;
-}
+my $dbh = Nivlheim::Database->connect_to_db();
 my @row = $dbh->selectrow_array(
 	"SELECT revoked FROM certificates WHERE fingerprint=?",
 	undef, ($fingerprint));

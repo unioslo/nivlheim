@@ -37,6 +37,7 @@ use Proc::PID::File;
 use DBI;
 use Crypt::OpenSSL::X509;
 use LWP::Simple;
+use Nivlheim::Database;
 
 # There is a race condition with openssl, so until that is solved
 # there can be only one instance of this script running at any time.
@@ -68,15 +69,8 @@ my $fingerprint = $x509->fingerprint_sha1();
 $fingerprint =~ s/://g;
 
 # Connect to Postgres
-my %attr = ("AutoCommit" => 0);
-my $dbh = DBI->connect("dbi:Pg:", "", "", \%attr);
-if (!$dbh) {
-	print "Status: 500 Internal server error\r\nContent-Type: text/plain\r\n\r\n";
-	print "Unable to connect to Postgres database:\n";
-	print $DBI::errstr . "\n";
-	$logger->error("Unable to connect to Postgres: " . $DBI::errstr);
-	exit 1;
-}
+my $dbh = Nivlheim::Database->connect_to_db();
+$dbh->begin_work;
 
 # Check if the certificate has been revoked
 my @row = $dbh->selectrow_array(

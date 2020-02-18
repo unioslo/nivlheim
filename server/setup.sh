@@ -61,35 +61,16 @@ done
 setsebool -P httpd_can_network_connect_db on
 setsebool -P httpd_can_network_connect on  # for proxy connections to the API
 
-# initialize postgresql. new/old syntax
-if [ -d /var/lib/pgsql/data ] && [ -z "$(ls /var/lib/pgsql/data)" ]; then
-	if ! (/usr/bin/postgresql-setup --initdb || /usr/bin/postgresql-setup initdb); then
-		echo "Unable to initialize PostgreSQL database."
-		echo "Assuming there is an existing installation."
-	fi
-fi
-
-# restart apache httpd and postgres
-systemctl restart httpd postgresql
-
-# create a database user that
-# local httpd processes will automatically authenticate as,
-# as long as Postgres is set up for peer authentication
-sudo -u postgres bash -c "createuser apache"
-sudo -u postgres bash -c "psql -c \"create database apache\""
-
-# let the root user have access to the database too
-sudo -u postgres bash -c "createuser root"
-sudo -u postgres bash -c "psql -c \"grant apache to root\""
-
-# PostgreSQL Trigram extension
-# sudo -u postgres psql -c "CREATE EXTENSION IF NOT EXISTS pg_trgm" apache
+# restart apache httpd
+systemctl restart httpd
 
 # update the database schema
-sudo -u apache /var/nivlheim/installdb.sh
+# Ensure the system service isn't running
+systemctl stop nivlheim
+/var/nivlheim/installdb.sh
 
 # start the Nivlheim service
-systemctl restart nivlheim
+systemctl start nivlheim
 
 # enable the services
-systemctl enable httpd postgresql nivlheim
+systemctl enable httpd nivlheim
