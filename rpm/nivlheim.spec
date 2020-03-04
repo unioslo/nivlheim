@@ -114,6 +114,7 @@ Requires: perl(Net::DNS)
 Requires: perl(Net::IP)
 Requires: perl(Proc::PID::File)
 Requires: perl(Time::Piece)
+Requires(pre): shadow-utils
 
 %description client
 This package contains the client component of Nivlheim.
@@ -276,6 +277,17 @@ rm -rf %{buildroot}
 %attr(0755, root, root) %{_localstatedir}/nivlheim/setup.sh
 %{_prefix}/%{_lib}/perl5/Nivlheim/Database.pm
 
+%pre server
+# create a user and group
+export GROUPNAME=nivlheim
+export USERNAME=nivlheim
+export HOMEDIR=/var/www/nivlheim
+getent group $GROUPNAME >/dev/null || groupadd -r $GROUPNAME
+getent passwd $USERNAME >/dev/null || \
+    useradd -r -g $GROUPNAME -d $HOMEDIR -s /sbin/nologin \
+    -c "This user runs the Nivlheim system service" $USERNAME
+exit 0
+
 %post server
 %{_localstatedir}/nivlheim/setup.sh || exit 1
 %systemd_post %{name}.service
@@ -287,6 +299,9 @@ rm -rf %{buildroot}
 %systemd_postun_with_restart %{name}.service
 
 %changelog
+* Tue Mar 03 2020 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.7.2-2020303
+- Run the system service as a non-privileged user (not root)
+
 * Fri Dec 20 2019 Øyvind Hagberg <oyvind.hagberg@usit.uio.no> - 2.6.4-20191220
 - Removed dependencies on Postgres packages for the server
 - Added a custom Perl module for Nivlheim
