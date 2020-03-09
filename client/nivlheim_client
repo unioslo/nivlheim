@@ -260,6 +260,13 @@ if ($have_cert) {
 	}
 }
 
+# Verify that it is possible to write 16kB to the location where certificates are stored
+my $fn = dirname($opt{cert_file})."/temp";
+open(my $F2, ">$fn") || die "Unable to open $fn for writing";
+unlink($fn);
+print $F2 "a" x 16384 || die "Unable to write to $fn";
+close($F2);
+
 # Is there a client certificate present? Test if it works
 my $cert_works = 0;
 if ($have_cert) {
