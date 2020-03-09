@@ -27,6 +27,7 @@ use Archive::Tar;
 use HTTP::Request::Common;
 use Sys::Hostname;
 use Sys::Syslog qw(:standard :macros);
+use Fcntl ':flock';
 use File::Path qw(remove_tree mkpath);
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
@@ -124,16 +125,6 @@ if ($opt{version}) {
 	exit 0;
 }
 
-# sleep if cmdline parameter says so
-if ($opt{sleeprandom}) {
-	# Take the sum of the characters in the hostname,
-	# divide by the parameter value and take the remainder.
-	# Sleep that many seconds.
-	# (i.e. a "random" delay but the same every time)
-	print "sleeping...\n" if ($opt{debug});
-	sleep unpack("%32W*",hostname) % $opt{sleeprandom};
-}
-
 # minimum period between successful runs
 if ($opt{minperiod}) {
 	my @stat = stat "/var/run/nivlheim_client_last_run";
@@ -145,6 +136,21 @@ if ($opt{minperiod}) {
 			exit 64
 		}
 	}
+}
+
+# If another instance of this script is already running, exit.
+# Implemented this way because we don't want the package to depend on EPEL,
+# and unfortunately all the Perl modules for checking PID are there.
+open SELF, "< $0" or exit;
+unless ( flock SELF, LOCK_EX | LOCK_NB ) {
+	# Another instance is running
+	exit;
+}
+
+# sleep if cmdline parameter says so
+if ($opt{sleeprandom}) {
+	print "sleeping...\n" if ($opt{debug});
+	sleep int(rand($opt{sleeprandom}));
 }
 
 # Log to stdout or syslog depending on whether we have a TTY
