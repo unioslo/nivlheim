@@ -126,8 +126,8 @@ if ($opt{version}) {
 }
 
 # minimum period between successful runs
+my @stat = stat "/var/run/nivlheim_client_last_run";
 if ($opt{minperiod}) {
-	my @stat = stat "/var/run/nivlheim_client_last_run";
 	if ($#stat>=0) {
 		my $seconds_since_last_time = time()-$stat[9];
 		if ($seconds_since_last_time < $opt{minperiod}) {
@@ -147,8 +147,8 @@ unless ( flock SELF, LOCK_EX | LOCK_NB ) {
 	exit;
 }
 
-# sleep if cmdline parameter says so
-if ($opt{sleeprandom}) {
+# sleep if cmdline parameter says so, and there has been at least one successful run earlier
+if ($opt{sleeprandom} && $#stat>=0) {
 	print "sleeping...\n" if ($opt{debug});
 	sleep int(rand($opt{sleeprandom}));
 }
