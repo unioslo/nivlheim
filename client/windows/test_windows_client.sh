@@ -38,7 +38,7 @@ echo "IP address: \"$WINIP\""
 echo "Creating a Fedora VM..."
 FED="Trilby"
 openstack server delete --wait $FED 2>/dev/null || true # just to be sure
-openstack server create --flavor m1.small --image "GOLD Fedora 30" --nic net-id=dualStack --key-name $KEYPAIRNAME --wait $FED
+openstack server create --flavor m1.small --image "GOLD Fedora 31" --nic net-id=dualStack --key-name $KEYPAIRNAME --wait $FED
 FEDIP=$(openstack server list | grep $FED | grep -oE '[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}')
 echo "IP address: \"$FEDIP\""
 
