@@ -86,6 +86,10 @@ func (vars *apiMethodFile) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 			if !access.HasAccessToAllGroups() {
 				statement += " AND h.ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
 			}
+			// Possibly filter out hosts with undetermined hostnames
+			if config.HideUnknownHosts {
+				statement += " AND h.hostname IS NOT NULL"
+			}
 			// Any requirement for lastseen?
 			matches := regexp.MustCompile(`lastseen([<>=])(\d+)([smhd])`).
 				FindStringSubmatch(req.URL.RawQuery)

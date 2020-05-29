@@ -67,7 +67,13 @@ func (vars *apiMethodGrep) ServeHTTP(w http.ResponseWriter, req *http.Request, a
 	w.Header().Set("Content-Type", "text/plain")
 
 	// Grab hostnames from the database, they're not in memory
-	rows, err := vars.db.Query("SELECT certfp,COALESCE(hostname,host(ipaddr)) FROM hostinfo")
+	var stmt string
+	if config.HideUnknownHosts {
+		stmt = "SELECT certfp,hostname FROM hostinfo WHERE hostname IS NOT NULL"
+	} else {
+		stmt = "SELECT certfp,COALESCE(hostname,host(ipaddr)) FROM hostinfo"
+	}
+	rows, err := vars.db.Query(stmt)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -102,6 +108,13 @@ outer:
 		matches := findMatchesInFile(fileID, query, math.MaxInt64)
 		certfp, filename := getCertAndFilenameFromFileID(fileID)
 		previousStart := -1
+
+		// Possibly filter out hosts with undetermined hostnames
+		if config.HideUnknownHosts {
+			if _,ok := certfp2hostname[certfp]; !ok {
+				continue
+			}
+		}
 
 		// Retrieve the file content from the database
 		var nstr sql.NullString

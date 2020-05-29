@@ -20,6 +20,7 @@ type Config struct {
 	AuthRequired                bool
 	ArchiveDayLimit             int
 	DeleteDayLimit              int
+	HideUnknownHosts            bool
 	LDAPServer                  string
 	LDAPUserTree                string
 	LDAPMemberAttr              string

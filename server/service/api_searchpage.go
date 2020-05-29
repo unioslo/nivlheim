@@ -141,6 +141,9 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		"COALESCE(hostname,host(hostinfo.ipaddr)),certfp,content " +
 		"FROM files LEFT JOIN hostinfo USING (certfp) " +
 		"WHERE fileid=$1"
+	if config.HideUnknownHosts {
+		statement += " AND hostinfo.hostname IS NOT NULL"
+	}
 
 	offset := (result.Page - 1) * pageSize
 	for i := offset; i < offset+pageSize && i < len(hitIDs); i++ {
@@ -151,7 +154,7 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		err = vars.db.QueryRow(statement, fileID).
 			Scan(&filename, &isCommand, &hostname, &certfp, &content)
 		if err == sql.ErrNoRows {
-			log.Printf("Didn't find the file %d", fileID)
+			//log.Printf("Didn't find the file %d", fileID)
 			continue
 		}
 		if err != nil {
