@@ -100,31 +100,42 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 
 	filename := req.FormValue("filename")
 
+	// Compute a list of which certificates the user has access to
+	// based on current hosts in hostinfo owned by one of the groups the user has access to.
 	var hitIDs []int64
 	var distinctFilenames map[string]int
-	if access.HasAccessToAllGroups() {
-		hitIDs, distinctFilenames = searchFiles(result.Query, filename)
-	} else {
-		// Compute a list of which certificates the user has access to,
-		// based on current hosts in hostinfo owned by one of the groups the user has access to.
-		list, err := QueryColumn(vars.db, "SELECT certfp FROM hostinfo WHERE ownergroup IN ("+
-			access.GetGroupListForSQLWHERE()+")")
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			log.Println(err.Error())
-			return
-		}
-		// List is a slice of interface{}, so I must convert that to a map[string]bool
-		validCerts := make(map[string]bool, 100)
-		for _, s := range list {
-			str, ok := s.(string)
-			if ok {
-				validCerts[str] = true
-			}
-		}
-		// Finally, we can perform the search
-		hitIDs, distinctFilenames = searchFilesWithFilter(result.Query, filename, validCerts)
+	statement := "SELECT certfp FROM hostinfo"
+	whereAnd := "WHERE"
+	if !access.HasAccessToAllGroups() {
+		statement += " " + whereAnd + " ownergroup IN ("+access.GetGroupListForSQLWHERE()+")"
+		whereAnd = "AND"
 	}
+	if config.HideUnknownHosts {
+		// Hide hosts where the hostname is not determined
+		statement += " " + whereAnd + " hostinfo.hostname IS NOT NULL"
+	}
+
+	// Perform the database query for the list of valid certificates
+	list, err := QueryColumn(vars.db, statement)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		log.Println(err.Error())
+		return
+	}
+
+	// List is a slice of interface{}, so I must convert that to a map[string]bool
+	validCerts := make(map[string]bool, 100)
+	for _, s := range list {
+		str, ok := s.(string)
+		if ok {
+			validCerts[str] = true
+		}
+	}
+
+	// Finally, we can perform the search
+	hitIDs, distinctFilenames = searchFilesWithFilter(result.Query, filename, validCerts)
+
+	// Put together a data structure with the results
 	result.NumHits = len(hitIDs)
 	result.Hits = make([]apiSearchPageHit, 0)
 	result.MaxPage = int(math.Ceil(float64(result.NumHits) / float64(pageSize)))
@@ -137,14 +148,10 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	sort.Strings(result.Filenames)
 
 	// Augment the search results with more data that's not in the cache.
-	statement := "SELECT filename,is_command," +
+	statement = "SELECT filename,is_command," +
 		"COALESCE(hostname,host(hostinfo.ipaddr)),certfp,content " +
 		"FROM files LEFT JOIN hostinfo USING (certfp) " +
 		"WHERE fileid=$1"
-	if config.HideUnknownHosts {
-		statement += " AND hostinfo.hostname IS NOT NULL"
-	}
-
 	offset := (result.Page - 1) * pageSize
 	for i := offset; i < offset+pageSize && i < len(hitIDs); i++ {
 		fileID := hitIDs[i]
@@ -154,7 +161,7 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 		err = vars.db.QueryRow(statement, fileID).
 			Scan(&filename, &isCommand, &hostname, &certfp, &content)
 		if err == sql.ErrNoRows {
-			//log.Printf("Didn't find the file %d", fileID)
+			log.Printf("Didn't find the file with ID %d", fileID)
 			continue
 		}
 		if err != nil {
