@@ -33,7 +33,7 @@ param(
 	[bool]$nosleep = $false
 )
 
-Set-Variable version -option Constant -value "2.7.3"
+Set-Variable version -option Constant -value "2.7.4"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx

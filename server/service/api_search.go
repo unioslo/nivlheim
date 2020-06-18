@@ -96,10 +96,9 @@ func (vars *apiMethodSearch) ServeHTTP(w http.ResponseWriter, req *http.Request,
 		temp := make([]string, 0, len(fields))
 		for _, f := range apiHostListStandardFields {
 			if fields[f.publicName] {
-				if f.publicName == "hostname" {
-					temp = append(temp, "COALESCE(hostname,host(h.ipaddr))")
-				} else if f.publicName == "ipAddress" {
-					temp = append(temp, "host(h.ipaddr)")
+				if f.expression != "" {
+					// both files and hostlist tables have a column called ipaddr
+					temp = append(temp, strings.Replace(f.expression, "ipaddr", "h.ipaddr", -1))
 				} else {
 					temp = append(temp, "h."+f.columnName)
 				}

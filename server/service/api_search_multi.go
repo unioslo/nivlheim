@@ -150,10 +150,8 @@ func (vars *apiMethodMultiStageSearch) ServeHTTP(w http.ResponseWriter, req *htt
 		temp := make([]string, 0, len(fields))
 		for _, f := range apiHostListStandardFields {
 			if fields[f.publicName] {
-				if f.publicName == "hostname" {
-					temp = append(temp, "COALESCE(hostname,host(ipaddr))")
-				} else if f.publicName == "ipAddress" {
-					temp = append(temp, "host(ipaddr)")
+				if f.expression != "" {
+					temp = append(temp, f.expression)
 				} else {
 					temp = append(temp, f.columnName)
 				}
