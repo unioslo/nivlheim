@@ -24,14 +24,16 @@ func TestSearchCaseSensitivity(t *testing.T) {
 	const content2 = "Night and Fog and definitely no sugar"
 	const hostname = "acme.example.com"
 	const hostname2 = "blammo.example.com"
-	_, err := db.Exec("INSERT INTO files(fileid,filename,certfp,content) "+
-		"VALUES($1,$2,$3,$4)", fileID, filename, certfp, content)
+	const ip = "192.168.1.4"
+	const ip2 = "192.168.2.5"
+	_, err := db.Exec("INSERT INTO files(fileid,filename,certfp,content,ipaddr) "+
+		"VALUES($1,$2,$3,$4,$5)", fileID, filename, certfp, content, ip)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("INSERT INTO hostinfo(certfp,hostname) VALUES($1,$2)",
-		certfp, hostname)
+	_, err = db.Exec("INSERT INTO hostinfo(certfp,hostname,ipaddr) VALUES($1,$2,$3)",
+		certfp, hostname, ip)
 	if err != nil {
 		t.Error(err)
 		return
@@ -39,14 +41,14 @@ func TestSearchCaseSensitivity(t *testing.T) {
 	addFileToFastSearch(fileID, certfp, filename, content)
 
 	// The same file with different content on another host
-	_, err = db.Exec("INSERT INTO files(fileid,filename,certfp,content) "+
-		"VALUES($1,$2,$3,$4)", fileID+1, filename, certfp2, content2)
+	_, err = db.Exec("INSERT INTO files(fileid,filename,certfp,content,ipaddr) "+
+		"VALUES($1,$2,$3,$4,$5)", fileID+1, filename, certfp2, content2, ip2)
 	if err != nil {
 		t.Error(err)
 		return
 	}
-	_, err = db.Exec("INSERT INTO hostinfo(certfp,hostname) VALUES($1,$2)",
-		certfp2, hostname2)
+	_, err = db.Exec("INSERT INTO hostinfo(certfp,hostname,ipaddr) VALUES($1,$2,$3)",
+		certfp2, hostname2, ip2)
 	if err != nil {
 		t.Error(err)
 		return
@@ -107,6 +109,17 @@ func TestSearchCaseSensitivity(t *testing.T) {
 				"&fields=hostname",
 			expectStatus: http.StatusOK,
 			expectJSON:   `[{"hostname":"` + hostname2 + `"}]`,
+		},
+		// Test a search that returns ip address and hostname
+		{
+			methodAndPath: "GET /api/v2/search?q=night&fields=ipAddress,hostname",
+			expectStatus: http.StatusOK,
+			expectJSON: `[{"ipAddress":"` + ip2 + `","hostname":"`+hostname2+`"}]`,
+		},
+		{
+			methodAndPath: "GET /api/v2/msearch?q1=night&fields=ipAddress,hostname",
+			expectStatus: http.StatusOK,
+			expectJSON: `[{"ipAddress":"` + ip2 + `","hostname":"`+hostname2+`"}]`,
 		},
 	}
 

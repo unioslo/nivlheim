@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -21,11 +22,12 @@ type apiMethodHostList struct {
 type apiHostListStandardField struct {
 	publicName string
 	columnName string
+	expression string
 }
 
 var apiHostListStandardFields = []apiHostListStandardField{
-	{publicName: "ipAddress", columnName: "host(ipaddr)"},
-	{publicName: "hostname", columnName: "hostname"},
+	{publicName: "ipAddress", columnName: "ipaddr", expression: "host(ipaddr)"},
+	{publicName: "hostname", columnName: "hostname", expression: "COALESCE(hostname,host(ipaddr))"},
 	{publicName: "lastseen", columnName: "lastseen"},
 	{publicName: "os", columnName: "os"},
 	{publicName: "osEdition", columnName: "os_edition"},
@@ -109,8 +111,8 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	// Start with the standard fields:
 	temp := make([]string, 0, len(apiHostListStandardFields))
 	for _, f := range apiHostListStandardFields {
-		if f.columnName == "hostname" {
-			temp = append(temp, "COALESCE(hostname,host(ipaddr)) as hostname")
+		if f.expression != "" {
+			temp = append(temp, f.expression + " AS " + f.columnName)
 		} else {
 			temp = append(temp, f.columnName)
 		}
@@ -200,14 +202,13 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	}
 	*/
 
-	/*if vars.devmode {
-		log.Println(statement)
-		log.Print(qparams)
-	}*/
-
 	rows, err := vars.db.Query(statement, qparams...)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
+		if vars.devmode {
+			log.Println(statement)
+			log.Print(qparams)
+		}
 		return
 	}
 	defer rows.Close()
