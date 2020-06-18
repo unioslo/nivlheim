@@ -122,10 +122,9 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	}
 	statement += " FROM hostinfo h"
 
-	if len(customFields) > 0 {
-		// Must wrap the statement
-		statement = "SELECT * FROM (" + statement + ") as foo "
-	}
+	// Must wrap the statement, because some fields may be in the form of "expression(column_name) as column_name",
+	// and that'll fail if the WHERE clause operates on the original column instead of the expression result.
+	statement = "SELECT * FROM (" + statement + ") as foo "
 
 	// Add the WHERE clause, if any
 	if len(where) > 0 {
