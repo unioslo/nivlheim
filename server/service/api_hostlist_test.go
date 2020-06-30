@@ -234,9 +234,13 @@ func TestApiMethodHostList(t *testing.T) {
 			expectStatus:   http.StatusOK,
 			expectContent:  "Updated 0 hosts, created 0 new hosts, 0 errors.",
 		},
-		// Regression test for a bug (See GitHub issue #151)
+		// Regression tests for a bug (See GitHub issue #151)
 		{
 			methodAndPath:  "GET /api/v2/hostlist?fields=hostname,os,duck&ipAddress=129.240.98.*",
+			expectStatus:   http.StatusOK,
+		},
+		{
+			methodAndPath:  "GET /api/v2/hostlist?fields=hostname,os&ipAddress=129.240.98.*",
 			expectStatus:   http.StatusOK,
 		},
 	}
