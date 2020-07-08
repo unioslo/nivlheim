@@ -8,6 +8,7 @@ Oauth2LogoutEndpoint=https://auth.dataporten.no/logout
 AuthRequired=yes
 ArchiveDayLimit=30
 DeleteDayLimit=180
+HideUnknownHosts=yes
 LDAPserver=ldap.example.com
 LDAPusertree=cn=users,cn=system,dc=example,dc=com
 LDAPmemberAttr=memberOf

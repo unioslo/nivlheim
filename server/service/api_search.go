@@ -125,9 +125,26 @@ func (vars *apiMethodSearch) ServeHTTP(w http.ResponseWriter, req *http.Request,
 		}
 
 		// Prepare SQL statement
+		statement := "SELECT " + strings.Join(temp, ",") + " FROM files f, hostinfo h " +
+					"WHERE f.certfp=h.certfp AND f.fileID=$1"
+		// Possibly filter out hosts with undetermined hostnames
+		if config.HideUnknownHosts {
+			statement += " AND h.hostname IS NOT NULL"
+		}
+		prepStatmt, err = vars.db.Prepare(statement)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer prepStatmt.Close()
+	}
+
+	// Possibly filter out hosts with undetermined hostnames,
+	// if it hasn't already been done by the code above
+	if config.HideUnknownHosts && prepStatmt == nil {
 		prepStatmt, err = vars.db.Prepare(
-			"SELECT " + strings.Join(temp, ",") + " FROM files f, hostinfo h " +
-				"WHERE f.certfp=h.certfp AND f.fileID=$1")
+			"SELECT fileid FROM files f, hostinfo h WHERE f.certfp=h.certfp "+
+			"AND f.fileID=$1 AND h.hostname IS NOT NULL")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

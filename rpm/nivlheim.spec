@@ -2,7 +2,7 @@
 
 # Semantic Versioning http://semver.org/
 Name:     nivlheim
-Version:  2.7.5
+Version:  2.7.6
 Release:  %{date}%{?dist}
 
 Summary:  File collector
@@ -24,6 +24,14 @@ Source9:  https://use.fontawesome.com/releases/v5.2.0/fontawesome-free-5.2.0-web
 Source10: https://raw.githubusercontent.com/wycats/handlebars.js/master/LICENSE
 Source11: https://github.com/go-ldap/ldap/archive/v3.0.3.zip#/ldap-v3.tar.gz
 Source12: https://github.com/go-asn1-ber/asn1-ber/archive/v1.3.zip#/asn1-ber-v1.tar.gz
+Source13: https://github.com/jcmturner/gokrb5/archive/master.tar.gz#/gokrb5-master.tar.gz
+Source14: https://github.com/jcmturner/aescts/archive/master.tar.gz#/aescts-master.tar.gz
+Source15: https://github.com/jcmturner/dnsutils/archive/master.tar.gz#/dnsutils-master.tar.gz
+Source16: https://github.com/jcmturner/gofork/archive/master.tar.gz#/gofork-master.tar.gz
+Source17: https://github.com/jcmturner/goidentity/archive/master.tar.gz#/goidentity-master.tar.gz
+Source18: https://github.com/jcmturner/rpc/archive/master.tar.gz#/rpc-master.tar.gz
+Source19: https://github.com/golang/crypto/archive/master.tar.gz#/crypto-master.tar.gz
+Source20: https://github.com/hashicorp/go-uuid/archive/master.tar.gz#/go-uuid-master.tar.gz
 
 BuildRequires: npm(handlebars)
 BuildRequires: perl(Archive::Tar)
@@ -131,6 +139,14 @@ This package contains the server components of Nivlheim.
 %setup -q -T -b 8 -n tarantino-2.1.0
 %setup -q -T -b 11 -n ldap-3.0.3
 %setup -q -T -b 12 -n asn1-ber-1.3
+%setup -q -T -b 13 -n gokrb5-master
+%setup -q -T -b 14 -n aescts-master
+%setup -q -T -b 15 -n dnsutils-master
+%setup -q -T -b 16 -n gofork-master
+%setup -q -T -b 17 -n goidentity-master
+%setup -q -T -b 18 -n rpc-master
+%setup -q -T -b 19 -n crypto-master
+%setup -q -T -b 20 -n go-uuid-master
 %autosetup -D -n %{name}-%{getenv:GIT_BRANCH}
 A=`pwd`
 cd `dirname %{SOURCE0}`
@@ -170,6 +186,16 @@ mv ../pq-master $GOPATH/src/github.com/lib/pq
 mkdir -p $GOPATH/src/golang.org/x
 mv ../net-master $GOPATH/src/golang.org/x/net
 mv ../oauth2-master $GOPATH/src/golang.org/x/oauth2
+mv ../crypto-master $GOPATH/src/golang.org/x/crypto
+mkdir -p $GOPATH/src/github.com/jcmturner
+mv ../gokrb5-master $GOPATH/src/github.com/jcmturner/gokrb5
+mv ../aescts-master $GOPATH/src/github.com/jcmturner/aescts
+mv ../dnsutils-master $GOPATH/src/github.com/jcmturner/dnsutils
+mv ../gofork-master $GOPATH/src/github.com/jcmturner/gofork
+mv ../goidentity-master $GOPATH/src/github.com/jcmturner/goidentity
+mv ../rpc-master $GOPATH/src/github.com/jcmturner/rpc
+mkdir -p $GOPATH/src/github.com/hashicorp
+mv ../go-uuid-master $GOPATH/src/github.com/hashicorp/go-uuid
 mkdir -p $GOPATH/src/gopkg.in/
 mv ../ldap-3.0.3 $GOPATH/src/gopkg.in/ldap.v3
 mv ../asn1-ber-1.3 $GOPATH/src/gopkg.in/asn1-ber.v1

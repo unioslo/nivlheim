@@ -170,9 +170,25 @@ func (vars *apiMethodMultiStageSearch) ServeHTTP(w http.ResponseWriter, req *htt
 		}
 
 		// Prepare SQL statement
+		statement := "SELECT " + strings.Join(temp, ",") + " FROM hostinfo " +
+					"WHERE certfp=$1"
+		// Possibly filter out hosts with undetermined hostnames
+		if config.HideUnknownHosts {
+			statement += " AND hostname IS NOT NULL"
+		}
+		prepStatmt, err = vars.db.Prepare(statement)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		defer prepStatmt.Close()
+	}
+
+	// Possibly filter out hosts with undetermined hostnames,
+	// if it hasn't already been done by the code above
+	if config.HideUnknownHosts && prepStatmt == nil {
 		prepStatmt, err = vars.db.Prepare(
-			"SELECT " + strings.Join(temp, ",") + " FROM hostinfo " +
-				"WHERE certfp=$1")
+			"SELECT hostname FROM hostinfo WHERE certfp=$1 AND hostname IS NOT NULL")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return

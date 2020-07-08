@@ -101,6 +101,12 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 		return
 	}
 
+	// Possibly filter out hosts with undetermined hostnames
+	if config.HideUnknownHosts {
+		if where != "" { where += " AND " }
+		where += "h.hostname IS NOT NULL"
+	}
+
 	// Build the "SELECT ... " part of the statement, including custom fields
 	// Start with the standard fields:
 	temp := make([]string, 0, len(apiHostListStandardFields))
