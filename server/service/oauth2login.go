@@ -169,7 +169,13 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		// Also look up the "drift" user and add the groups from there.
 		// This solution is probably only used by UiO,
 		// but is likely to be harmless in other environments.
-		user2, err := LDAPLookupUser(session.userinfo.Username + "-drift")
+		var otherUsername string
+		if strings.HasSuffix(session.userinfo.Username, "-drift") {
+			otherUsername = session.userinfo.Username[0:len(session.userinfo.Username)-6]
+		} else {
+			otherUsername = session.userinfo.Username + "-drift"
+		}
+		user2, err := LDAPLookupUser(otherUsername)
 		if err != nil {
 			log.Printf("Unable to LDAP: %v", err)
 			http.Error(w, "Unable to perform LDAP lookup", http.StatusInternalServerError)
