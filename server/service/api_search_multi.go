@@ -187,13 +187,20 @@ func (vars *apiMethodMultiStageSearch) ServeHTTP(w http.ResponseWriter, req *htt
 	// Possibly filter out hosts with undetermined hostnames,
 	// if it hasn't already been done by the code above
 	if config.HideUnknownHosts && prepStatmt == nil {
-		prepStatmt, err = vars.db.Prepare(
-			"SELECT hostname FROM hostinfo WHERE certfp=$1 AND hostname IS NOT NULL")
+		rows, err := vars.db.Query("SELECT certfp FROM hostinfo WHERE hostname IS NULL")
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		defer prepStatmt.Close()
+		defer rows.Close()
+		for rows.Next() {
+			var cert string
+			if err := rows.Scan(&cert); err != nil {
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+			delete(resultingCerts, cert)
+		}
 	}
 
 	// Data structure to return as JSON

@@ -121,8 +121,43 @@ func TestSearchCaseSensitivity(t *testing.T) {
 			expectStatus: http.StatusOK,
 			expectJSON: `[{"ipAddress":"` + ip2 + `","hostname":"`+hostname2+`"}]`,
 		},
+		// A search that returns two hosts
+		{
+			methodAndPath: "GET /api/v2/search?q=sugar&fields=hostname",
+			expectStatus: http.StatusOK,
+			expectJSON: `[{"hostname":"`+hostname2+`"},{"hostname":"`+hostname+`"}]`,
+		},
+		{
+			methodAndPath: "GET /api/v2/msearch?q1=sugar&fields=hostname",
+			expectStatus: http.StatusOK,
+			expectJSON: `[{"hostname":"`+hostname+`"},{"hostname":"`+hostname2+`"}]`,
+		},
+		{
+			methodAndPath: "GET /api/v2/grep?q=sugar",
+			expectStatus: http.StatusOK,
+			expectContent: hostname2+":"+filename+":"+content2+"\n"+hostname+":"+filename+":"+content,
+		},
 	}
 
 	// Run the tests
 	testAPIcalls(t, api, tests)
+
+	// Also run the tests with option HideUnknownHosts=true
+	config.HideUnknownHosts=true
+	// Add a host without a name, that shouldn't show up in the results
+	certfp3 := "CCCCCC"
+	_, err = db.Exec("INSERT INTO files(fileid,filename,certfp,content,ipaddr) "+
+		"VALUES($1,$2,$3,$4,$5)", fileID+2, filename, certfp3, content, "44.44.44.44")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	_, err = db.Exec("INSERT INTO hostinfo(certfp,ipaddr) VALUES($1,$2)", certfp3, "44.44.44.44")
+	if err != nil {
+		t.Error(err)
+		return
+	}
+	addFileToFastSearch(fileID+2, certfp3, filename, content)
+	testAPIcalls(t, api, tests)
+	config.HideUnknownHosts=false
 }

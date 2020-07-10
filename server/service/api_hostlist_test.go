@@ -279,3 +279,42 @@ func TestApiMethodHostList(t *testing.T) {
 	}
 
 }
+
+func TestHideUnknownHosts(t *testing.T) {
+    if os.Getenv("NOPOSTGRES") != "" {
+        t.Log("No Postgres, skipping test")
+        return
+    }
+
+	db := getDBconnForTesting(t)
+    defer db.Close()
+    _, err := db.Exec("INSERT INTO hostinfo(certfp,hostname,ipaddr,os_edition) VALUES" +
+        "('1111','foo.bar.no','1.1.1.1','workstation')," +
+        "('2222',null,'2.2.2.2','workstation')")
+    if err != nil {
+        t.Error(err)
+    }
+
+	testsWhenOptionOff := []apiCall{
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname",
+			expectStatus:  http.StatusOK,
+			expectJSON: `[{"hostname":"2.2.2.2"},{"hostname":"foo.bar.no"}]`,
+		},
+	}
+	testsWhenOptionOn := []apiCall{
+		{
+			methodAndPath: "GET /api/v2/hostlist?fields=hostname",
+			expectStatus:  http.StatusOK,
+			expectJSON: `[{"hostname":"foo.bar.no"}]`,
+		},
+	}
+
+	mux := http.NewServeMux()
+	mux.Handle("/api/v2/hostlist", wrapRequireAuth(&apiMethodHostList{db: db, devmode: true}, db))
+
+	config.HideUnknownHosts = true
+	testAPIcalls(t, mux, testsWhenOptionOn)
+	config.HideUnknownHosts = false
+	testAPIcalls(t, mux, testsWhenOptionOff)
+}

@@ -101,12 +101,6 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 		return
 	}
 
-	// Possibly filter out hosts with undetermined hostnames
-	if config.HideUnknownHosts {
-		if where != "" { where += " AND " }
-		where += "h.hostname IS NOT NULL"
-	}
-
 	// Build the "SELECT ... " part of the statement, including custom fields
 	// Start with the standard fields:
 	temp := make([]string, 0, len(apiHostListStandardFields))
@@ -127,6 +121,11 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 			strconv.Itoa(customFieldIDs[name]) + ") as " + name
 	}
 	statement += " FROM hostinfo h"
+
+	// Possibly filter out hosts with undetermined hostnames
+	if config.HideUnknownHosts {
+		statement += " WHERE h.hostname IS NOT NULL"
+	}
 
 	// Must wrap the statement, because some fields may be in the form of "expression(column_name) as column_name",
 	// and that'll fail if the WHERE clause operates on the original column instead of the expression result.
