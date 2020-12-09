@@ -19,7 +19,7 @@ nivlheim_client.ps1
 .Inputs
 None
 .Notes
-Last Updated: 2019-12-09
+Last Updated: 2020-12-08
 Authors     : Øyvind Hagberg, Mustafa Ocak
 #>
 
@@ -33,7 +33,7 @@ param(
 	[bool]$nosleep = $false
 )
 
-Set-Variable version -option Constant -value "2.7.7"
+Set-Variable version -option Constant -value "2.7.8"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
@@ -565,11 +565,12 @@ if ($haveCert -and -not $certWorks) {
 	Write-Host "My certificate doesn't work. Trying to renew it..."
 	$r = $null
 	try {
-		$url = $serverbaseurl + "secure/renewcert?nopass=1"
+		$url = $serverbaseurl + "secure/renewcert"
 		$r = http $url "get" 60 $cert
 	} catch {
 		Write-Host "Renewing didn't work, trying to request a new one"
-		$url = $serverbaseurl + "reqcert?nopass=1"
+		$hostname = [System.Web.HttpUtility]::UrlEncode([System.Net.Dns]::GetHostByName(($env:computerName)).Hostname)
+		$url = $serverbaseurl + "reqcert?hostname=$hostname"
 		try {
 			$r = http $url "get" 60
 		} catch {
@@ -584,7 +585,8 @@ if ($haveCert -and -not $certWorks) {
 }
 elseif (-not $haveCert) {
 	Write-Host "I don't have a certificate, requesting one now..."
-	$url = $serverbaseurl + "reqcert?nopass=1"
+	$hostname = [System.Web.HttpUtility]::UrlEncode([System.Net.Dns]::GetHostByName(($env:computerName)).Hostname)
+	$url = $serverbaseurl + "reqcert?hostname=$hostname"
 	$r = $null
 	$ok = $false
 	try {
