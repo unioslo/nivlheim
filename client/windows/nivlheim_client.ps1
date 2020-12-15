@@ -37,6 +37,7 @@ Set-Variable version -option Constant -value "2.7.8"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
+Add-Type -Assembly System.Web   # we need System.Web.HttpUtility
 
 # syntax for putting functions in a separate file:
 # $functions = "$($MyInvocation.MyCommand.path | split-path)\functions.ps1"
@@ -135,7 +136,7 @@ function http($uri, $method = "get", $timeoutSeconds = 60, $clientCert = $null, 
 	if ($params -and ($method -eq "post")) {
 		$WebRequest.ContentType = "application/x-www-form-urlencoded"
 		# convert dictionary to query string
-		Add-Type -Assembly System.Web
+		# Add-Type -Assembly System.Web  # was done at the start of the script, no need to do it here
 		$str = ""
 		$params.Keys | ForEach-Object {
 			$str += [System.Web.HttpUtility]::UrlEncode($_)
