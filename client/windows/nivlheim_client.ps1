@@ -19,7 +19,7 @@ nivlheim_client.ps1
 .Inputs
 None
 .Notes
-Last Updated: 2019-12-09
+Last Updated: 2020-12-08
 Authors     : Øyvind Hagberg, Mustafa Ocak
 #>
 
@@ -33,10 +33,11 @@ param(
 	[bool]$nosleep = $false
 )
 
-Set-Variable version -option Constant -value "2.7.7"
+Set-Variable version -option Constant -value "2.7.8"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
+Add-Type -Assembly System.Web   # we need System.Web.HttpUtility
 
 # syntax for putting functions in a separate file:
 # $functions = "$($MyInvocation.MyCommand.path | split-path)\functions.ps1"
@@ -135,7 +136,7 @@ function http($uri, $method = "get", $timeoutSeconds = 60, $clientCert = $null, 
 	if ($params -and ($method -eq "post")) {
 		$WebRequest.ContentType = "application/x-www-form-urlencoded"
 		# convert dictionary to query string
-		Add-Type -Assembly System.Web
+		# Add-Type -Assembly System.Web  # was done at the start of the script, no need to do it here
 		$str = ""
 		$params.Keys | ForEach-Object {
 			$str += [System.Web.HttpUtility]::UrlEncode($_)
@@ -565,11 +566,12 @@ if ($haveCert -and -not $certWorks) {
 	Write-Host "My certificate doesn't work. Trying to renew it..."
 	$r = $null
 	try {
-		$url = $serverbaseurl + "secure/renewcert?nopass=1"
+		$url = $serverbaseurl + "secure/renewcert"
 		$r = http $url "get" 60 $cert
 	} catch {
 		Write-Host "Renewing didn't work, trying to request a new one"
-		$url = $serverbaseurl + "reqcert?nopass=1"
+		$hostname = [System.Web.HttpUtility]::UrlEncode([System.Net.Dns]::GetHostByName(($env:computerName)).Hostname)
+		$url = $serverbaseurl + "reqcert?hostname=$hostname"
 		try {
 			$r = http $url "get" 60
 		} catch {
@@ -584,7 +586,8 @@ if ($haveCert -and -not $certWorks) {
 }
 elseif (-not $haveCert) {
 	Write-Host "I don't have a certificate, requesting one now..."
-	$url = $serverbaseurl + "reqcert?nopass=1"
+	$hostname = [System.Web.HttpUtility]::UrlEncode([System.Net.Dns]::GetHostByName(($env:computerName)).Hostname)
+	$url = $serverbaseurl + "reqcert?hostname=$hostname"
 	$r = $null
 	$ok = $false
 	try {
