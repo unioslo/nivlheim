@@ -221,10 +221,10 @@ func parseFile(database *sql.DB, fileID int64) {
 	}
 
 	if filename.String == "/usr/bin/sw_vers" {
-		re := regexp.MustCompile(`ProductName:\s+Mac OS X\nProductVersion:\s+(\d+\.\d+)`)
+		re := regexp.MustCompile(`ProductName:\s+(Mac OS X|macOS)\nProductVersion:\s+(\d+\.\d+)`)
 		if m := re.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1, os_edition=null, os_family='macOS' "+
-				"WHERE certfp=$2", "macOS "+m[1], certfp.String)
+				"WHERE certfp=$2", "macOS "+m[2], certfp.String)
 		}
 		return
 	}

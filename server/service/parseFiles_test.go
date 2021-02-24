@@ -311,6 +311,13 @@ ProductVersion: 10.13.3
 BuildVersion:   17D102`,
 		},
 		{
+			osLabel: "macOS 11.2",
+			filename: "/usr/bin/sw_vers",
+			content: `ProductName:	macOS
+ProductVersion:	11.2.1
+BuildVersion:	20D74`,
+		},
+		{
 			osLabel:  "FreeBSD 11",
 			filename: "/bin/freebsd-version -ku",
 			content:  "11.1-RELEASE-p6",

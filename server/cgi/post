@@ -92,6 +92,7 @@ eval {
 		return;
 	}
 	$logger->debug("client says its hostname is $os_hostname");
+	$os_hostname = lc $os_hostname;
 	$shorthost = $os_hostname;
 	if ($shorthost =~ /^(\S+?)\./) { $shorthost = $1; }
 	my $clientversion =	$query->param('version');
