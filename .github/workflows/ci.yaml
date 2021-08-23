@@ -1,0 +1,138 @@
+on: [push, pull_request]
+
+name: CI
+jobs:
+  build:
+    name: Build container image
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:11
+        env:
+          POSTGRES_USER: nivlheim
+          POSTGRES_DB: nivlheim
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+        ports:
+          - 5432:5432
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Guix cache
+        uses: actions/cache@v2
+        with:
+          # Note: /gnu/store may exceed the limit of 5GiB, so don't
+          # cache it.  TODO: Selective caching with 'guix archive'?
+          path: |
+            ~/.cache/guix
+          key: guix-cache-${{ github.sha }}
+          restore-keys: |
+            guix-cache-
+      - name: Read channels.scm
+        run: |
+          echo "CHANNELS<<EOF" >> $GITHUB_ENV
+          cat ci/channels.scm >> $GITHUB_ENV
+          echo EOF >> $GITHUB_ENV
+      - name: Install Guix
+        uses: PromyLOPH/guix-install-action@v1
+        with:
+          channels: "${{ env.CHANNELS }}"
+      - name: Build Nivlheim
+        run: >
+          guix build nivlheim
+          --with-source=nivlheim=$PWD
+      - name: Start the server
+        run: >
+          guix install nivlheim
+          --with-source=nivlheim=$PWD
+          -p ${{ runner.temp }}/nivlheim
+
+          ${{ runner.temp }}/nivlheim/bin/nivlheim &
+        env:
+          NIVLHEIM_PGHOST: localhost
+          NIVLHEIM_PGUSER: nivlheim
+          NIVLHEIM_PGPASSWORD: postgres
+          NIVLHEIM_PGDATABASE: nivlheim
+          NIVLHEIM_PGSSLMODE: disable
+      - name: Test API
+        run: |
+          # Give the server some time to initialize.
+          sleep 5
+          curl http://localhost:4040/api/v2/status
+      - name: Pack container image
+        run: >
+          guix pack -f docker --root=nivlheim-image.tar.gz
+          --entry-point=bin/nivlheim
+          -S /etc/profile=etc/profile
+          --with-source=nivlheim=$PWD
+          nivlheim
+      - name: Upload artifact
+        uses: actions/upload-artifact@v2
+        with:
+          name: nivlheim-image.tar.gz
+          path: nivlheim-image.tar.gz
+
+  publish:
+    if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+    name: Publish
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: nivlheim-image.tar.gz
+      - name: Load image
+        run: docker load < nivlheim-image.tar.gz
+      - name: Log in to registry
+        run: >
+          echo "${{ secrets.GITHUB_TOKEN }}"
+          | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim
+          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+            TAG_NAME=latest
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+
+          docker tag nivlheim:latest "$IMAGE_ID:$TAG_NAME"
+          docker push "$IMAGE_ID:$TAG_NAME"
+
+  live:
+    name: Live
+    needs: publish
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:11
+        env:
+          POSTGRES_USER: nivlheim
+          POSTGRES_DB: nivlheim
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd "pg_isready"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+      nivlheim:
+        image: ghcr.io/${{ github.repository_owner }}/nivlheim:latest
+        env:
+          NIVLHEIM_PGHOST: postgres
+          NIVLHEIM_PGUSER: nivlheim
+          NIVLHEIM_PGPASSWORD: postgres
+          NIVLHEIM_PGDATABASE: nivlheim
+          NIVLHEIM_PGSSLMODE: disable
+          NIVLHEIM_HTTPLISTENADDRESS: :4040
+        ports:
+          - 4040:4040
+    steps:
+      - run: curl http://localhost:4040/api/v2/status
