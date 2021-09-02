@@ -33,6 +33,34 @@ type Config struct {
 	PGport                      int
 }
 
+func updateConfig(config *Config, key string, value string) (*Config) {
+	// Use reflection to set values in the Config struct and
+	// cast values to the expected type.
+	structValue := reflect.ValueOf(config).Elem()
+	structFieldValue := structValue.FieldByNameFunc(func(s string) bool {
+		return strings.ToLower(s) == strings.ToLower(key) // compare names in a case-insensitive way
+	})
+	if structFieldValue.IsValid() && structFieldValue.CanSet() {
+		switch structFieldValue.Kind() {
+		case reflect.String:
+			structFieldValue.SetString(value)
+		case reflect.Int:
+			i, err := strconv.Atoi(value)
+			if err == nil {
+				structFieldValue.Set(reflect.ValueOf(i))
+			}
+		case reflect.Bool:
+			structFieldValue.Set(reflect.ValueOf(isTrueish(value)))
+		case reflect.Slice:
+			if structFieldValue.Type().Elem().Kind() == reflect.String {
+				// Lists of values are expected to be comma-separated.
+				structFieldValue.Set(reflect.ValueOf(strings.Split(value, ",")))
+			}
+		}
+	}
+	return config
+}
+
 // ReadConfigFile reads a config file and returns a Config struct
 // where the values are filled in.
 // Options in the file must have the same name as fields in the struct,
@@ -48,7 +76,6 @@ func ReadConfigFile(configFileName string) (*Config, error) {
 
 	// Read the config file
 	config := &Config{}
-	structValue := reflect.ValueOf(config).Elem()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		// Parse the name=value pair
@@ -56,32 +83,7 @@ func ReadConfigFile(configFileName string) (*Config, error) {
 		key := strings.ToLower(strings.TrimSpace(keyAndValue[0]))
 		value := strings.TrimSpace(keyAndValue[1])
 
-		// Use reflection to set values in the Config struct
-		structFieldValue := structValue.FieldByNameFunc(func(s string) bool {
-			return strings.ToLower(s) == key // compare names in a case-insensitive way
-		})
-		if structFieldValue.IsValid() && structFieldValue.CanSet() {
-			switch structFieldValue.Kind() {
-			case reflect.String:
-				structFieldValue.SetString(value)
-
-			case reflect.Int:
-				i, err := strconv.Atoi(value)
-				if err == nil {
-					structFieldValue.Set(reflect.ValueOf(i))
-				}
-
-			case reflect.Bool:
-				structFieldValue.Set(reflect.ValueOf(isTrueish(value)))
-
-			case reflect.Slice:
-				if structFieldValue.Type().Elem().Kind() == reflect.String {
-					// Lists of values are expected to be comma-separated.
-					structFieldValue.Set(reflect.ValueOf(strings.Split(value, ",")))
-				}
-
-			}
-		}
+		config = updateConfig(config, key, value)
 	}
 	if err = scanner.Err(); err != nil {
 		return nil, err
