@@ -64,7 +64,7 @@ func main() {
 	// Read config file
 	const configFileName = "/etc/nivlheim/server.conf"
 	var err error
-	config, err = ReadConfigFile(configFileName)
+	config, err = UpdateConfigFromFile(config, configFileName)
 	if err != nil {
 		log.Printf("Unable to read %s: %v", configFileName, err)
 		return

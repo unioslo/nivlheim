@@ -61,12 +61,12 @@ func updateConfig(config *Config, key string, value string) (*Config) {
 	return config
 }
 
-// ReadConfigFile reads a config file and returns a Config struct
-// where the values are filled in.
+// UpdateConfigFromFile reads a config file and updates a Config struct
+// with values from the configuration file.
 // Options in the file must have the same name as fields in the struct,
 // disregarding upper/lowercase.
 // Options with names that aren't recognized are ignored.
-func ReadConfigFile(configFileName string) (*Config, error) {
+func UpdateConfigFromFile(config *Config, configFileName string) (*Config, error) {
 	// Open the config file
 	file, err := os.Open(configFileName)
 	if err != nil {
@@ -75,7 +75,6 @@ func ReadConfigFile(configFileName string) (*Config, error) {
 	defer file.Close()
 
 	// Read the config file
-	config := &Config{}
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		// Parse the name=value pair
