@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"embed"
 	"fmt"
 	"log"
 	"math/rand"
@@ -11,6 +12,7 @@ import (
 	"regexp"
 	"syscall"
 	"time"
+	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 // A Job is an internal piece of code that gets run periodically by this program
@@ -38,6 +40,25 @@ var postgresSupportsOnConflict bool
 var version string // should be set with -ldflags "-X main.version=1.2.3" during build
 var config = &Config{}
 var devmode bool
+
+// Embed the database patches for schema migration.
+//go:embed database/*.sql
+var databasePatches embed.FS
+func migrateDatabase(db *sql.DB, currentPatchLevel int, targetPatchLevel int) (err error) {
+	patchStatements := []string{}
+	for i := currentPatchLevel + 1; i <= targetPatchLevel; i++ {
+		patchName := fmt.Sprintf("database/patch%03d.sql", i)
+		log.Printf("Applying database patch %s...", patchName)
+		patch, err := databasePatches.ReadFile(patchName)
+		if err != nil {
+			return err
+		} else {
+			patchStatements = append(patchStatements, string(patch[:]))
+		}
+	}
+	err = utility.RunStatementsInTransaction(db, patchStatements)
+	return err
+}
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
@@ -116,13 +137,19 @@ func main() {
 	}
 
 	// Verify the schema patch level
-	var patchlevel int
+	var patchLevel int
 	const requirePatchLevel = 6
-	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
-	if patchlevel != requirePatchLevel {
-		log.Printf("Error: Wrong database patch level. "+
-			"Required: %d, Actual: %d\n", requirePatchLevel, patchlevel)
-		return
+	err = db.QueryRow("SELECT patchlevel FROM db").Scan(&patchLevel)
+	if err != nil {
+		patchLevel = 0
+	}
+	if patchLevel != requirePatchLevel {
+		log.Printf("Database patch level is %d, expected %d.  Running migrations...",
+			patchLevel, requirePatchLevel)
+		err := migrateDatabase(db, patchLevel, requirePatchLevel)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
 	go runAPI(db, 4040, devmode)
