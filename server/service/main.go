@@ -103,7 +103,7 @@ func main() {
 		return
 	}
 	if version.Valid {
-		rePGVersion := regexp.MustCompile("PostgreSQL (\\d+.\\d+.\\d+)")
+		rePGVersion := regexp.MustCompile("PostgreSQL (\\d+\\.\\d+)")
 		mat := rePGVersion.FindStringSubmatch(version.String)
 		if len(mat) >= 2 && len(mat[1]) > 0 {
 			vstr := mat[1]
