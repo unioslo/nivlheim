@@ -89,3 +89,19 @@ func UpdateConfigFromFile(config *Config, configFileName string) (*Config, error
 	}
 	return config, nil
 }
+
+// UpdateConfigFromEnvironment takes a Config struct, loops through its
+// struct keys, searches the environment for "NIVLHEIM_$UPPERCASE_KEY",
+// and returns a new struct with entries updated from the environment.
+func UpdateConfigFromEnvironment(config *Config) (*Config) {
+	configValue := reflect.ValueOf(config).Elem()
+	configType := configValue.Type()
+	for i := 0; i < configValue.NumField(); i++ {
+		name := configType.Field(i).Name
+		val, ok := os.LookupEnv("NIVLHEIM_" + strings.ToUpper(name))
+		if ok {
+			config = updateConfig(config, name, val)
+		}
+	}
+	return config
+}

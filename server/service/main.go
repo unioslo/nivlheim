@@ -71,6 +71,9 @@ func main() {
 	}
 	log.Printf("Read config file %s.", configFileName)
 
+	// Look for configuration overrides in the environment.
+	config = UpdateConfigFromEnvironment(config)
+
 	// Connect to database
 	var dbConnectionString string
 	if config.PGhost != "" {
@@ -84,7 +87,7 @@ func main() {
 		log.Printf("Connecting to database %s on host %s\n",
 			config.PGdatabase, config.PGhost)
 	} else {
-		log.Println("Missing database connection parameters in server.conf")
+		log.Println("Missing database connection parameters")
 		return
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
