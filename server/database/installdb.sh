@@ -41,7 +41,7 @@ for P in $(seq -w 1 999); do
 	if [[ $P -le $PATCHLEVEL ]]; then
 		continue
 	fi
-	FILE="patch$P.sql"
+	FILE="../service/database/patch$P.sql"
 	if [[ ! -f $FILE ]]; then
 		break
 	fi
