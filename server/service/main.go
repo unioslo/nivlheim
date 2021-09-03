@@ -3,6 +3,7 @@ package main
 import (
 	"database/sql"
 	"embed"
+	"errors"
 	"fmt"
 	"log"
 	"math/rand"
@@ -45,6 +46,11 @@ var devmode bool
 //go:embed database/*.sql
 var databasePatches embed.FS
 func migrateDatabase(db *sql.DB, currentPatchLevel int, targetPatchLevel int) (err error) {
+	if currentPatchLevel > targetPatchLevel {
+		return errors.New("I'm too old for this.")
+	} else {
+		log.Println("Running migrations.")
+	}
 	patchStatements := []string{}
 	for i := currentPatchLevel + 1; i <= targetPatchLevel; i++ {
 		patchName := fmt.Sprintf("database/patch%03d.sql", i)
@@ -144,7 +150,7 @@ func main() {
 		patchLevel = 0
 	}
 	if patchLevel != requirePatchLevel {
-		log.Printf("Database patch level is %d, expected %d.  Running migrations...",
+		log.Printf("Database patch level is %d, expected %d.",
 			patchLevel, requirePatchLevel)
 		err := migrateDatabase(db, patchLevel, requirePatchLevel)
 		if err != nil {
