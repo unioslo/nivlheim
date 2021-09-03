@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"embed"
 	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -68,7 +69,12 @@ func migrateDatabase(db *sql.DB, currentPatchLevel int, targetPatchLevel int) (e
 
 func main() {
 	log.SetFlags(0) // don't print a timestamp
-	devmode = len(os.Args) >= 2 && os.Args[1] == "--dev"
+	devFlag := flag.Bool("dev", false, "Run in development mode.")
+	listenAddress := flag.String("bind", "localhost:4040",
+		"The network address:port pair to bind.")
+	flag.Parse()
+	devmode = *devFlag
+
 	// in Go, the default random generator produces a deterministic sequence of values unless seeded
 	rand.Seed(time.Now().UnixNano())
 
@@ -158,7 +164,7 @@ func main() {
 		}
 	}
 
-	go runAPI(db, 4040, devmode)
+	go runAPI(db, *listenAddress, devmode)
 	go taskRunner(db, devmode)
 	go loadContentForFastSearch(db)
 

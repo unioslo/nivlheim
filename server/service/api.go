@@ -90,15 +90,15 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	return mux
 }
 
-func runAPI(theDB *sql.DB, port int, devmode bool) {
+func runAPI(theDB *sql.DB, address string, devmode bool) {
 	var h http.Handler = createAPImuxer(theDB, devmode)
 	if devmode {
 		// In development mode, log every request to stdout, and
 		// add CORS headers to responses to local requests.
 		h = wrapLog(wrapAllowLocalhostCORS(h))
 	}
-	log.Printf("Serving API requests on localhost:%d\n", port)
-	err := http.ListenAndServe(fmt.Sprintf("localhost:%d", port), h)
+	log.Printf("Serving API requests on %s.\n", address)
+	err := http.ListenAndServe(fmt.Sprintf("%s", address), h)
 	if err != nil {
 		log.Println(err.Error())
 	}
