@@ -100,7 +100,7 @@ func runAPI(theDB *sql.DB, address string, devmode bool) {
 	log.Printf("Serving API requests on %s.\n", address)
 	err := http.ListenAndServe(fmt.Sprintf("%s", address), h)
 	if err != nil {
-		log.Println(err.Error())
+		log.Fatal(err.Error())
 	}
 }
 
