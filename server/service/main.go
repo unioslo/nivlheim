@@ -91,7 +91,7 @@ func main() {
 	// Read config file
 	const configFileName = "/etc/nivlheim/server.conf"
 	var err error
-	config, err = UpdateConfigFromFile(config, configFileName)
+	err = UpdateConfigFromFile(config, configFileName)
 	if err != nil {
 		log.Printf("Unable to read %s: %v", configFileName, err)
 		return
@@ -99,7 +99,7 @@ func main() {
 	log.Printf("Read config file %s.", configFileName)
 
 	// Look for configuration overrides in the environment.
-	config = UpdateConfigFromEnvironment(config)
+	UpdateConfigFromEnvironment(config)
 
 	// Connect to database
 	var dbConnectionString string
