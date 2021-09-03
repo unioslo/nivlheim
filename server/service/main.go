@@ -93,10 +93,10 @@ func main() {
 	var err error
 	err = UpdateConfigFromFile(config, configFileName)
 	if err != nil {
-		log.Printf("Unable to read %s: %v", configFileName, err)
-		return
+		log.Printf("WARNING: Unable to read %s.", configFileName)
+	} else {
+		log.Printf("Read config file %s.", configFileName)
 	}
-	log.Printf("Read config file %s.", configFileName)
 
 	// Look for configuration overrides in the environment.
 	UpdateConfigFromEnvironment(config)
