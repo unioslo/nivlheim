@@ -74,6 +74,7 @@ func main() {
 		"The network address:port pair to bind.")
 	flag.Parse()
 	devmode = *devFlag
+	config.HTTPListenAddress = *listenAddress
 
 	// in Go, the default random generator produces a deterministic sequence of values unless seeded
 	rand.Seed(time.Now().UnixNano())
@@ -164,7 +165,7 @@ func main() {
 		}
 	}
 
-	go runAPI(db, *listenAddress, devmode)
+	go runAPI(db, config.HTTPListenAddress, devmode)
 	go taskRunner(db, devmode)
 	go loadContentForFastSearch(db)
 

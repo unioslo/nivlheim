@@ -31,6 +31,7 @@ type Config struct {
 	PGhost, PGdatabase, PGuser  string
 	PGpassword, PGsslmode       string
 	PGport                      int
+	HTTPListenAddress           string
 }
 
 func updateConfig(config *Config, key string, value string) {
