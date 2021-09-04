@@ -95,6 +95,7 @@ func main() {
 	}()
 	defer log.Println("Stopped.")
 	log.Println("Starting up.")
+	log.Printf("This is Nivlheim version %s.", version)
 
 	if devmode {
 		log.Println("Running in development mode.")
