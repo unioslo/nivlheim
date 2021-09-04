@@ -12,6 +12,7 @@ import (
 	"os/signal"
 	"reflect"
 	"regexp"
+	"runtime"
 	"syscall"
 	"time"
 	"github.com/unioslo/nivlheim/server/service/utility"
@@ -77,7 +78,7 @@ func main() {
 	devmode = *devFlag
 	config.HTTPListenAddress = *listenAddress
 	if *versionFlag {
-		log.Printf("Nivlheim %s", version)
+		log.Printf("Nivlheim %s on %s", version, runtime.Version())
 		return
 	}
 
