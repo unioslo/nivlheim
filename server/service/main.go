@@ -72,9 +72,14 @@ func main() {
 	devFlag := flag.Bool("dev", false, "Run in development mode.")
 	listenAddress := flag.String("bind", "localhost:4040",
 		"The network address:port pair to bind.")
+	versionFlag := flag.Bool("version", false, "Print the version and exit.")
 	flag.Parse()
 	devmode = *devFlag
 	config.HTTPListenAddress = *listenAddress
+	if *versionFlag {
+		log.Printf("Nivlheim %s", version)
+		return
+	}
 
 	// in Go, the default random generator produces a deterministic sequence of values unless seeded
 	rand.Seed(time.Now().UnixNano())
