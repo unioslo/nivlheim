@@ -31,24 +31,50 @@ type Config struct {
 	PGhost, PGdatabase, PGuser  string
 	PGpassword, PGsslmode       string
 	PGport                      int
+	HTTPListenAddress           string
 }
 
-// ReadConfigFile reads a config file and returns a Config struct
-// where the values are filled in.
+func updateConfig(config *Config, key string, value string) {
+	// Use reflection to set values in the Config struct and
+	// cast values to the expected type.
+	structValue := reflect.ValueOf(config).Elem()
+	structFieldValue := structValue.FieldByNameFunc(func(s string) bool {
+		return strings.ToLower(s) == strings.ToLower(key) // compare names in a case-insensitive way
+	})
+	if structFieldValue.IsValid() && structFieldValue.CanSet() {
+		switch structFieldValue.Kind() {
+		case reflect.String:
+			structFieldValue.SetString(value)
+		case reflect.Int:
+			i, err := strconv.Atoi(value)
+			if err == nil {
+				structFieldValue.Set(reflect.ValueOf(i))
+			}
+		case reflect.Bool:
+			structFieldValue.Set(reflect.ValueOf(isTrueish(value)))
+		case reflect.Slice:
+			if structFieldValue.Type().Elem().Kind() == reflect.String {
+				// Lists of values are expected to be comma-separated.
+				structFieldValue.Set(reflect.ValueOf(strings.Split(value, ",")))
+			}
+		}
+	}
+}
+
+// UpdateConfigFromFile reads a config file and updates a Config struct
+// with values from the configuration file.
 // Options in the file must have the same name as fields in the struct,
 // disregarding upper/lowercase.
 // Options with names that aren't recognized are ignored.
-func ReadConfigFile(configFileName string) (*Config, error) {
+func UpdateConfigFromFile(config *Config, configFileName string) (error) {
 	// Open the config file
 	file, err := os.Open(configFileName)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	defer file.Close()
 
 	// Read the config file
-	config := &Config{}
-	structValue := reflect.ValueOf(config).Elem()
 	scanner := bufio.NewScanner(file)
 	for scanner.Scan() {
 		// Parse the name=value pair
@@ -56,35 +82,25 @@ func ReadConfigFile(configFileName string) (*Config, error) {
 		key := strings.ToLower(strings.TrimSpace(keyAndValue[0]))
 		value := strings.TrimSpace(keyAndValue[1])
 
-		// Use reflection to set values in the Config struct
-		structFieldValue := structValue.FieldByNameFunc(func(s string) bool {
-			return strings.ToLower(s) == key // compare names in a case-insensitive way
-		})
-		if structFieldValue.IsValid() && structFieldValue.CanSet() {
-			switch structFieldValue.Kind() {
-			case reflect.String:
-				structFieldValue.SetString(value)
-
-			case reflect.Int:
-				i, err := strconv.Atoi(value)
-				if err == nil {
-					structFieldValue.Set(reflect.ValueOf(i))
-				}
-
-			case reflect.Bool:
-				structFieldValue.Set(reflect.ValueOf(isTrueish(value)))
-
-			case reflect.Slice:
-				if structFieldValue.Type().Elem().Kind() == reflect.String {
-					// Lists of values are expected to be comma-separated.
-					structFieldValue.Set(reflect.ValueOf(strings.Split(value, ",")))
-				}
-
-			}
-		}
+		updateConfig(config, key, value)
 	}
 	if err = scanner.Err(); err != nil {
-		return nil, err
+		return err
 	}
-	return config, nil
+	return nil
+}
+
+// UpdateConfigFromEnvironment takes a Config struct, loops through its
+// struct keys, searches the environment for "NIVLHEIM_$UPPERCASE_KEY",
+// and returns a new struct with entries updated from the environment.
+func UpdateConfigFromEnvironment(config *Config) {
+	configValue := reflect.ValueOf(config).Elem()
+	configType := configValue.Type()
+	for i := 0; i < configValue.NumField(); i++ {
+		name := configType.Field(i).Name
+		val, ok := os.LookupEnv("NIVLHEIM_" + strings.ToUpper(name))
+		if ok {
+			updateConfig(config, name, val)
+		}
+	}
 }

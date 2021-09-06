@@ -2,6 +2,9 @@ package main
 
 import (
 	"database/sql"
+	"embed"
+	"errors"
+	"flag"
 	"fmt"
 	"log"
 	"math/rand"
@@ -9,8 +12,10 @@ import (
 	"os/signal"
 	"reflect"
 	"regexp"
+	"runtime"
 	"syscall"
 	"time"
+	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 // A Job is an internal piece of code that gets run periodically by this program
@@ -39,9 +44,44 @@ var version string // should be set with -ldflags "-X main.version=1.2.3" during
 var config = &Config{}
 var devmode bool
 
+// Embed the database patches for schema migration.
+//go:embed database/*.sql
+var databasePatches embed.FS
+func migrateDatabase(db *sql.DB, currentPatchLevel int, targetPatchLevel int) (err error) {
+	if currentPatchLevel > targetPatchLevel {
+		return errors.New("I'm too old for this.")
+	} else {
+		log.Println("Running migrations.")
+	}
+	patchStatements := []string{}
+	for i := currentPatchLevel + 1; i <= targetPatchLevel; i++ {
+		patchName := fmt.Sprintf("database/patch%03d.sql", i)
+		log.Printf("Applying database patch %s...", patchName)
+		patch, err := databasePatches.ReadFile(patchName)
+		if err != nil {
+			return err
+		} else {
+			patchStatements = append(patchStatements, string(patch[:]))
+		}
+	}
+	err = utility.RunStatementsInTransaction(db, patchStatements)
+	return err
+}
+
 func main() {
 	log.SetFlags(0) // don't print a timestamp
-	devmode = len(os.Args) >= 2 && os.Args[1] == "--dev"
+	devFlag := flag.Bool("dev", false, "Run in development mode.")
+	listenAddress := flag.String("bind", "localhost:4040",
+		"The network address:port pair to bind.")
+	versionFlag := flag.Bool("version", false, "Print the version and exit.")
+	flag.Parse()
+	devmode = *devFlag
+	config.HTTPListenAddress = *listenAddress
+	if *versionFlag {
+		log.Printf("Nivlheim %s on %s", version, runtime.Version())
+		return
+	}
+
 	// in Go, the default random generator produces a deterministic sequence of values unless seeded
 	rand.Seed(time.Now().UnixNano())
 
@@ -56,6 +96,7 @@ func main() {
 	}()
 	defer log.Println("Stopped.")
 	log.Println("Starting up.")
+	log.Printf("This is Nivlheim version %s.", version)
 
 	if devmode {
 		log.Println("Running in development mode.")
@@ -64,12 +105,15 @@ func main() {
 	// Read config file
 	const configFileName = "/etc/nivlheim/server.conf"
 	var err error
-	config, err = ReadConfigFile(configFileName)
+	err = UpdateConfigFromFile(config, configFileName)
 	if err != nil {
-		log.Printf("Unable to read %s: %v", configFileName, err)
-		return
+		log.Printf("WARNING: Unable to read %s.", configFileName)
+	} else {
+		log.Printf("Read config file %s.", configFileName)
 	}
-	log.Printf("Read config file %s.", configFileName)
+
+	// Look for configuration overrides in the environment.
+	UpdateConfigFromEnvironment(config)
 
 	// Connect to database
 	var dbConnectionString string
@@ -84,7 +128,7 @@ func main() {
 		log.Printf("Connecting to database %s on host %s\n",
 			config.PGdatabase, config.PGhost)
 	} else {
-		log.Println("Missing database connection parameters in server.conf")
+		log.Println("Missing database connection parameters")
 		return
 	}
 	db, err := sql.Open("postgres", dbConnectionString)
@@ -103,7 +147,7 @@ func main() {
 		return
 	}
 	if version.Valid {
-		rePGVersion := regexp.MustCompile("PostgreSQL (\\d+.\\d+.\\d+)")
+		rePGVersion := regexp.MustCompile("PostgreSQL (\\d+\\.\\d+)")
 		mat := rePGVersion.FindStringSubmatch(version.String)
 		if len(mat) >= 2 && len(mat[1]) > 0 {
 			vstr := mat[1]
@@ -113,16 +157,22 @@ func main() {
 	}
 
 	// Verify the schema patch level
-	var patchlevel int
+	var patchLevel int
 	const requirePatchLevel = 6
-	db.QueryRow("SELECT patchlevel FROM db").Scan(&patchlevel)
-	if patchlevel != requirePatchLevel {
-		log.Printf("Error: Wrong database patch level. "+
-			"Required: %d, Actual: %d\n", requirePatchLevel, patchlevel)
-		return
+	err = db.QueryRow("SELECT patchlevel FROM db").Scan(&patchLevel)
+	if err != nil {
+		patchLevel = 0
+	}
+	if patchLevel != requirePatchLevel {
+		log.Printf("Database patch level is %d, expected %d.",
+			patchLevel, requirePatchLevel)
+		err := migrateDatabase(db, patchLevel, requirePatchLevel)
+		if err != nil {
+			log.Fatal(err)
+		}
 	}
 
-	go runAPI(db, 4040, devmode)
+	go runAPI(db, config.HTTPListenAddress, devmode)
 	go taskRunner(db, devmode)
 	go loadContentForFastSearch(db)
 

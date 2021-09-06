@@ -40,7 +40,7 @@ func getDBconnForTesting(t *testing.T) *sql.DB {
 	// Run the sql scripts that create all the tables
 	for i := 1; i <= 999; i++ {
 		sqlfile := fmt.Sprintf("patch%03d.sql", i)
-		bytes, err := ioutil.ReadFile("../database/" + sqlfile)
+		bytes, err := ioutil.ReadFile("database/" + sqlfile)
 		if err != nil {
 			_, ok := err.(*os.PathError)
 			if ok {
