@@ -68,23 +68,33 @@ if [[ $CREATE -eq 1 ]]; then
 		[ $VERBOSE -eq 1 ] && openssl x509 -in new_nivlheimca.crt -noout -enddate
 
 		# create a bundle with the old and the new CA
-		cat nivlheimca.crt new_nivlheimca.crt > /var/www/html/clientca.pem
+		if [ -f nivlheimca.crt ]; then
+			cat nivlheimca.crt new_nivlheimca.crt > clientca.pem
+		else
+			cp new_nivlheimca.crt clientca.pem
+		fi
 	else
 		echo "Won't create a new CA certificate; One has already been created and is waiting"
 	fi
+fi
+
+# Copy the certificate bundle to the web root
+if [ -f clientca.pem ]; then
+	cp -f clientca.pem /var/www/html/
 fi
 
 if [[ $ACTIVATE -eq 1 ]]; then
 	if [ -f new_nivlheimca.crt ] && [ -f new_nivlheimca.key ]; then
 		[ $VERBOSE -eq 1 ] && echo "Activating the new CA certificate"
 		# Activate/change to the new CA certificate
-		mv nivlheimca.key old_nivlheimca.key
-		mv nivlheimca.csr old_nivlheimca.csr
-		mv nivlheimca.crt old_nivlheimca.crt
+		if [ -f nivlheimca.crt ]; then
+			mv nivlheimca.key old_nivlheimca.key
+			mv nivlheimca.csr old_nivlheimca.csr
+			mv nivlheimca.crt old_nivlheimca.crt
+		fi
 		mv new_nivlheimca.key nivlheimca.key
 		mv new_nivlheimca.csr nivlheimca.csr
 		mv new_nivlheimca.crt nivlheimca.crt
-		systemctl restart httpd
 	else
 		echo "There's no new CA certificate to activate"
 		exit 1
