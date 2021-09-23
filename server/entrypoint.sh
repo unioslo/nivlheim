@@ -48,6 +48,15 @@ if [ ! -f default_cert.pem ] || [ ! -f default_key.pem ]; then
 	rm -f csr
 fi
 
+# pass signals on to the httpd process
+function sigterm()
+{
+	echo "Received SIGTERM"
+	kill -term `cat /var/run/httpd/httpd.pid`
+}
+trap sigterm SIGTERM
+
 # start web server
 echo "Starting httpd"
-httpd -D FOREGROUND
+httpd -D FOREGROUND &
+wait $! # must do it this way to be able to forward signals

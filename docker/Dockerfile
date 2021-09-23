@@ -5,7 +5,7 @@ LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server with CGI scripts for Nivlheim"
 
 RUN dnf update -y
-RUN dnf install -y httpd mod_ssl openssl perl
+RUN dnf install -y httpd mod_ssl openssl perl procps-ng
 RUN dnf clean all
 
 # config
@@ -22,6 +22,3 @@ RUN chmod -R a+x /var/www/cgi-bin/*
 # entry point
 COPY server/entrypoint.sh /usr/bin/
 CMD /usr/bin/entrypoint.sh
-
-# exit helper
-RUN echo -e '#!/bin/bash\nkill -term `cat /var/run/httpd/httpd.pid`' > /usr/sbin/stopit && chmod u+x /usr/sbin/stopit
