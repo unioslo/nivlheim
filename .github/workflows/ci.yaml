@@ -3,7 +3,7 @@ on: [push, pull_request]
 name: CI
 jobs:
   build:
-    name: Build container image
+    name: Build server image
     runs-on: ubuntu-latest
     services:
       postgres:
@@ -76,63 +76,112 @@ jobs:
           name: nivlheim-image.tar.gz
           path: nivlheim-image.tar.gz
 
-  publish:
-    if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
-    name: Publish
-    needs: build
-    runs-on: ubuntu-latest
-    permissions:
-      packages: write
-      contents: read
-    steps:
-      - name: Download artifact
-        uses: actions/download-artifact@v2
-        with:
-          name: nivlheim-image.tar.gz
-      - name: Load image
-        run: docker load < nivlheim-image.tar.gz
-      - name: Log in to registry
-        run: >
-          echo "${{ secrets.GITHUB_TOKEN }}"
-          | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-      - name: Push image
-        run: |
-          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim
-          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
-            TAG_NAME=latest
-          else
-            TAG_NAME="${GITHUB_REF#refs/tags/}"
-          fi
+  # publish:
+  #   if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+  #   name: Publish
+  #   needs: build
+  #   runs-on: ubuntu-latest
+  #   permissions:
+  #     packages: write
+  #     contents: read
+  #   steps:
+  #     - name: Download artifact
+  #       uses: actions/download-artifact@v2
+  #       with:
+  #         name: nivlheim-image.tar.gz
+  #     - name: Load image
+  #       run: docker load < nivlheim-image.tar.gz
+  #     - name: Log in to registry
+  #       run: >
+  #         echo "${{ secrets.GITHUB_TOKEN }}"
+  #         | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+  #     - name: Push image
+  #       run: |
+  #         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim
+  #         if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+  #           TAG_NAME=latest
+  #         else
+  #           TAG_NAME="${GITHUB_REF#refs/tags/}"
+  #         fi
 
-          docker tag nivlheim:latest "$IMAGE_ID:$TAG_NAME"
-          docker push "$IMAGE_ID:$TAG_NAME"
+  #         docker tag nivlheim:latest "$IMAGE_ID:$TAG_NAME"
+  #         docker push "$IMAGE_ID:$TAG_NAME"
 
-  live:
-    name: Live
-    needs: publish
+  buildwww:
+    name: Build httpd+cgi image
     runs-on: ubuntu-latest
-    services:
-      postgres:
-        image: postgres:11
-        env:
-          POSTGRES_USER: nivlheim
-          POSTGRES_DB: nivlheim
-          POSTGRES_PASSWORD: postgres
-        options: >-
-          --health-cmd "pg_isready"
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 5
-      nivlheim:
-        image: ghcr.io/${{ github.repository_owner }}/nivlheim:latest
-        env:
-          NIVLHEIM_PGHOST: postgres
-          NIVLHEIM_PGUSER: nivlheim
-          NIVLHEIM_PGPASSWORD: postgres
-          NIVLHEIM_PGDATABASE: nivlheim
-          NIVLHEIM_PGSSLMODE: disable
-          NIVLHEIM_HTTPLISTENADDRESS: :4040
-        ports:
-          - 4040:4040
     steps:
-      - run: curl http://localhost:4040/api/v2/status
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Docker build
+      run: |
+        docker build --file docker/Dockerfile --tag nivlheimwww:latest .
+        docker save nivlheimwww | gzip > nivlheim-www.tar.gz
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: nivlheim-www.tar.gz
+        path: nivlheim-www.tar.gz
+
+  test:
+    name: Test
+    needs: [build, buildwww]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+      # the name input parameter is not provided, so all artifacts will be downloaded
+    - name: Load images
+      run: |
+        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
+        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
+    - name: Start containers
+      run: docker-compose -f "docker/docker-compose-for-actions.yml" up -d
+    - name: SSL handshake
+      run: openssl s_client -connect localhost:443 -prexit
+      continue-on-error: true
+    - name: Run a test
+      run: curl -kv --no-progress-meter https://localhost/api/v2/status
+    - name: Retrieve logs from Docker
+      if: always()
+      run: docker-compose -f "docker/docker-compose-for-actions.yml" logs
+    - name: Stop containers
+      if: always()
+      run: docker-compose -f "docker/docker-compose-for-actions.yml" down
+
+  # publishwww:
+  #   name: Publish
+  #   needs: buildwww
+  #   runs-on: ubuntu-latest
+
+  # live:
+  #   name: Live
+  #   needs: publish
+  #   runs-on: ubuntu-latest
+  #   services:
+  #     postgres:
+  #       image: postgres:11
+  #       env:
+  #         POSTGRES_USER: nivlheim
+  #         POSTGRES_DB: nivlheim
+  #         POSTGRES_PASSWORD: postgres
+  #       options: >-
+  #         --health-cmd "pg_isready"
+  #         --health-interval 10s
+  #         --health-timeout 5s
+  #         --health-retries 5
+  #     nivlheim:
+  #       image: ghcr.io/${{ github.repository_owner }}/nivlheim:latest
+  #       env:
+  #         NIVLHEIM_PGHOST: postgres
+  #         NIVLHEIM_PGUSER: nivlheim
+  #         NIVLHEIM_PGPASSWORD: postgres
+  #         NIVLHEIM_PGDATABASE: nivlheim
+  #         NIVLHEIM_PGSSLMODE: disable
+  #         NIVLHEIM_HTTPLISTENADDRESS: :4040
+  #       ports:
+  #         - 4040:4040
+  #   steps:
+  #     - run: curl http://localhost:4040/api/v2/status
