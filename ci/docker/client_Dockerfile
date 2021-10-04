@@ -1,0 +1,18 @@
+FROM fedora:latest
+MAINTAINER iti-dia@usit.uio.no
+LABEL no.uio.contact=usit-gid@usit.uio.no
+LABEL description="Nivlheim client"
+
+RUN dnf install -y perl openssl dmidecode \
+		perl-Archive-Tar perl-File-Basename perl-File-Path perl-Getopt-Long \
+		perl-HTTP-Message perl-IO perl-IO-Socket-INET6 perl-Net-DNS \
+		perl-Sys-Hostname perl-Sys-Syslog perl-Socket \
+	&& dnf clean all \
+	&& rm -rf /var/cache/yum
+
+# client and config file
+COPY client/nivlheim_client /usr/sbin/
+COPY tmp_client.conf /etc/nivlheim/client.conf
+
+# entry point
+ENTRYPOINT ["/usr/sbin/nivlheim_client"]

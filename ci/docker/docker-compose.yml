@@ -1,6 +1,6 @@
 version: "3.9"
 services:
-  web:
+  nivlheimweb:
     depends_on:
       - nivlheimapi
     image: nivlheimwww
@@ -11,8 +11,11 @@ services:
     volumes:
       - data:/var/www/nivlheim
       - logs:/var/log
-    networks:
-      - backend
+    environment:
+      - NIVLHEIM_PGHOST=postgres
+      - NIVLHEIM_PGUSER=nivlheim
+      - NIVLHEIM_PGPASSWORD=notsecret
+      - NIVLHEIM_PGDATABASE=nivlheim
 
   nivlheimapi:
     depends_on:
@@ -20,11 +23,11 @@ services:
         condition: service_healthy
     image: nivlheim
     restart: always
+    ports:
+      - "4040:4040"
     volumes:
       - data:/var/www/nivlheim
       - logs:/var/log
-    networks:
-      - backend
     environment:
       - NIVLHEIM_PGHOST=postgres
       - NIVLHEIM_PGUSER=nivlheim
@@ -40,8 +43,6 @@ services:
       - POSTGRES_USER=nivlheim
       - POSTGRES_DB=nivlheim
       - POSTGRES_PASSWORD=notsecret
-    networks:
-      - backend
     healthcheck:
       test: ["CMD", "pg_isready", "--username=nivlheim"]
       interval: 10s
@@ -54,13 +55,10 @@ services:
     depends_on:
       nivlheimapi:
         condition: service_started
-      web:
+      nivlheimweb:
         condition: service_healthy
       postgres:
         condition: service_healthy
-
-networks:
-  backend:
 
 volumes:
   data:

@@ -13,6 +13,7 @@ use File::Temp qw/ tempdir /;
 use IPC::Open3;
 use Log::Log4perl;
 use POSIX qw(strftime);
+use Socket;
 use Symbol qw(gensym);
 use LWP::Simple;
 use Nivlheim::Database;
@@ -21,9 +22,10 @@ sub parse_query_string();
 sub run_command($);
 sub uts_to_rfc3339($);
 
-# Restrict access to only localhost, and disallow proxy connections
+# Restrict access to only the nivlheim internal server, and disallow proxy connections
+my $apiserver = inet_ntoa(inet_aton('nivlheimapi'));
 my $ip = $ENV{'REMOTE_ADDR'};
-if (defined($ENV{'HTTP_X_FORWARDED_FOR'}) || ($ip ne "127.0.0.1" && $ip ne "::1")) {
+if (defined($ENV{'HTTP_X_FORWARDED_FOR'}) || ($ip ne $apiserver)) {
 	print "Status: 403\r\n\r\n";
 	exit;
 }
@@ -34,7 +36,7 @@ my $confdir = "/var/www/nivlheim";
 # Logging
 my $logger;
 eval {
-	Log::Log4perl->init("$confdir/log4perl.conf");
+	Log::Log4perl->init("/etc/nivlheim/log4perl.conf");
 	$logger = Log::Log4perl->get_logger("processarchive");
 };
 if ($@) {
@@ -313,7 +315,7 @@ eval{
 	# no longer current, so they can be removed from the search cache.
 	$logger->debug("Call API 'unsetCurrent'");
 	if ($#no_longer_current>-1) {
-		get("http://localhost:4040/api/internal/unsetCurrent?ids="
+		get("http://nivlheimapi:4040/api/internal/unsetCurrent?ids="
 			. join(',', @no_longer_current));
 	}
 
@@ -321,7 +323,7 @@ eval{
 	# so they too are counted (for statistical purposes)
 	$logger->debug("Call API 'countFiles'");
 	if ($unchangedfilecount > 0) {
-		get("http://localhost:4040/api/internal/countFiles?n=".$unchangedfilecount);
+		get("http://nivlheimapi:4040/api/internal/countFiles?n=".$unchangedfilecount);
 	}
 };
 if ($@) {

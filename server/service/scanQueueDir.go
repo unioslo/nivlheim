@@ -34,7 +34,7 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 			// nope.
 			continue
 		}
-		taskurl := "http://localhost/cgi-bin/processarchive?file=" +
+		taskurl := "http://nivlheimweb/cgi-bin/processarchive?file=" +
 			f.Name()
 		// New task
 		var err error

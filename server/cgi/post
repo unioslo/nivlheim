@@ -44,7 +44,7 @@ my $confdir = "/var/www/nivlheim";
 my $queuedir = "/var/www/nivlheim/queue";
 
 # Logging
-Log::Log4perl->init("$confdir/log4perl.conf");
+Log::Log4perl->init("/etc/nivlheim/log4perl.conf");
 my $logger = Log::Log4perl->get_logger();
 
 # div

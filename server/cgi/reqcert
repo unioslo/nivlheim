@@ -44,7 +44,7 @@ sub forwardConfirmReverseDNS($);
 # Config
 my $confdir = "/var/www/nivlheim";
 my $opensslconf = "/etc/nivlheim/openssl_ca.conf";
-Log::Log4perl->init("$confdir/log4perl.conf");
+Log::Log4perl->init("/etc/nivlheim/log4perl.conf");
 my $logger = Log::Log4perl->get_logger("reqcert");
 
 # Verify method

@@ -1,17 +1,17 @@
 #!/bin/bash
 
 # Dependencies/assumptions:
-# - It is safe and OK to make changes to the system database
-# - The nivlheim system service is running
+# - It is safe and OK to make changes to the Postgres database
+# - The Nivlheim system service is running
 # - The API is served at localhost:4040
-# - The web server is running and serving CGI scripts
-# - The nivlheim client is installed
+# - The web server is running and serving CGI scripts at localhost:443/80
+# - Docker has a container image with the nivlheim client
 
 echo "------------- Testing certificate handling ------------"
 set -e
 
 # Put a marker in the httpd access log
-curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' || true
+curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' 2>/dev/null || true
 
 # tempdir
 tempdir=$(mktemp -d -t tmp.XXXXXXXXXX)
@@ -20,45 +20,37 @@ function finish {
 }
 trap finish EXIT
 
-# Clean/init everything
-sudo systemctl stop nivlheim
-sudo rm -f /var/log/nivlheim/system.log /var/nivlheim/my.{crt,key} \
-	/var/run/nivlheim_client_last_run /var/www/nivlheim/certs/* \
-	/var/www/nivlheim/queue/*
-echo -n | sudo tee /var/log/httpd/error_log
-/var/nivlheim/installdb.sh --wipe
-sudo systemctl start nivlheim
-sleep 4
+# Whitelist the Docker network address range
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.0.0.0/8'
+
+# Remove any previous volume used by the client
+docker volume rm clientvar -f > /dev/null
 
 # Run the client. This will call reqcert and post
 echo "Running the client"
-if ! grep -s -e "^server" /etc/nivlheim/client.conf > /dev/null; then
-    echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
-fi
-curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=127.0.0.0/24'
-sudo /usr/sbin/nivlheim_client
-if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
+if ! docker run --rm --network host -v clientvar:/var nivlheimclient; then
     echo "The client failed to post data successfully."
     exit 1
 fi
 
 # Verify that reqcert didn't leave any files
-if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
-	echo "Certificate files are left after reqcert"
-	ls -1 /var/www/nivlheim/certs
+OUTPUT=$(docker exec -it docker_web_1 ls -1 /var/www/nivlheim/certs)
+if [[ "$OUTPUT" != "" ]]; then
+	echo "Certificate files are left after reqcert:"
+	echo $OUTPUT
 	exit 1
 fi
 
 # Verify that the PKCS8 file was created
-if [[ ! -f /var/nivlheim/pkcs8.key ]]; then
+if ! docker run --rm  --entrypoint ls -v clientvar:/var nivlheimclient /var/nivlheim/pkcs8.key >/dev/null; then
     echo "pkcs8.key is missing."
     exit 1
 fi
-if ! $(sudo openssl pkcs8 -in /var/nivlheim/pkcs8.key -nocrypt -out /dev/null); then
+if ! docker run --rm  --entrypoint openssl -v clientvar:/var nivlheimclient pkcs8 -in /var/nivlheim/pkcs8.key -nocrypt -out /dev/null; then
     echo "pkcs8.key is invalid."
     exit 1
 fi
-if [[ $(stat -c "%a" /var/nivlheim/pkcs8.key) != "600" ]]; then
+if [[ $(docker run --rm  --entrypoint stat -v clientvar:/var nivlheimclient -c "%a" /var/nivlheim/pkcs8.key) != "600" ]]; then
 	echo "pkcs8.key should have permissions 600"
 	exit 1
 fi
@@ -80,6 +72,9 @@ if [ $OK -eq 0 ]; then
 	exit 1
 fi
 echo ""
+
+echo "This is the end of the line"
+exit
 
 # Read database connection options from server.conf and set ENV vars for psql
 if [[ -r "/etc/nivlheim/server.conf" ]]; then
