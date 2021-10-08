@@ -123,6 +123,26 @@ jobs:
         name: nivlheim-www.tar.gz
         path: nivlheim-www.tar.gz
 
+  buildclient:
+    name: Build client image
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Docker build
+      run: |
+        cp client/client.conf tmp_client.conf
+        echo "server=localhost" >> tmp_client.conf
+        docker build --file ci/docker/client_Dockerfile --tag nivlheimclient:latest .
+        docker save nivlheimclient | gzip > nivlheim-client.tar.gz
+        rm tmp_client.conf
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: nivlheim-client.tar.gz
+        path: nivlheim-client.tar.gz
+
+
   test:
     name: Test
     needs: [build, buildwww]
@@ -137,6 +157,7 @@ jobs:
       run: |
         docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
         docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
+        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
     - name: Start containers
       run: docker-compose -f "ci/docker/docker-compose.yml" up -d
     - name: SSL handshake

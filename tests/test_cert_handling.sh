@@ -73,40 +73,26 @@ if [ $OK -eq 0 ]; then
 fi
 echo ""
 
-echo "This is the end of the line"
-exit
-
-# Read database connection options from server.conf and set ENV vars for psql
-if [[ -r "/etc/nivlheim/server.conf" ]]; then
-	# grep out the postgres config options and make the names upper case
-	grep -ie "^pg" /etc/nivlheim/server.conf | sed -e 's/\(.*\)=/\U\1=/' > /tmp/dbconf
-	source /tmp/dbconf
-	rm /tmp/dbconf
-else
-	echo "Unable to read server.conf"
-	exit 1
-fi
-export PGHOST PGPORT PGDATABASE PGUSER PGPASSWORD
-
 # Let's see what's in hostinfo
-psql -c "SELECT hostname,certfp FROM hostinfo"
+PSQL=ci/docker/psql.sh
+$PSQL -c "SELECT hostname,certfp FROM hostinfo"
 
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
-psql -c "UPDATE hostinfo SET hostname='abcdef'"
-sudo /usr/sbin/nivlheim_client --debug > /tmp/first 2>&1
+$PSQL -c "UPDATE hostinfo SET hostname='abcdef'"
+docker run --rm --network host -v clientvar:/var nivlheimclient --debug > /tmp/first 2>&1
 # one more time
 sleep 3
-psql -c "UPDATE hostinfo SET hostname='ghijkl'"
-sudo /usr/sbin/nivlheim_client --debug > /tmp/second 2>&1
+$PSQL -c "UPDATE hostinfo SET hostname='ghijkl'"
+docker run --rm --network host -v clientvar:/var nivlheimclient --debug > /tmp/second 2>&1
 
 # Verify the certificate chain
-chain=$(psql --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
+chain=$($PSQL --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
 expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "Certificate chain differs from expected value:"
-	psql -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
-	echo "================= httpd log:  ========================="
-	sudo tail -20 /var/log/httpd/access_log
+	$PSQL -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
+	echo "================= httpd access log:  =================="
+	docker exec -it docker_web_1 tail -20 /var/log/httpd/access_log
 	echo "================= client output (1st time): ==========="
 	cat /tmp/first
 	echo "================= client output (2nd time): ==========="
@@ -119,11 +105,14 @@ curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
 if ! grep -q 'ghijkl' $tempdir/grepout; then
 	echo "The grep API returned unexpected results:"
 	cat $tempdir/grepout
-	echo ""
-	echo "journal:"
-	journalctl -u nivlheim
+	#echo ""
+	#echo "journal:"
+	#journalctl -u nivlheim
 	exit 1
 fi
+
+echo "This is as far as it goes, for now."
+exit 0
 
 # Verify that renewcert didn't leave any files
 if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
