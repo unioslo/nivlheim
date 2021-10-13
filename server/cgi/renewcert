@@ -171,7 +171,7 @@ eval {
 	# No need to update certfp in hostinfo_customfields, because it has ON UPDATE CASCADE.
 
 	# Update the search cache, if the service is running
-	get("http://localhost:4040/api/internal/replaceCertificate?old=$fingerprint&new=$new_fingerprint");
+	get("http://nivlheimapi:4040/api/internal/replaceCertificate?old=$fingerprint&new=$new_fingerprint");
 
 	# Generate a P12 file
 	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "

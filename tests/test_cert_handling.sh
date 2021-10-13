@@ -9,6 +9,7 @@
 
 echo "------------- Testing certificate handling ------------"
 set -e
+cd `dirname $0`  # cd to the dir where the test script is
 
 # Put a marker in the httpd access log
 curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' 2>/dev/null || true
@@ -20,21 +21,32 @@ function finish {
 }
 trap finish EXIT
 
-# Whitelist the Docker network address range
-curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.0.0.0/8'
+# Whitelist the private network address ranges
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=192.168.0.0/16'
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.16.0.0/12'
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=10.0.0.0/8'
 
 # Remove any previous volume used by the client
 docker volume rm clientvar -f > /dev/null
 
+# Remove any previous cert files on the server
+docker exec -it docker_nivlheimweb_1 sh -c 'rm -f /var/www/nivlheim/certs/*'
+
 # Run the client. This will call reqcert and post
 echo "Running the client"
-if ! docker run --rm --network host -v clientvar:/var nivlheimclient; then
-    echo "The client failed to post data successfully."
+if ! docker run --rm --network host -v clientvar:/var nivlheimclient --debug >/tmp/output 2>&1; then
+    echo "The client failed to post data successfully:"
+	echo "--------------------------------------------"
+	cat /tmp/output
+	echo "access_log: --------------------------------"
+	docker exec -it docker_nivlheimweb_1 cat /var/log/httpd/access_log
+	echo "error_log: ---------------------------------"
+	docker exec -it docker_nivlheimweb_1 cat /var/log/httpd/error_log
     exit 1
 fi
 
 # Verify that reqcert didn't leave any files
-OUTPUT=$(docker exec -it docker_web_1 ls -1 /var/www/nivlheim/certs)
+OUTPUT=$(docker exec -it docker_nivlheimweb_1 ls -1 /var/www/nivlheim/certs)
 if [[ "$OUTPUT" != "" ]]; then
 	echo "Certificate files are left after reqcert:"
 	echo $OUTPUT
@@ -74,8 +86,8 @@ fi
 echo ""
 
 # Let's see what's in hostinfo
-PSQL=ci/docker/psql.sh
-$PSQL -c "SELECT hostname,certfp FROM hostinfo"
+PSQL=../ci/docker/psql.sh
+$PSQL -e -c "SELECT hostname,certfp FROM hostinfo"
 
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
 $PSQL -c "UPDATE hostinfo SET hostname='abcdef'"
@@ -87,12 +99,14 @@ docker run --rm --network host -v clientvar:/var nivlheimclient --debug > /tmp/s
 
 # Verify the certificate chain
 chain=$($PSQL --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
-expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
+expect=$(echo -e "1|1|\r\n2|1|1\r\n3|1|2\r\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "Certificate chain differs from expected value:"
+	echo "$chain"
+	echo "Details:"
 	$PSQL -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
 	echo "================= httpd access log:  =================="
-	docker exec -it docker_web_1 tail -20 /var/log/httpd/access_log
+	docker exec -it docker_nivlheimweb_1 tail -20 /var/log/httpd/access_log
 	echo "================= client output (1st time): ==========="
 	cat /tmp/first
 	echo "================= client output (2nd time): ==========="
@@ -105,52 +119,38 @@ curl -sS 'http://localhost:4040/api/v2/grep?q=linux' > $tempdir/grepout
 if ! grep -q 'ghijkl' $tempdir/grepout; then
 	echo "The grep API returned unexpected results:"
 	cat $tempdir/grepout
+	$PSQL -e -c "SELECT hostname,certfp FROM hostinfo"
 	#echo ""
 	#echo "journal:"
 	#journalctl -u nivlheim
 	exit 1
 fi
 
-echo "This is as far as it goes, for now."
-exit 0
-
 # Verify that renewcert didn't leave any files
-if [[ $(ls -1 /var/www/nivlheim/certs | wc -l) -gt 0 ]]; then
-	echo "Certificate files are left after renewcert"
-	ls -1 /var/www/nivlheim/certs
+OUTPUT=$(docker exec -it docker_nivlheimweb_1 ls -1 /var/www/nivlheim/certs)
+if [[ "$OUTPUT" != "" ]]; then
+	echo "Certificate files are left after renewcert:"
+	echo $OUTPUT
 	exit 1
 fi
 
-# Set a password on the key file and verify that the client is able to handle it
-pushd /var/nivlheim
-sudo openssl rsa -in my.key -out my.encrypted.key -outform PEM -passout pass:passord123 -des3
-sudo mv my.key my.old.key && sudo mv my.encrypted.key my.key
-sudo rm -f /var/run/nivlheim_client_last_run
-sudo /usr/sbin/nivlheim_client
-if [[ ! -f /var/run/nivlheim_client_last_run ]]; then
-    echo "The client failed to use a password-protected certificate key."
-    exit 1
-fi
-sudo mv -f my.old.key my.key # restore the old key file
-popd
-
 # Blacklist and check response
-psql -q -c "UPDATE certificates SET revoked=true"
+$PSQL -q -c "UPDATE certificates SET revoked=true"
 # Test ping
-if sudo curl -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+if docker run --rm -v clientvar:/var --entrypoint curl nivlheimclient -skf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/ping; then
 	echo "Secure/ping worked even though cert was blacklisted."
 	exit 1
 fi
 # Test post (it will get a 403 anyway, because the nonce is missing)
-sudo curl -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+docker run --rm -v clientvar:/var --entrypoint curl nivlheimclient -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/post > $tempdir/postresult || true
 if ! grep -qi "revoked" $tempdir/postresult; then
 	echo "Post worked even though cert was blacklisted."
 	exit 1
 fi
 # Test renew
-sudo curl -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+docker run --rm -v clientvar:/var --entrypoint curl nivlheimclient -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
 	https://localhost/cgi-bin/secure/renewcert > $tempdir/renewresult || true
 if ! grep -qi "revoked" $tempdir/renewresult; then
 	echo "Renewcert worked even though cert was blacklisted."
@@ -158,13 +158,13 @@ if ! grep -qi "revoked" $tempdir/renewresult; then
 fi
 
 # Check logs for errors
-if grep -A1 "ERROR" /var/log/nivlheim/system.log; then
+if docker exec -it docker_nivlheimapi_1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
     exit 1
 fi
-if journalctl -u nivlheim | grep -i error; then
+if docker exec -it docker_nivlheimapi_1 journalctl -u nivlheim | grep -i error; then
     exit 1
 fi
-if sudo grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
+if docker exec -it docker_nivlheimapi_1 grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
     exit 1
 fi
 

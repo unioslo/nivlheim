@@ -144,8 +144,8 @@ jobs:
 
 
   test:
-    name: Test
-    needs: [build, buildwww]
+    name: Test certificate handling
+    needs: [build, buildwww, buildclient]
     runs-on: ubuntu-latest
     steps:
     - name: Checkout

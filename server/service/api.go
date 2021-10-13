@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -165,20 +166,63 @@ func wrapLog(h http.Handler) http.Handler {
 	})
 }
 
-// isLocal returns true if the http request originated from localhost.
+var privateIPBlocks []*net.IPNet
+
+func init() {
+	for _, cidr := range []string{
+		"127.0.0.0/8",    // IPv4 loopback
+		"10.0.0.0/8",     // RFC1918
+		"172.16.0.0/12",  // RFC1918
+		"192.168.0.0/16", // RFC1918
+		"169.254.0.0/16", // RFC3927 link-local
+		"::1/128",        // IPv6 loopback
+		"fe80::/10",      // IPv6 link-local
+		"fc00::/7",       // IPv6 unique local addr
+	} {
+		_, block, err := net.ParseCIDR(cidr)
+		if err != nil {
+			panic(fmt.Errorf("parse error on %q: %v", cidr, err))
+		}
+		privateIPBlocks = append(privateIPBlocks, block)
+	}
+}
+
+func isPrivateIP(ip net.IP) bool {
+	if ip.IsLoopback() || ip.IsLinkLocalUnicast() || ip.IsLinkLocalMulticast() {
+		return true
+	}
+	for _, block := range privateIPBlocks {
+		if block.Contains(ip) {
+			return true
+		}
+	}
+	return false
+}
+
+// isLocal returns true if the http request originated from localhost or a private network address block.
 func isLocal(req *http.Request) bool {
 	// The X-Forwarded-For header can be set by the client,
 	// so just to be safe let's not trust any proxy connections.
 	if req.Header.Get("X-Forwarded-For") != "" {
 		return false
 	}
-	return strings.HasPrefix(req.RemoteAddr, "127.0.0.1")
+	// req.RemoteAddr can contain a port
+	ipStr, _, err := net.SplitHostPort(req.RemoteAddr)
+	if err != nil {
+		ipStr = req.RemoteAddr
+	}
+	ip := net.ParseIP(ipStr)
+	if ip != nil {
+		return isPrivateIP(ip)
+	} else {
+		return false
+	}
 }
 
 func wrapOnlyAllowLocal(h http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
 		if !isLocal(req) {
-			http.Error(w, "Only local requests are allowed", http.StatusForbidden)
+			http.Error(w, "Only local and private requests are allowed", http.StatusForbidden)
 			return
 		}
 		h.ServeHTTP(w, req)
