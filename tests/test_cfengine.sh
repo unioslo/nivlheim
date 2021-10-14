@@ -23,8 +23,11 @@ $PSQL -X --no-align -t -q -c "TRUNCATE TABLE waiting_for_approval"
 
 # Install a fake CFEngine key pair on a client container
 docker run --rm -v clientvar:/var --entrypoint sh nivlheimclient -c 'mkdir -p /var/cfengine/ppkeys'
-docker rm banana >/dev/null 2>&1 || true
 docker create --name banana --network host -v clientvar:/var nivlheimclient --debug
+function finish {
+	docker rm banana >/dev/null 2>&1 || true
+}
+trap finish EXIT
 docker cp cfengine.priv banana:/var/cfengine/ppkeys/localhost.priv
 docker cp cfengine.pub banana:/var/cfengine/ppkeys/localhost.pub
 # and the public key will also be used by the server

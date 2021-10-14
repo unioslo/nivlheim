@@ -174,7 +174,7 @@ jobs:
       run: docker-compose -f "ci/docker/docker-compose.yml" down
 
   test2:
-    name: Test bootstrapping with a CFEngine certificate
+    name: Test bootstrap w/CFEngine
     needs: [build, buildwww, buildclient]
     runs-on: ubuntu-latest
     steps:
@@ -191,6 +191,31 @@ jobs:
       run: docker-compose -f "ci/docker/docker-compose.yml" up -d
     - name: Run one of the test scripts
       run: tests/test_cfengine.sh
+    - name: Retrieve logs from Docker
+      if: failure()
+      run: docker-compose -f "ci/docker/docker-compose.yml" logs
+    - name: Stop containers
+      if: always()
+      run: docker-compose -f "ci/docker/docker-compose.yml" down
+
+  test3:
+    name: Test replacing client CA
+    needs: [build, buildwww, buildclient]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+    - name: Load images
+      run: |
+        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
+        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
+        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
+    - name: Start containers
+      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
+    - name: Run one of the test scripts
+      run: tests/test_change_ca.sh
     - name: Retrieve logs from Docker
       if: failure()
       run: docker-compose -f "ci/docker/docker-compose.yml" logs

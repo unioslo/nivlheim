@@ -799,8 +799,7 @@ sub http_post($$$$) {
 	my $result = '';
 	my $httpstatus = <$ssl>;
 	if (!defined($httpstatus)) {
-		printlog("No response from web server");
-		return undef;
+		die "No response from web server";
 	}
 	while (<$ssl>) {
 		last if (/^\r?\n$/);
