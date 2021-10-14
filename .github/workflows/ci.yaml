@@ -142,8 +142,7 @@ jobs:
         name: nivlheim-client.tar.gz
         path: nivlheim-client.tar.gz
 
-
-  test:
+  test1:
     name: Test certificate handling
     needs: [build, buildwww, buildclient]
     runs-on: ubuntu-latest
@@ -173,6 +172,33 @@ jobs:
     - name: Stop containers
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
+
+  test2:
+    name: Test bootstrapping with a CFEngine certificate
+    needs: [build, buildwww, buildclient]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+    - name: Load images
+      run: |
+        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
+        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
+        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
+    - name: Start containers
+      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
+    - name: Run one of the test scripts
+      run: tests/test_cfengine.sh
+    - name: Retrieve logs from Docker
+      if: failure()
+      run: docker-compose -f "ci/docker/docker-compose.yml" logs
+    - name: Stop containers
+      if: always()
+      run: docker-compose -f "ci/docker/docker-compose.yml" down
+
+
 
   # publishwww:
   #   name: Publish

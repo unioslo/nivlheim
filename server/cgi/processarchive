@@ -13,7 +13,7 @@ use File::Temp qw/ tempdir /;
 use IPC::Open3;
 use Log::Log4perl;
 use POSIX qw(strftime);
-use Socket;
+use Net::IP;
 use Symbol qw(gensym);
 use LWP::Simple;
 use Nivlheim::Database;
@@ -23,9 +23,22 @@ sub run_command($);
 sub uts_to_rfc3339($);
 
 # Restrict access to only the nivlheim internal server, and disallow proxy connections
-my $apiserver = inet_ntoa(inet_aton('nivlheimapi'));
-my $ip = $ENV{'REMOTE_ADDR'};
-if (defined($ENV{'HTTP_X_FORWARDED_FOR'}) || ($ip ne $apiserver)) {
+
+my $ip = Net::IP->new($ENV{'REMOTE_ADDR'});
+my @ranges = (
+	Net::IP->new('192.168.0.0/16'),
+	Net::IP->new('172.16.0.0/12'),
+	Net::IP->new('10.0.0.0/8'),
+	Net::IP->new('127.0.0.1')
+);
+my $ok = 0;
+foreach (@ranges) {
+	if ($_->overlaps($ip)) {
+		$ok = 1;
+		last;
+	}
+}
+if (!$ok || defined($ENV{'HTTP_X_FORWARDED_FOR'})) {
 	print "Status: 403\r\n\r\n";
 	exit;
 }

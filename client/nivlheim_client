@@ -345,7 +345,20 @@ elsif ($have_cert && !$cert_works) {
 			printlog "Successfully renewed the certificate.\n";
 		} else {
 			printlog "Wasn't able to renew the certificate. Requesting a new one instead...\n";
-			my $response = http_get($server_url . "reqcert?hostname=".hostname, 0, 0);
+			my %postdata = (
+				'hostname' => hostname,
+			);
+			unless ($opt{'nocfe'}) {
+				# Try to use the local CFEngine key to sign something that the server can verify
+				my ($cfengine_key_md5,$signature) = sign_with_cfengine_key();
+				if ($opt{'debug'}) {
+					printf "CFEngine key md5 digest: %s\nCFEngine signature: %d chars base64\n",
+						$cfengine_key_md5, length($signature);
+				}
+				$postdata{'cfe_key_md5'} = $cfengine_key_md5;
+				$postdata{'sign_b64'} = $signature;
+			}
+			my $response = http_post($server_url . "reqcert", \%postdata, 0, 0);
 			($cert, $key) = parse_certificate_response($response);
 		}
 		# Did it work?
@@ -712,6 +725,10 @@ sub http_get($$$) {
 	my $headers = '';
 	my $result = '';
 	my $httpstatus = <$ssl>;
+	if (!defined($httpstatus)) {
+		printlog("No response from web server");
+		return undef;
+	}
 	while (<$ssl>) {
 		last if (/^\r?\n$/);
 		print if $opt{debug};
@@ -781,6 +798,10 @@ sub http_post($$$$) {
 	$headers = '';
 	my $result = '';
 	my $httpstatus = <$ssl>;
+	if (!defined($httpstatus)) {
+		printlog("No response from web server");
+		return undef;
+	}
 	while (<$ssl>) {
 		last if (/^\r?\n$/);
 		print if $opt{debug};
@@ -917,7 +938,7 @@ sub createPKCS8() {
 
 sub sign_with_cfengine_key() {
 	my $md5_digest;
-	if (-x '/var/cfengine/bin/cf-key' && 
+	if (-x '/var/cfengine/bin/cf-key' &&
 		`/var/cfengine/bin/cf-key -p /var/cfengine/ppkeys/localhost.pub` =~ /MD5=([a-f0-9]{32})/) {
 		$md5_digest = $1;
 	} else {

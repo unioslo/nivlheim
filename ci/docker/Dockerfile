@@ -4,7 +4,7 @@ EXPOSE 80 443
 LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server with CGI scripts for Nivlheim"
 
-RUN dnf install -y httpd mod_ssl openssl perl procps-ng unzip file \
+RUN dnf install -y httpd mod_ssl openssl perl procps-ng unzip file bind-utils \
 		perl-Archive-Tar perl-Archive-Zip perl-CGI perl-Crypt-OpenSSL-X509 \
 		perl-DBD-Pg perl-DBI perl-Digest-CRC perl-Encode \
 		perl-File-Basename perl-File-Path perl-File-Temp \
