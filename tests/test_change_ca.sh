@@ -40,7 +40,8 @@ docker exec docker_nivlheimweb_1 /usr/bin/client_CA_cert.sh --force-create --ver
 # Start a container that has the clientvar volume mounted, for easier access
 docker run -d --rm --name easyvar -v clientvar:/var --network host --entrypoint sh nivlheimclient -c 'tail -f /dev/null'
 function finish {
-	docker kill easyvar
+	docker kill easyvar >/dev/null
+	rm -f /tmp/output
 }
 trap finish EXIT
 

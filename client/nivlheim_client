@@ -132,19 +132,23 @@ if ($opt{minperiod}) {
 		my $seconds_since_last_time = time()-$stat[9];
 		if ($seconds_since_last_time < $opt{minperiod}) {
 			print "Only $seconds_since_last_time seconds since last ".
-				"successful report. Skipping this time.\n" if ($opt{debug});
+				"successful run. Skipping this time.\n" if ($opt{debug});
 			exit 64
+		} else {
+			print "$seconds_since_last_time seconds since last successful run.\n" if ($opt{debug});
 		}
+	} else {
+		print "Unable to stat /var/run/nivlheim_client_last_run\n" if ($opt{debug});
 	}
 }
 
 # If another instance of this script is already running, exit.
 # Implemented this way because we don't want the package to depend on EPEL,
 # and unfortunately all the Perl modules for checking PID are there.
-open SELF, "< $0" or exit;
+open SELF, "< $0" or exit 1;
 unless ( flock SELF, LOCK_EX | LOCK_NB ) {
 	# Another instance is running
-	exit;
+	exit 1;
 }
 
 # sleep if cmdline parameter says so, and there has been at least one successful run earlier
@@ -360,10 +364,12 @@ elsif ($have_cert && !$cert_works) {
 			}
 			my $response = http_post($server_url . "reqcert", \%postdata, 0, 0);
 			($cert, $key) = parse_certificate_response($response);
+			if (defined($cert) && defined($key)) {
+				printlog "Got a new certificate.\n";
+			}
 		}
 		# Did it work?
 		if (defined($cert) && defined($key)) {
-			printlog "Successfully renewed the certificate.\n";
 			open(my $F, ">$opt{cert_file}") or die "Unable to write to cert file $opt{cert_file}";
 			print $F "$cert\n";
 			close($F);
@@ -372,7 +378,7 @@ elsif ($have_cert && !$cert_works) {
 			close($F);
 			chmod(0600, $opt{key_file});
 			createPKCS8();
-			printlog "Received and stored a new certificate.\n";
+			printlog "Stored the new certificate.\n";
 		}
 		else {
 			printlog "Did not receive any certificate.\n";
@@ -542,7 +548,10 @@ eval {
 		chmod 0600, $noncefile;
 	}
 };
-printlog $@ if ($@);
+if ($@) {
+	printlog $@;
+	exit 1;
+}
 
 #---------------- end --------------
 

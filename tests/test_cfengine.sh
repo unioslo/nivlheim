@@ -25,7 +25,7 @@ $PSQL -X --no-align -t -q -c "TRUNCATE TABLE waiting_for_approval"
 docker run --rm -v clientvar:/var --entrypoint sh nivlheimclient -c 'mkdir -p /var/cfengine/ppkeys'
 docker create --name banana --network host -v clientvar:/var nivlheimclient --debug
 function finish {
-	docker rm banana >/dev/null 2>&1 || true
+	docker rm -f banana >/dev/null 2>&1 || true
 }
 trap finish EXIT
 docker cp cfengine.priv banana:/var/cfengine/ppkeys/localhost.priv
