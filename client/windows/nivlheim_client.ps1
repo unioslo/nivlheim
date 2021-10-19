@@ -450,7 +450,7 @@ Write-Host "Nivlheim client version: $version"
 Set-Variable psver -option Constant -value "$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
 Write-Host "Powershell version: $psver"
 $x = dotNetVersion
-Write-Host ".NET version: " $x
+Write-Host ".NET version:" $x
 
 $invocation = (Get-Variable MyInvocation).Value
 $dirpath = Split-Path $invocation.MyCommand.Path

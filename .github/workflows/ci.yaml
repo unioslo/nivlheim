@@ -76,37 +76,6 @@ jobs:
           name: nivlheim-image.tar.gz
           path: nivlheim-image.tar.gz
 
-  # publish:
-  #   if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
-  #   name: Publish
-  #   needs: build
-  #   runs-on: ubuntu-latest
-  #   permissions:
-  #     packages: write
-  #     contents: read
-  #   steps:
-  #     - name: Download artifact
-  #       uses: actions/download-artifact@v2
-  #       with:
-  #         name: nivlheim-image.tar.gz
-  #     - name: Load image
-  #       run: docker load < nivlheim-image.tar.gz
-  #     - name: Log in to registry
-  #       run: >
-  #         echo "${{ secrets.GITHUB_TOKEN }}"
-  #         | docker login ghcr.io -u ${{ github.actor }} --password-stdin
-  #     - name: Push image
-  #       run: |
-  #         IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim
-  #         if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
-  #           TAG_NAME=latest
-  #         else
-  #           TAG_NAME="${GITHUB_REF#refs/tags/}"
-  #         fi
-
-  #         docker tag nivlheim:latest "$IMAGE_ID:$TAG_NAME"
-  #         docker push "$IMAGE_ID:$TAG_NAME"
-
   buildwww:
     name: Build httpd+cgi image
     runs-on: ubuntu-latest
@@ -273,39 +242,92 @@ jobs:
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
 
+  test6:
+    name: Test Powershell client
+    needs: [build, buildwww, buildclient]
+    runs-on: windows-latest
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Download artifacts
+      uses: actions/download-artifact@v2
+    - name: Load images
+      run: |
+        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
+        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
+        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
+    - name: Start containers
+      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
+    - name: Put the client configuration in registry
+      run: |
+        encoded=$(base64 --wrap=0 client/windows/client.conf)
+        reg add HKEY_LOCAL_MACHINE\\SOFTWARE\\Nivlheim /f /v config /t REG_SZ /d $encoded
+    - name: Run the client
+      run: client/windows/nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -server localhost -trustallcerts:1 -nosleep:1
+    - name: Retrieve logs from Docker
+      if: failure()
+      run: docker-compose -f "ci/docker/docker-compose.yml" logs
+    - name: Stop containers
+      if: always()
+      run: docker-compose -f "ci/docker/docker-compose.yml" down
 
 
-  # publishwww:
-  #   name: Publish
-  #   needs: buildwww
-  #   runs-on: ubuntu-latest
+  publish:
+    if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+    name: Publish server image
+    needs: [test1, test2, test3, test4, test5, test6]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: nivlheim-image.tar.gz
+      - name: Load image
+        run: docker load < nivlheim-image.tar.gz
+      - name: Log in to registry
+        run: >
+          echo "${{ secrets.GITHUB_TOKEN }}"
+          | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim
+          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+            TAG_NAME=latest
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+          docker tag nivlheim:latest "$IMAGE_ID:$TAG_NAME"
+          docker push "$IMAGE_ID:$TAG_NAME"
 
-  # live:
-  #   name: Live
-  #   needs: publish
-  #   runs-on: ubuntu-latest
-  #   services:
-  #     postgres:
-  #       image: postgres:11
-  #       env:
-  #         POSTGRES_USER: nivlheim
-  #         POSTGRES_DB: nivlheim
-  #         POSTGRES_PASSWORD: postgres
-  #       options: >-
-  #         --health-cmd "pg_isready"
-  #         --health-interval 10s
-  #         --health-timeout 5s
-  #         --health-retries 5
-  #     nivlheim:
-  #       image: ghcr.io/${{ github.repository_owner }}/nivlheim:latest
-  #       env:
-  #         NIVLHEIM_PGHOST: postgres
-  #         NIVLHEIM_PGUSER: nivlheim
-  #         NIVLHEIM_PGPASSWORD: postgres
-  #         NIVLHEIM_PGDATABASE: nivlheim
-  #         NIVLHEIM_PGSSLMODE: disable
-  #         NIVLHEIM_HTTPLISTENADDRESS: :4040
-  #       ports:
-  #         - 4040:4040
-  #   steps:
-  #     - run: curl http://localhost:4040/api/v2/status
+  publishwww:
+    if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
+    name: Publish httpd+cgi image
+    needs: [test1, test2, test3, test4, test5, test6]
+    runs-on: ubuntu-latest
+    permissions:
+      packages: write
+      contents: read
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v2
+        with:
+          name: nivlheim-www.tar.gz
+      - name: Load image
+        run: docker load < nivlheim-www.tar.gz
+      - name: Log in to registry
+        run: >
+          echo "${{ secrets.GITHUB_TOKEN }}"
+          | docker login ghcr.io -u ${{ github.actor }} --password-stdin
+      - name: Push image
+        run: |
+          IMAGE_ID=ghcr.io/${{ github.repository_owner }}/nivlheim-www
+          if [[ "$GITHUB_REF" == "refs/heads/master" ]]; then
+            TAG_NAME=latest
+          else
+            TAG_NAME="${GITHUB_REF#refs/tags/}"
+          fi
+          docker tag nivlheim-www:latest "$IMAGE_ID:$TAG_NAME"
+          docker push "$IMAGE_ID:$TAG_NAME"
