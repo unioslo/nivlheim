@@ -249,12 +249,8 @@ jobs:
     steps:
     - name: Checkout
       uses: actions/checkout@v2
-    - name: Put the client configuration in registry
-      run: |
-        encoded=$(base64 --wrap=0 client/windows/client.conf)
-        reg add HKEY_LOCAL_MACHINE\\SOFTWARE\\Nivlheim /f /v config /t REG_SZ /d $encoded
-    - name: Run the client
-      run: client/windows/nivlheim_client.ps1 -certfile nivlheim.p12 -logfile nivlheim.log -server bilderbygger.uio.no -trustallcerts:1 -nosleep:1
+    - name: Run the test script
+      run: tests/test_powershell.ps1
     - name: Retrieve logs from Docker
       if: failure()
       run: docker-compose -f "ci/docker/docker-compose.yml" logs
