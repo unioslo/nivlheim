@@ -461,19 +461,7 @@ $ErrorActionPreference = "Stop"
 # This code is for trusting a self-signed server certificate.
 # The option should not be used in production.
 if ($trustallcerts) {
-Write-Host "Trusting all https certificates."
-add-type @"
-using System.Net;
-using System.Security.Cryptography.X509Certificates;
-public class TrustAllCertsPolicy : ICertificatePolicy {
-	public bool CheckValidationResult(
-		ServicePoint srvPoint, X509Certificate certificate,
-		WebRequest request, int certificateProblem) {
-			return true;
-		}
-}
-"@
-[System.Net.ServicePointManager]::CertificatePolicy = New-Object TrustAllCertsPolicy
+	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
 }
 
 # Read the configuration from registry
