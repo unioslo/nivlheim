@@ -336,39 +336,7 @@ function shortencmd($orig) {
 }
 
 function dotNetVersion() {
-	$retval = ""
-	ForEach ($a in
-	Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP' -recurse |
-	Get-ItemProperty -name Version,Release -EA 0 |
-	Where { $_.PSChildName -match '^(?!S)\p{L}'} |
-	Select PSChildName, Version, Release, @{
-		name="Product"
-		expression={
-			switch($_.Release) {
-				378389 { [Version]"4.5" }
-				378675 { [Version]"4.5.1" }
-				378758 { [Version]"4.5.1" }
-				379893 { [Version]"4.5.2" }
-				393295 { [Version]"4.6" }
-				393297 { [Version]"4.6" }
-				394254 { [Version]"4.6.1" }
-				394271 { [Version]"4.6.1" }
-				394802 { [Version]"4.6.2" }
-				394806 { [Version]"4.6.2" }
-				460798 { [Version]"4.7" }
-				460805 { [Version]"4.7" }
-				461308 { [Version]"4.7.1" }
-				461310 { [Version]"4.7.1" }
-				461814 { [Version]"4.7.2" }
-				461808 { [Version]"4.7.2" }
-			}
-		}
-	}) {
-		if ($a.Product -and $a.Product -ne "") {
-			$retval = $a.Product
-		}
-	}
-	return $retval
+	return (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full").Version
 }
 
 function CanAccessPath($path) {
@@ -430,7 +398,7 @@ if (-Not $dryrun) {
 	try { [io.file]::OpenWrite($logfile).close() }
 	catch {
 		Write-Warning "Unable to write to the log file: $logfile"
-		exit
+		exit 1
 	}
 }
 
@@ -477,7 +445,7 @@ try {
 catch {
 	Write-Host "Error while reading config registry value HKEY_LOCAL_MACHINE\SOFTWARE\Nivlheim\config:"
 	Write-Host $error[0]
-	return
+	exit 1
 }
 
 # Compute the server url.
@@ -545,7 +513,7 @@ if ($haveCert) {
 			# No? In that case, quit
 			Write-Host "Unable to connect to the server, giving up."
 			#Write-Host $error[0]
-			return
+			exit 1
 		}
 	}
 }
@@ -569,7 +537,7 @@ if ($haveCert -and -not $certWorks) {
 	$ok = ParseAndSaveCertificateFromResult $r
 	if (-not $ok) {
 		Write-Host "Failed to obtain a valid client certificate."
-		return
+		exit 1
 	}
 }
 elseif (-not $haveCert) {
@@ -586,16 +554,16 @@ elseif (-not $haveCert) {
 	}
 	if (-not $ok) {
 		Write-Host "Failed to obtain a valid client certificate."
-		return
+		exit 1
 	}
 }
 
 # Load the certificate
 if (-not (CanAccessPath $certpath)) {
 	Write-Host "Unable to read $certpath"
-	return
+	exit 1
 }
-$flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]"MachineKeySet"
+$flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]"MachineKeySet,Exportable"
 try {
 	# Legacy code, the server might set an (unnecessary) password on the certificate
 	$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "passord123", $flags)
@@ -604,11 +572,11 @@ try {
 }
 if (IsNull $cert) {
 	Write-Host "Unable to load $certpath"
-	return
+	exit 1
 }
 if (-not $cert.Issuer.Contains("Nivlheim")) {
 	Write-Host "The client certificate isn't issued by Nivlheim."
-	return
+	exit 1
 }
 
 } #================ End of certificate processing =========
@@ -708,15 +676,23 @@ $bytes = [IO.File]::ReadAllBytes($zipname)
 $oid = [System.Security.Cryptography.CryptoConfig]::MapNameToOID("SHA1")
 $sha = New-Object System.Security.Cryptography.SHA1CryptoServiceProvider
 $hash = $sha.ComputeHash($bytes)
+# PrivateKey supports only RSA or DSA keys, so it returns either an RSA or a DSA object in .NET Core or an RSACryptoServiceProvider or a DSACryptoServiceProvider object in .NET Framework.
 $cryptoServiceProvider = $cert.PrivateKey
-$sig = $cryptoServiceProvider.SignHash($hash, $oid)
+try {
+	$sig = $cryptoServiceProvider.SignHash($hash, $oid)
+} catch {
+	# Works in .NET Core
+	$pk1 = New-Object System.Security.Cryptography.RSACryptoServiceProvider
+ 	$pk1.ImportParameters($cryptoServiceProvider.ExportParameters($True))
+	$sig = $pk1.SignHash($hash, $oid)
+}
 #[IO.File]::WriteAllBytes($dirpath + "\signature", $sig)
 
 # read nonce if it exists
 try {
 	$p = Split-Path -Parent $certpath
 	$nonce = [IO.File]::ReadAllLines($p + "\nonce.txt")[0]
-} catch {
+} catch {
 	$nonce = 0
 }
 
@@ -739,6 +715,7 @@ try {
 }
 catch {
 	Write-Output $error[0]
+	exit 1
 }
 } # end of if-not-dryrun
 
@@ -751,6 +728,7 @@ if ($dryrun) { Write-Host "Leaving $zipname" } else {
 }
 catch {
 	Write-Output $error[0]
+	exit 1
 }
 finally {
 	if (-Not $dryrun) {
