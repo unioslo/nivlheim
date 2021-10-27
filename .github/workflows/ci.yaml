@@ -1,4 +1,4 @@
-on: [push, pull_request]
+on: [push, pull_request, create]
 
 name: CI
 jobs:
@@ -84,8 +84,8 @@ jobs:
       uses: actions/checkout@v2
     - name: Docker build
       run: |
-        docker build --file ci/docker/Dockerfile --tag nivlheimwww:latest .
-        docker save nivlheimwww | gzip > nivlheim-www.tar.gz
+        docker build --file ci/docker/Dockerfile --tag nivlheim-www:latest .
+        docker save nivlheim-www | gzip > nivlheim-www.tar.gz
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:

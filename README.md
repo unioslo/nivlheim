@@ -1,73 +1,55 @@
 # Getting started
-### Install the server
-1. Spin up a clean VM running Fedora 30, 29, RHEL 7, or CentOS 7
-2. If you're using RHEL or CentOS, you need to [enable the EPEL package repository](https://fedoraproject.org/wiki/EPEL).
-```
-sudo yum install -y epel-release
-```
-3. Configure the package repository.  
-    - Fedora:
-    ```
-    sudo dnf copr enable oyvindh/Nivlheim
-    ```
-    - CentOS / RHEL:
-    ```
-    sudo yum install -y yum-plugin-copr
-    sudo yum copr enable oyvindh/Nivlheim
-    ```
-or go to [the project page at Fedora Copr](https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim/),
-download the appropriate repository config file, and place it in
-`/etc/yum.repos.d/`  
 
-4. Install the packages:
+### Run a server
 ```
-sudo dnf -y install nivlheim-server nivlheim-client
+curl -s -O https://raw.githubusercontent.com/unioslo/nivlheim/master/docker-compose.yml
+docker-compose up -d
 ```
-5. Open the web admin interface in a browser:
-`https://<your server>/`
-
 At this point, there's no data in the system, because no clients have been configured yet.
 
-### Get the client running
+### Run the client
 
-1. Edit `/etc/nivlheim/client.conf`, add one line:
-```
-server=localhost
-```
-2. The client package has already configured a cron job, but to speed things up you can manually run the client:
-```
-sudo /usr/sbin/nivlheim_client
-```
-3. Open the web admin interface in a browser, go to "Settings", and you should see that there's a new machine waiting to be approved. Click "approve".
+This project used to provide rpms, but that function has been discontinued. The old rpm spec file is still included in the repo, in case anyone wants it.
+It is up to you to decide how to distribute and run the client.
 
-4. Run the client one more time:
+**Example:** How to use the client on Fedora 34:
+1. Grab the code and the required libraries:
 ```
-sudo /usr/sbin/nivlheim_client
+sudo dnf install -y perl openssl dmidecode \
+	perl-Archive-Tar perl-File-Basename perl-File-Path perl-Getopt-Long \
+	perl-HTTP-Message perl-IO perl-IO-Socket-INET6 perl-Net-DNS \
+	perl-Sys-Hostname perl-Sys-Syslog perl-Socket
+git clone https://github.com/unioslo/nivlheim.git
+```
+2. Create a config file
+```
+sudo mkdir /etc/nivlheim /var/nivlheim
+sudo cp nivlheim/client/client.conf /etc/nivlheim
+echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
+```
+3. (Optional) Whitelist the IP range the client will be coming from:
+```
+curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.16.0.0/12'
+```
+4. Run the client
+```
+sudo nivlheim/client/nivlheim_client --debug
+```
+5. (Optional) manually approve the client
+
+If the IP address wasn't whitelisted, the server will require you to manually approve the new machine before data is processed.
+On the web admin pages the new machine will show up as waiting for approval. After it has been approved, and the client has run one more time, data from it will start showing up in the system.
+
+6. (Optional) Configure a cron job for the client:
+```
+sudo cp nivlheim/client/cronjob /etc/cron.d/
 ```
 
-5. Wait a few seconds, and refresh the web page. You should see some information about the machine. It takes a few seconds for the system to process before it shows up.
+### Next steps
 
-### Install more clients
-
-1. Spin up a new VM or use another existing machine.
-
-2. Configure the package repository as detailed above.
-
-3. Install the `nivlheim-client` package.
-```
-sudo dnf -y install nivlheim-client
-```
-
-4. Edit `/etc/nivlheim/client.conf`, add one line with the server hostname or ip address
-```
-server=yourserver.example.com
-```
-5. If you are using a self-signed certificate for the web server (by default the nivlheim_server package will set it up with one), then the CA certificate file must be distributed to the clients.  
+If you are using a self-signed certificate for the web server (by default the nivlheim server container will create one for itself), then the CA certificate file must be distributed to the clients.
 Copy `/var/www/nivlheim/CA/nivlheimca.crt` from the server, and place it in `/var/nivlheim` on the machine you're installing the client software on.
 
-6. Run /usr/sbin/nivlheim_client manually (as root), or wait for cron to run it (could take up to 5 minutes).
-
-7. On the web admin pages the new machine will show up as waiting for approval. After it has been approved, and the client has run one more time, data from it will start showing up in the system.
 
 # How to contribute
 - Do you have a suggestion, feature request, or idea? Or have you found a bug? Go to the "issues" page and create a new issue! Everything is welcome.

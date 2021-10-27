@@ -11,7 +11,7 @@ elif [ -f /etc/centos-release ]; then
 	sudo yum install -y epel-release
 	sudo curl -sS --retry 10 -o /etc/yum.repos.d/oyvindh-Nivlheim-test-epel-7.repo \
 		https://copr.fedorainfracloud.org/coprs/oyvindh/Nivlheim-test/repo/epel-7/oyvindh-Nivlheim-test-epel-7.repo
-	echo "Installing Nivlheim server and client..."		
+	echo "Installing Nivlheim server and client..."
 	sudo yum install -y -q nivlheim-client nivlheim-server || touch installerror
 fi
 if [ -f installerror ]; then
@@ -120,7 +120,7 @@ if ! curl -sSkfo /dev/null https://localhost/api/v2/status; then
 fi
 
 # Turn on debug logging
-sudo sed -i.bak s/log4perl.logger.reqcert=INFO/log4perl.logger.reqcert=DEBUG/g /etc/nivlheim/log4perl.conf
+sudo sed -i.bak s/log4perl.logger.reqcert=INFO/log4perl.logger.reqcert=DEBUG/g /var/www/nivlheim/log4perl.conf
 # Configure the client to use the server at localhost
 echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf >/dev/null
 # Run the client, it will be put on waiting list for a certificate

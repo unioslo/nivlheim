@@ -3,7 +3,7 @@ services:
   nivlheimweb:
     depends_on:
       - nivlheimapi
-    image: nivlheim-www
+    image: ghcr.io/unioslo/nivlheim-www
     restart: always
     ports:
       - "443:443"
@@ -21,7 +21,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    image: nivlheim
+    image: ghcr.io/unioslo/nivlheim
     restart: always
     ports:
       - "4040:4040"
@@ -49,16 +49,6 @@ services:
       timeout: 5s
       retries: 3
       start_period: 5s
-
-  dummy-container:
-    image: hello-world
-    depends_on:
-      nivlheimapi:
-        condition: service_started
-      nivlheimweb:
-        condition: service_healthy
-      postgres:
-        condition: service_healthy
 
 volumes:
   data:

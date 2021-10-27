@@ -1,7 +1,7 @@
 FROM fedora:latest
 MAINTAINER iti-dia@usit.uio.no
 LABEL no.uio.contact=usit-gid@usit.uio.no
-LABEL description="Nivlheim client"
+LABEL description="Nivlheim client, used for CI and testing"
 
 RUN dnf install -y perl openssl dmidecode \
 		perl-Archive-Tar perl-File-Basename perl-File-Path perl-Getopt-Long \
