@@ -1,4 +1,5 @@
-on: [push, pull_request, create]
+# Since the workflow is triggered on every push to all branches, there's no need to trigger on pull request
+on: [create, push]
 
 name: CI
 jobs:
