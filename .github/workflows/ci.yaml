@@ -115,10 +115,18 @@ jobs:
         name: nivlheim-client.tar.gz
         path: nivlheim-client.tar.gz
 
-  test1:
-    name: Test certificate handling
+  test-scripts:
+    name: Run test scripts
     needs: [build, buildwww, buildclient]
     runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        test:
+          - cert_handling.sh
+          - cfengine.sh
+          - change_ca.sh
+          - client_timing.sh
+          - clones.sh
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -138,7 +146,7 @@ jobs:
     - name: Status API
       run: curl -k --no-progress-meter https://localhost/api/v2/status
     - name: Run one of the test scripts
-      run: tests/test_cert_handling.sh
+      run: tests/test_${{ matrix.test }}
     - name: Retrieve logs from Docker
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" logs
@@ -146,107 +154,7 @@ jobs:
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
 
-  test2:
-    name: Test CFEngine bootstrap
-    needs: [build, buildwww, buildclient]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Download artifacts
-      uses: actions/download-artifact@v2
-    - name: Load images
-      run: |
-        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
-        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
-        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
-    - name: Start containers
-      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
-    - name: Run one of the test scripts
-      run: tests/test_cfengine.sh
-    - name: Retrieve logs from Docker
-      if: failure()
-      run: docker-compose -f "ci/docker/docker-compose.yml" logs
-    - name: Stop containers
-      if: always()
-      run: docker-compose -f "ci/docker/docker-compose.yml" down
-
-  test3:
-    name: Test replacing client CA
-    needs: [build, buildwww, buildclient]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Download artifacts
-      uses: actions/download-artifact@v2
-    - name: Load images
-      run: |
-        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
-        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
-        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
-    - name: Start containers
-      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
-    - name: Run one of the test scripts
-      run: tests/test_change_ca.sh
-    - name: Retrieve logs from Docker
-      if: failure()
-      run: docker-compose -f "ci/docker/docker-compose.yml" logs
-    - name: Stop containers
-      if: always()
-      run: docker-compose -f "ci/docker/docker-compose.yml" down
-
-  test4:
-    name: Test client timing
-    needs: [build, buildwww, buildclient]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Download artifacts
-      uses: actions/download-artifact@v2
-    - name: Load images
-      run: |
-        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
-        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
-        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
-    - name: Start containers
-      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
-    - name: Run one of the test scripts
-      run: tests/test_client_timing.sh
-    - name: Retrieve logs from Docker
-      if: failure()
-      run: docker-compose -f "ci/docker/docker-compose.yml" logs
-    - name: Stop containers
-      if: always()
-      run: docker-compose -f "ci/docker/docker-compose.yml" down
-
-  test5:
-    name: Test cloned machines
-    needs: [build, buildwww, buildclient]
-    runs-on: ubuntu-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Download artifacts
-      uses: actions/download-artifact@v2
-    - name: Load images
-      run: |
-        docker load --input nivlheim-www.tar.gz/nivlheim-www.tar.gz
-        docker load --input nivlheim-image.tar.gz/nivlheim-image.tar.gz
-        docker load --input nivlheim-client.tar.gz/nivlheim-client.tar.gz
-    - name: Start containers
-      run: docker-compose -f "ci/docker/docker-compose.yml" up -d
-    - name: Run one of the test scripts
-      run: tests/test_clones.sh
-    - name: Retrieve logs from Docker
-      if: failure()
-      run: docker-compose -f "ci/docker/docker-compose.yml" logs
-    - name: Stop containers
-      if: always()
-      run: docker-compose -f "ci/docker/docker-compose.yml" down
-
-  test6:
+  test-powershell:
     name: Test Powershell client
     needs: [build, buildwww, buildclient]
     runs-on: windows-latest
@@ -266,7 +174,7 @@ jobs:
   publish:
     if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
     name: Publish server image
-    needs: [test1, test2, test3, test4, test5, test6]
+    needs: [test-scripts, test-powershell]
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -296,7 +204,7 @@ jobs:
   publishwww:
     if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
     name: Publish httpd+cgi image
-    needs: [test1, test2, test3, test4, test5, test6]
+    needs: [test-scripts, test-powershell]
     runs-on: ubuntu-latest
     permissions:
       packages: write
