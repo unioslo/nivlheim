@@ -1,0 +1,8 @@
+[Unit]
+Description=Run nivlheim_client
+Documentation=https://github.com/unioslo/nivlheim
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/usr/sbin/nivlheim_client

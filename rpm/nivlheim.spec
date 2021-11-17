@@ -238,7 +238,12 @@ install -p -m 0644 server/log4perl.conf %{buildroot}/var/www/nivlheim/
 install -p -m 0755 server/setup.sh %{buildroot}%{_localstatedir}/nivlheim/
 install -p -m 0755 server/cgi/processarchive %{buildroot}/var/www/cgi-bin/
 install -p -m 0644 server/nivlheim.service %{buildroot}%{_unitdir}/%{name}.service
-install -p -m 0644 -D client/cronjob %{buildroot}%{_sysconfdir}/cron.d/nivlheim_client
+%if (0%{?rhel} == 7)
+install -p -m 0644 -D client/nivlheim_client-rhel7.service %{buildroot}%{_unitdir}/nivlheim_client.service
+%else
+install -p -m 0644 -D client/nivlheim_client.service %{buildroot}%{_unitdir}/nivlheim_client.service
+%endif
+install -p -m 0644 -D client/nivlheim_client.timer %{buildroot}%{_unitdir}/nivlheim_client.timer
 install -p -m 0755 -D server/client_CA_cert.sh %{buildroot}%{_sysconfdir}/cron.daily/client_CA_cert.sh
 rm -rf server/website/mockapi server/website/templates server/website/libs
 cp -a server/website/* %{buildroot}%{_localstatedir}/www/html/
@@ -282,7 +287,8 @@ rm -rf %{buildroot}
 %doc README.md
 %{_sbindir}/nivlheim_client
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
-%config %{_sysconfdir}/cron.d/nivlheim_client
+%{_unitdir}/nivlheim_client.service
+%{_unitdir}/nivlheim_client.timer
 
 %files server
 %defattr(-, root, root, -)
@@ -318,8 +324,14 @@ exit 0
 %{_localstatedir}/nivlheim/setup.sh || exit 1
 %systemd_post %{name}.service
 
+%post client
+systemctl enable --now nivlheim_client.timer
+
 %preun server
 %systemd_preun %{name}.service
+
+%preun client
+systemctl disable --now nivlheim_client.timer
 
 %postun server
 %systemd_postun_with_restart %{name}.service
