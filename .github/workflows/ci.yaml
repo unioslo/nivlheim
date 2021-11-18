@@ -154,27 +154,23 @@ jobs:
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
 
-  test-powershell:
-    name: Test Powershell client
-    needs: [build, buildwww, buildclient]
-    runs-on: windows-latest
-    steps:
-    - name: Checkout
-      uses: actions/checkout@v2
-    - name: Run the test script
-      run: tests/test_powershell.ps1
-    - name: Retrieve logs from Docker
-      if: failure()
-      run: docker-compose -f "ci/docker/docker-compose.yml" logs
-    - name: Stop containers
-      if: always()
-      run: docker-compose -f "ci/docker/docker-compose.yml" down
-
+  # test-powershell:
+  #   name: Test Powershell client
+  #   needs: [build, buildwww, buildclient]
+  #   runs-on: windows-latest
+  #   steps:
+  #   - name: Checkout
+  #     uses: actions/checkout@v2
+  #   - name: Run the test script
+  #     run: tests/test_powershell.ps1
+  #   - name: Test basic connectivity
+  #     if: failure()
+  #     run: Test-NetConnection -ComputerName bilderbygger.uio.no -Port 443
 
   publish:
     if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
     name: Publish server image
-    needs: [test-scripts, test-powershell]
+    needs: [test-scripts]
     runs-on: ubuntu-latest
     permissions:
       packages: write
@@ -204,7 +200,7 @@ jobs:
   publishwww:
     if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
     name: Publish httpd+cgi image
-    needs: [test-scripts, test-powershell]
+    needs: [test-scripts]
     runs-on: ubuntu-latest
     permissions:
       packages: write
