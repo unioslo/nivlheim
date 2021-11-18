@@ -1,4 +1,4 @@
-﻿############################################################################
+############################################################################
 #
 #  nivlheim_client.ps1
 #
@@ -482,28 +482,24 @@ if (-Not [System.IO.Path]::IsPathRooted($certpath)) {
 }
 
 # Do I have a client certificate?
+$haveCert = $false
 try {
 	[System.IO.File]::OpenRead($certpath).Close()
+	if ((Get-Item $certpath).length -gt 0kb) {
 	$haveCert = $true
 }
-catch {
-	$haveCert = $false
 }
+catch {}
 
 $cert = $null
 if ($haveCert) {
 	# I have a certificate, but does it work?
 	$flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]"MachineKeySet"
-	try {
-		$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "passord123", $flags)
-	} catch {
-		$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "", $flags)
-	}
 	$certWorks = $true;
 	try {
+		$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "", $flags)
 		$r = http ($serverbaseurl + "secure/ping") "get" 60 $cert
-	}
-	catch {
+	} catch {
 		$certWorks = $false;
 		# Can I connect to the server at all?
 		try {
@@ -512,7 +508,8 @@ if ($haveCert) {
 		catch {
 			# No? In that case, quit
 			Write-Host "Unable to connect to the server, giving up."
-			#Write-Host $error[0]
+			Write-Host $error[0]
+			Write-Host $Error[0].Exception.InnerException
 			exit 1
 		}
 	}
@@ -532,6 +529,7 @@ if ($haveCert -and -not $certWorks) {
 			$r = http $url "get" 60
 		} catch {
 			Write-Host $error[0]
+			Write-Host $Error[0].Exception.InnerException
 		}
 	}
 	$ok = ParseAndSaveCertificateFromResult $r
@@ -551,6 +549,7 @@ elseif (-not $haveCert) {
 		$ok = ParseAndSaveCertificateFromResult $r
 	} catch {
 		Write-Host $error[0]
+		Write-Host $Error[0].Exception.InnerException
 	}
 	if (-not $ok) {
 		Write-Host "Failed to obtain a valid client certificate."
