@@ -9,6 +9,7 @@ fi
 # make dirs
 mkdir -p /var/www/nivlheim/{db,certs,CA,queue}
 mkdir -p /var/log/nivlheim
+mkdir -p /var/log/httpd
 
 # initialize certificate db
 cd /var/www/nivlheim/db
@@ -28,6 +29,8 @@ chgrp -R apache /var/www/nivlheim /var/log/nivlheim
 chmod -R g+w /var/log/nivlheim
 chown -R apache:apache /var/www/nivlheim/{db,certs,rand,queue}
 chmod -R u+w /var/www/nivlheim/{db,certs,rand,queue}
+chown -R root:apache /var/log/httpd
+chmod -R 0770 /var/log/httpd
 
 # update CA certificate if necessary
 /usr/bin/client_CA_cert.sh --verbose
