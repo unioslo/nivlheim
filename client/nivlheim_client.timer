@@ -1,0 +1,11 @@
+[Unit]
+Description=Run nivlheim_client hourly and on boot
+Wants=network-online.target
+
+[Timer]
+OnBootSec=10min
+OnUnitActiveSec=1h
+
+[Install]
+WantedBy=timers.target
+
