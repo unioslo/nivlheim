@@ -6,4 +6,4 @@ After=network-online.target
 [Service]
 Type=simple
 ExecStart=/usr/sbin/nivlheim_client
-RuntimeMaxSec=30
+RuntimeMaxSec=3300

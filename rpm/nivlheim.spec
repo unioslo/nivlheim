@@ -325,6 +325,7 @@ exit 0
 %systemd_post %{name}.service
 
 %post client
+systemctl daemon-reload
 systemctl enable --now nivlheim_client.timer
 
 %preun server
