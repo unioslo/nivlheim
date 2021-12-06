@@ -66,6 +66,7 @@ BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Hostname)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
+BuildRequires: perl(YAML::XS)
 BuildRequires: systemd, golang, git
 
 %description
@@ -88,6 +89,7 @@ Requires: perl(Net::DNS)
 Requires: perl(Socket)
 Requires: perl(Sys::Hostname)
 Requires: perl(Sys::Syslog)
+Requires: perl(YAML::XS)
 
 %package server
 Summary:  Server components of Nivlheim
