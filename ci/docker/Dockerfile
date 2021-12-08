@@ -4,7 +4,8 @@ EXPOSE 80 443
 LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server with CGI scripts for Nivlheim"
 
-RUN dnf install -y httpd mod_ssl openssl perl procps-ng unzip file bind-utils \
+RUN dnf install -y httpd mod_ssl openssl perl procps-ng \
+		unzip file bind-utils npm \
 		perl-Archive-Tar perl-Archive-Zip perl-CGI perl-Crypt-OpenSSL-X509 \
 		perl-DBD-Pg perl-DBI perl-Digest-CRC perl-Encode \
 		perl-File-Basename perl-File-Path perl-File-Temp \
@@ -12,7 +13,8 @@ RUN dnf install -y httpd mod_ssl openssl perl procps-ng unzip file bind-utils \
 		perl-Net-CIDR perl-Net-DNS perl-Net-IP \
 		perl-Proc-PID-File perl-Time-Piece \
 	&& dnf clean all \
-	&& rm -rf /var/cache/yum
+	&& rm -rf /var/cache/yum \
+	&& npm install -g handlebars
 
 # config
 COPY server/openssl_ca.conf server/log4perl.conf /etc/nivlheim/
@@ -25,6 +27,17 @@ COPY server/cgi/ping2 /var/www/cgi-bin/secure/ping
 COPY server/cgi/post server/cgi/renewcert /var/www/cgi-bin/secure/
 COPY server/cgi/Database.pm /usr/lib64/perl5/Nivlheim/
 RUN chmod -R a+x /var/www/cgi-bin/*
+
+# copy the static web content
+COPY server/website /var/www/html/
+RUN rm -rf /var/www/html/mockapi
+
+# Compile web templates
+RUN handlebars /var/www/html/templates -f /var/www/html/js/templates.js \
+	&& rm -rf /var/www/html/templates
+
+# download Javascript and CSS libraries
+RUN /var/www/html/libs/download_libraries.sh
 
 # entry point
 COPY server/entrypoint.sh /usr/bin/

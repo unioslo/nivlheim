@@ -9,10 +9,10 @@ At this point, there's no data in the system, because no clients have been confi
 
 ### Run the client
 
-This project used to provide rpms, but that function has been discontinued. The old rpm spec file is still included in the repo, in case anyone wants it.
-It is up to you to decide how to distribute and run the client.
+This project used to provide rpms, but that function has been discontinued. We still maintain an rpm spec file for the client, which is included in the repo.
+It is up to you to decide how to package and distribute the client.
 
-**Example:** How to use the client on Fedora 34:
+**Example:** How to use the client on Fedora 35:
 1. Grab the code and the required libraries:
 ```
 sudo dnf install -y perl openssl dmidecode \
