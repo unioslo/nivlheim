@@ -17,13 +17,13 @@ OPTS="-sSfOL --retry 10"
 rm -rf *.js *.css *.map fontawesome*
 
 echo "Handlebars"
-curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.0.12/handlebars.min.js
+curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/handlebars.js/4.7.7/handlebars.min.js
 echo "jQuery"
-curl $OPTS https://code.jquery.com/jquery-3.3.1.min.js
+curl $OPTS https://code.jquery.com/jquery-3.6.0.min.js
 echo "Moment"
 curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.22.2/moment.min.js
 echo "Bulma"
-curl $OPTS https://cdnjs.cloudflare.com/ajax/libs/bulma/0.7.2/css/bulma.min.css
+curl $OPTS https://cdn.jsdelivr.net/npm/bulma@0.9.3/css/bulma.min.css
 echo "Tarantino"
 curl $OPTS https://raw.githubusercontent.com/CodeYellowBV/tarantino/master/build/tarantino.min.js
 
