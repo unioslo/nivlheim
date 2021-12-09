@@ -66,6 +66,7 @@ BuildRequires: perl(Socket)
 BuildRequires: perl(Sys::Hostname)
 BuildRequires: perl(Sys::Syslog)
 BuildRequires: perl(Time::Piece)
+BuildRequires: perl(YAML::XS)
 BuildRequires: systemd, golang, git
 
 %description
@@ -88,6 +89,7 @@ Requires: perl(Net::DNS)
 Requires: perl(Socket)
 Requires: perl(Sys::Hostname)
 Requires: perl(Sys::Syslog)
+Requires: perl(YAML::XS)
 
 %package server
 Summary:  Server components of Nivlheim
@@ -225,6 +227,7 @@ mkdir -p %{buildroot}%{_unitdir}
 mkdir -p %{buildroot}%{_prefix}/%{_lib}/perl5/Nivlheim
 install -p -m 0755 client/nivlheim_client %{buildroot}%{_sbindir}/
 install -p -m 0644 client/client.conf %{buildroot}%{_sysconfdir}/nivlheim/
+install -p -m 0644 client/client.yaml %{buildroot}%{_sysconfdir}/nivlheim
 install -p -m 0644 server/httpd_ssl.conf %{buildroot}%{_sysconfdir}/httpd/conf.d/nivlheim.conf
 install -p -m 0644 server/openssl_ca.conf %{buildroot}%{_sysconfdir}/nivlheim/
 install -p -m 0644 server/server.conf %{buildroot}%{_sysconfdir}/nivlheim/
@@ -287,6 +290,7 @@ rm -rf %{buildroot}
 %doc README.md
 %{_sbindir}/nivlheim_client
 %config(noreplace) %{_sysconfdir}/nivlheim/client.conf
+%config(noreplace) %{_sysconfdir}/nivlheim/client.yaml
 %{_unitdir}/nivlheim_client.service
 %{_unitdir}/nivlheim_client.timer
 

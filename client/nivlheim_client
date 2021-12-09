@@ -31,6 +31,7 @@ use Fcntl ':flock';
 use File::Path qw(remove_tree mkpath);
 use File::Basename;
 use Getopt::Long qw(:config no_ignore_case);
+use YAML::XS 'LoadFile';
 
 sub http_get($$$);
 sub http_post($$$$);
@@ -46,7 +47,7 @@ sub extract_cmd($);
 
 # Options with default values
 my %defaultopt = (
-	'config'    => '/etc/nivlheim/client.conf:/usr/local/etc/nivlheim/client.conf', # configuration file
+	'config'    => '/etc/nivlheim/client.yaml:/usr/local/etc/nivlheim/client.yaml', # configuration file
 	'ca_file'   => '/var/nivlheim/nivlheimca.crt'
 				 . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.crt'
 				 . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/etc/ssl/cert.pem',
@@ -393,7 +394,7 @@ elsif ($have_cert && !$cert_works) {
 createPKCS8() unless (-f "/var/nivlheim/pkcs8.key");
 
 # Determine which files to send
-my @filelist = keys %{$config{'files'}};
+my @filelist = @{$config{'files'}} if defined($config{'files'});
 
 # Make sure essential files are on the list
 my @essentials = (
@@ -430,9 +431,11 @@ for my $filename (@filelist) {
 }
 
 # Get the list of commands
-my @cmdlist = keys %{$config{'commands'}};
+my @cmdlist_hourly = @{$config{'commands'}{'hourly'}} if defined($config{'commands'}{'hourly'});
+my @cmdlist_daily = @{$config{'commands'}{'daily'}} if defined($config{'commands'}{'daily'});
 
 # Make sure essential commands are on the list
+my $default_timeout = 30;
 @essentials = (
 	"/bin/uname -a",
 	"/usr/bin/dpkg-query -l",
@@ -441,55 +444,86 @@ my @cmdlist = keys %{$config{'commands'}};
 	"/usr/sbin/system_profiler SPHardwareDataType"
 );
 foreach my $e (@essentials) {
-	if (!grep {$e eq $_} @cmdlist) {
-		push @cmdlist, $e;
+	if (!grep {$e eq $_->{'cmd'}} @cmdlist_hourly) {
+		push @cmdlist_hourly, { 'cmd' => $e, 'timeout' => $default_timeout };
 	}
 }
 
-# Run all the commands, collect the output and store it
-foreach my $cmd (@cmdlist) {
-	# if it got parsed erroneously and is split on /=/, re-assemble it
-	if (defined($config{'commands'}{$cmd})) {
-		$cmd .= '=' . $config{'commands'}{$cmd};
+# Check if any daily commands should be run at this time
+my (undef,undef,$hour,undef,undef,undef,undef,undef,undef) = localtime();
+foreach my $c (@cmdlist_daily) {
+	my $when = $c->{'when'};
+	my @whens = split(',', $when);
+	foreach my $when (@whens) {
+		if ($when == $hour) {
+			push @cmdlist_hourly, $c;
+			last;
+		}
 	}
+}
+
+# Run all the hourly commands + current daily commands, collect the output and store it
+foreach my $c (@cmdlist_hourly) {
+	my $cmd = $c->{'cmd'};
+	my $timeout = $c->{'timeout'} || $default_timeout;
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
 	# extract just the command itself and check if it exists and is executable
 	my $actual_cmd = extract_cmd($cmd);
 	if ($actual_cmd && -x $actual_cmd) {
 		# run
-		if (open(my $F, "$cmd 2>&1 |")) {
-			my $cmdresult = join('',<$F>);
-			close($F);
-			# the command should be the first line of the output file
-			$cmdresult = $cmd . "\n" . $cmdresult;
-			# generate a file name
-			my $cmdfname = "commands/" . shortencmd($cmd);
-			# add the file to the tar file
-			$tar->add_data($cmdfname, $cmdresult);
+		eval {
+			local $SIG{ALRM} = sub { die "alarm\n" };
+			alarm($timeout);
+			if (open(my $F, "$cmd 2>&1 |")) {
+				my $cmdresult = join('',<$F>);
+				close($F);
+				# the command should be the first line of the output file
+				$cmdresult = $cmd . "\n" . $cmdresult;
+				# generate a file name
+				my $cmdfname = "commands/" . shortencmd($cmd);
+				# add the file to the tar file
+				$tar->add_data($cmdfname, $cmdresult);
+			}
+			alarm 0;
+		};
+		if ($@) {
+			die "Unknown error:\n$!" unless $@ eq "alarm\n";
+			printlog("Command $cmd timeout after ${timeout}s\n");
 		}
 	}
 }
 
 # Run all the aliased commands
-my @aliaslist = keys %{$config{'commandalias'}};
-foreach my $alias (@aliaslist) {
-	my $cmd = $config{'commandalias'}{$alias};
+my @aliaslist = @{$config{'commandalias'}} if defined($config{'commandalias'});
+foreach my $a (@aliaslist) {
+    my $alias = $a->{'alias'};
+	my $cmd = $a->{'cmd'};
+	my $timeout = $a->{'timeout'};
 	# remove trailing whitespace
 	$cmd =~ s/\s+$//;
 	# extract just the command itself and check if it exists and is executable
 	my $actual_cmd = extract_cmd($cmd);
 	if ($actual_cmd && -x $actual_cmd) {
 		# run the command
-		if (open(my $F, "$cmd 2>&1 |")) {
-			my $cmdresult = join('',<$F>);
-			close($F);
-			# the command should be the first line of the output file
-			$cmdresult = $alias . "\n" . $cmdresult;
-			# generate a file name
-			my $saveAs = "commands/" . shortencmd($alias);
-			# add the file to the tar file
-			$tar->add_data($saveAs, $cmdresult);
+		eval {
+			local $SIG{ALRM} = sub { die "alarm\n" };
+			alarm($timeout);
+			if (open(my $F, "$cmd 2>&1 |")) {
+				my $cmdresult = join('',<$F>);
+				close($F);
+				# the command should be the first line of the output file
+				$cmdresult = $alias . "\n" . $cmdresult;
+				# generate a file name
+				my $saveAs = "commands/" . shortencmd($alias);
+				# add the file to the tar file
+				$tar->add_data($saveAs, $cmdresult);
+			}
+			alarm 0;
+		};
+		if ($@) {
+			die "Unknown error:\n$!" unless $@ eq "alarm\n";
+			printlog("CommandAlias $cmd timeout after ${timeout}s\n");
 		}
 	}
 }
@@ -823,40 +857,23 @@ sub http_post($$$$) {
 	return $result;
 }
 
-# Neither Config::Tiny nor Config::IniFiles worked properly
 sub readconfig($) {
 	my $filename = shift;
-	my $F;
-	if (!open($F, $filename)) {
-		printlog("Unable to open $filename");
+	my $yaml;
+	eval {
+		$yaml = LoadFile($filename);
+	};
+	if ($@) {
+		printlog("Error loading $filename: $@");
 		return;
 	}
-	my $section = "default";
-	my %config = ();
-	while (<$F>) {
-		# remove trailing cr/lf
-		chomp;
-		# skip empty lines
-		next if (/^\s*$/);
-		# skip lines starting with a semicolon or a hash
-		next if (/^\s*[;#]/);
-		# parse stuff
-		if (/\[(.*)\]/) {
-			$section = $1;
-		}
-		elsif (/^([a-zA-Z][a-zA-Z0-9_]*)\s*=(.*)$/) {
-			my $key = $1;
-			my $value = $2;
-			$config{$section}{$key} = $value;
-		}
-		else {
-			$config{$section}{$_} = undef;
-		}
+	my %config;
+	if (ref($yaml) eq 'HASH') {
+		%config = %{$yaml};
+	} else {
+		# we could open the file, but it's empty
+		$config{empty} = 1;
 	}
-	close($F);
-	# If the config file was readable but empty, store a value in the hash
-	# to distinguish it from the case where the config file is unreadable.
-	if (!%config) { $config{empty} = 1; }
 	return %config;
 }
 

@@ -104,11 +104,11 @@ jobs:
       uses: actions/checkout@v2
     - name: Docker build
       run: |
-        cp client/client.conf tmp_client.conf
-        echo "server=localhost" >> tmp_client.conf
+        cp client/client.yaml tmp_client.yaml
+        echo "  server: localhost" >> tmp_client.yaml
         docker build --file ci/docker/client_Dockerfile --tag nivlheimclient:latest .
         docker save nivlheimclient | gzip > nivlheim-client.tar.gz
-        rm tmp_client.conf
+        rm tmp_client.yaml
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:

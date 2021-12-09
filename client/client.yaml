@@ -1,0 +1,39 @@
+files:
+  - /etc/redhat-release
+  - /etc/debian_version
+  - /etc/lsb-release
+  - /usr/lib/os.release.d/os-release-workstation
+  - /usr/lib/os.release.d/os-release-server
+  - /usr/lib/os.release.d/os-release-cloud
+
+commands:
+  hourly:
+    - cmd: /bin/uname -a
+      timeout: 5
+    - cmd: /usr/sbin/dmidecode -t system
+      timeout: 5
+    - cmd: /usr/bin/sw_vers
+      timeout: 5
+    - cmd: /usr/bin/uname -a
+      timeout: 5
+    - cmd: /usr/sbin/system_profiler SPHardwareDataType
+      timeout: 5
+    - cmd: /usr/sbin/kextstat
+      timeout: 5
+    - cmd: /usr/bin/dpkg-query -l
+      timeout: 5
+    - cmd: /bin/freebsd-version -ku
+      timeout: 5
+
+  daily:
+    - cmd: abc=hello /usr/bin/printenv abc
+      when: 10,18
+      timeout: 120
+
+commandalias:
+  - alias: hello
+    cmd: /bin/echo "Hello, world!"
+    timeout: 10
+
+settings:
+  #server_ssl_ca: /var/nivlheim/nivlheimca.crt

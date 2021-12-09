@@ -18,14 +18,14 @@ It is up to you to decide how to distribute and run the client.
 sudo dnf install -y perl openssl dmidecode \
 	perl-Archive-Tar perl-File-Basename perl-File-Path perl-Getopt-Long \
 	perl-HTTP-Message perl-IO perl-IO-Socket-INET6 perl-Net-DNS \
-	perl-Sys-Hostname perl-Sys-Syslog perl-Socket
+	perl-Sys-Hostname perl-Sys-Syslog perl-Socket perl-YAML-LibYAML
 git clone https://github.com/unioslo/nivlheim.git
 ```
 2. Create a config file
 ```
 sudo mkdir /etc/nivlheim /var/nivlheim
-sudo cp nivlheim/client/client.conf /etc/nivlheim
-echo "server=localhost" | sudo tee -a /etc/nivlheim/client.conf
+sudo cp nivlheim/client/client.yaml /etc/nivlheim
+echo "  server: localhost" | sudo tee -a /etc/nivlheim/client.yaml
 ```
 3. (Optional) Whitelist the IP range the client will be coming from:
 ```
