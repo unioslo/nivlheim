@@ -3,6 +3,7 @@ MAINTAINER iti-dia@usit.uio.no
 EXPOSE 80 443
 LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server with CGI scripts for Nivlheim"
+ARG BRANCH=""
 
 RUN dnf install -y httpd mod_ssl openssl perl procps-ng \
 		unzip file bind-utils npm \
@@ -42,6 +43,10 @@ RUN /var/www/html/libs/download_libraries.sh
 # entry point
 COPY server/entrypoint.sh /usr/bin/
 CMD /usr/bin/entrypoint.sh
+
+# version
+COPY VERSION /var/www/html/version.txt
+RUN /bin/bash -c 'if [[ "${BRANCH}" != "" && "${BRANCH}" != "master" ]]; then echo "`cat /var/www/html/version.txt`-${BRANCH}" > /var/www/html/version.txt; fi'
 
 # health check
 HEALTHCHECK --start-period=10s CMD curl -kf https://localhost/cgi-bin/ping || exit 1
