@@ -44,14 +44,10 @@ jobs:
           channels: "${{ env.CHANNELS }}"
       - name: Build Nivlheim
         run: |
-          guix build nivlheim --with-source=nivlheim@$VERSION=$PWD
+          guix build -m manifest.scm
       - name: Start the server
-        run: >
-          guix install nivlheim
-          --with-source=nivlheim=$PWD
-          -p ${{ runner.temp }}/nivlheim
-
-          ${{ runner.temp }}/nivlheim/bin/nivlheim &
+        run: |
+          guix shell -m manifest.scm -- nivlheim &
         env:
           NIVLHEIM_PGHOST: localhost
           NIVLHEIM_PGUSER: nivlheim
@@ -65,16 +61,10 @@ jobs:
           curl http://localhost:4040/api/v2/status
       - name: Pack container image
         run: |
-          VERSION=`cat VERSION`
-          if [[ "$GITHUB_REF" != "refs/heads/master" ]]; then
-            VERSION="$VERSION-$GITHUB_REF_NAME"
-          fi
-          echo $VERSION
           guix pack -f docker --root=nivlheim-image.tar.gz \
             --entry-point=bin/nivlheim \
             -S /etc/profile=etc/profile \
-            --with-source=nivlheim@VERSION=$PWD \
-            nivlheim
+            -m manifest.scm
       - name: Upload artifact
         uses: actions/upload-artifact@v2
         with:
