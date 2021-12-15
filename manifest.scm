@@ -28,13 +28,15 @@
           "unknown")))
 
 
-;; Return a package that uses the local checkout as source, and with a custom
-;; version based on the contents of the VERSION file and the current branch.
-(package
-  (inherit nivlheim)
-  (version (if (string=? branch "master")
-               version
-               (string-append version "-" branch)))
-  (source (local-file %checkout
-                      #:recursive? #t
-                      #:select? (git-predicate %checkout))))
+(packages->manifest
+ (list (package
+         ;; Return a variant of Nivlheim that uses the local checkout as
+         ;; source, and with a custom version based on the contents of
+         ;; the VERSION file and the current branch.
+         (inherit nivlheim)
+         (version (if (string=? branch "master")
+                      version
+                      (string-append version "-" branch)))
+         (source (local-file %checkout
+                             #:recursive? #t
+                             #:select? (git-predicate %checkout))))))
