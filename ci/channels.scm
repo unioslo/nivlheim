@@ -1,6 +1,6 @@
 (cons (channel
        (name 'uio)
-       (url "https://github.com/mbakke/guix-uio")
+       (url "https://github.com/unioslo/guix-uio")
        (branch "master")
        (introduction
         (make-channel-introduction
