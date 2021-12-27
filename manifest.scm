@@ -14,7 +14,7 @@
     (lambda (port)
       (string-trim-right (get-string-all port)))))
 
-(define branch
+(define ref
   (or (getenv "GITHUB_REF_NAME")
       (if (file-exists? (string-append %checkout "/.git"))
           (begin
@@ -27,6 +27,13 @@
               branch))
           "unknown")))
 
+(define (ref-is-tag? ref)
+  (if (getenv "GITHUB_ACTIONS")
+      (string=? (getenv "GITHUB_REF_TYPE") "tag")
+      ;; XXX: guile-git lacks bindings for git_reference_type,
+      ;; so we instead rely on the fact that REF becomes "HEAD"
+      ;; when not on a branch.
+      (string=? ref "HEAD")))
 
 (packages->manifest
  (list (package
@@ -34,9 +41,9 @@
          ;; source, and with a custom version based on the contents of
          ;; the VERSION file and the current branch.
          (inherit nivlheim)
-         (version (if (string=? branch "master")
+         (version (if (or (string=? ref "master") (ref-is-tag? ref))
                       version
-                      (string-append version "-" branch)))
+                      (string-append version "-" ref)))
          (source (local-file %checkout
                              #:recursive? #t
                              #:select? (git-predicate %checkout))))))
