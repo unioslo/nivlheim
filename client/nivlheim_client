@@ -478,6 +478,10 @@ foreach my $c (@cmdlist_hourly) {
 			if (open(my $F, "$cmd 2>&1 |")) {
 				my $cmdresult = join('',<$F>);
 				close($F);
+				# if this command has an alias use that when saving result
+				if (defined($c->{'alias'})) {
+				    $cmd = $c->{'alias'};
+				}
 				# the command should be the first line of the output file
 				$cmdresult = $cmd . "\n" . $cmdresult;
 				# generate a file name
@@ -490,40 +494,6 @@ foreach my $c (@cmdlist_hourly) {
 		if ($@) {
 			die "Unknown error:\n$!" unless $@ eq "alarm\n";
 			printlog("Command $cmd timeout after ${timeout}s\n");
-		}
-	}
-}
-
-# Run all the aliased commands
-my @aliaslist = @{$config{'commandalias'}} if defined($config{'commandalias'});
-foreach my $a (@aliaslist) {
-    my $alias = $a->{'alias'};
-	my $cmd = $a->{'cmd'};
-	my $timeout = $a->{'timeout'};
-	# remove trailing whitespace
-	$cmd =~ s/\s+$//;
-	# extract just the command itself and check if it exists and is executable
-	my $actual_cmd = extract_cmd($cmd);
-	if ($actual_cmd && -x $actual_cmd) {
-		# run the command
-		eval {
-			local $SIG{ALRM} = sub { die "alarm\n" };
-			alarm($timeout);
-			if (open(my $F, "$cmd 2>&1 |")) {
-				my $cmdresult = join('',<$F>);
-				close($F);
-				# the command should be the first line of the output file
-				$cmdresult = $alias . "\n" . $cmdresult;
-				# generate a file name
-				my $saveAs = "commands/" . shortencmd($alias);
-				# add the file to the tar file
-				$tar->add_data($saveAs, $cmdresult);
-			}
-			alarm 0;
-		};
-		if ($@) {
-			die "Unknown error:\n$!" unless $@ eq "alarm\n";
-			printlog("CommandAlias $cmd timeout after ${timeout}s\n");
 		}
 	}
 }
