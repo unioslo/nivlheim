@@ -28,8 +28,7 @@ param(
 	[string]$certfile = "",
 	[string]$logfile = "C:\Program Files (x86)\Nivlheim\logs\nivlheim.log",
 	[string]$server = "",
-	[bool]$trustallcerts = $false,
-	[bool]$dryrun = $false,
+	[bool]$testmode = $false,
 	[bool]$nosleep = $false
 )
 
@@ -336,7 +335,11 @@ function shortencmd($orig) {
 }
 
 function dotNetVersion() {
-	return (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full").Version
+	try {
+		return (Get-ItemProperty "HKLM:\SOFTWARE\Microsoft\NET Framework Setup\NDP\v4\Full").Version
+	} catch {
+		return "unknown"
+	}
 }
 
 function CanAccessPath($path) {
@@ -385,15 +388,15 @@ function ParseAndSaveCertificateFromResult($r) {
 	return $true
 }
 
-# Sleep a random interval, so not all the machines try to contact the server 
+# Sleep a random interval, so not all the machines try to contact the server
 # at the same time every hour.
-if (-Not $nosleep) {
+if (-Not $nosleep -And -not $testmode) {
 	$delay = Get-Random -Minimum 1 -Maximum 3300
 	Write-Host "Sleeping for $delay seconds..."
 	Start-Sleep -Seconds $delay
 }
 
-if (-Not $dryrun) {
+if (-Not $testmode) {
 	# show an error message if I can't write to the log file
 	try { [io.file]::OpenWrite($logfile).close() }
 	catch {
@@ -403,7 +406,7 @@ if (-Not $dryrun) {
 }
 
 try {
-	if (-Not $dryrun) {
+	if (-Not $testmode) {
 		Reset-Log -fileName $logfile -filesize 100000 -logcount 5 | Out-Null
 		try {
 			# On PowerShell versions before 6, Start-Transcript doesn't support
@@ -414,6 +417,9 @@ try {
 		}
 	}
 
+# We don't want PowerShell to display exceptions that we catch ourselves
+$ErrorActionPreference = "Stop"
+
 Write-Host "Nivlheim client version: $version"
 Set-Variable psver -option Constant -value "$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
 Write-Host "Powershell version: $psver"
@@ -423,29 +429,25 @@ Write-Host ".NET version:" $x
 $invocation = (Get-Variable MyInvocation).Value
 $dirpath = Split-Path $invocation.MyCommand.Path
 
-# We don't want PowerShell to display exceptions that we catch ourselves
-$ErrorActionPreference = "Stop"
-
-# This code is for trusting a self-signed server certificate.
-# The option should not be used in production.
-if ($trustallcerts) {
-	[System.Net.ServicePointManager]::ServerCertificateValidationCallback = { $true }
-}
-
-# Read the configuration from registry
-try {
-	$base64 = (Get-ItemProperty -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Nivlheim).config
-	$text = [Text.Encoding]::UTF8.GetString( [Convert]::FromBase64String($base64) )
-	$backToBase64 = [Convert]::ToBase64String( [Text.Encoding]::UTF8.GetBytes($text) )
-	if ($base64 -ne $backToBase64) {
-		throw "config is not properly base64 encoded"
+if ($testmode) {
+	# Read the configuration from a local file
+	$conf = Get-Content "client.conf" | Parse-Ini
+} else {
+	# Read the configuration from registry
+	try {
+		$base64 = (Get-ItemProperty -Path Registry::HKEY_LOCAL_MACHINE\SOFTWARE\Nivlheim).config
+		$text = [Text.Encoding]::UTF8.GetString( [Convert]::FromBase64String($base64) )
+		$backToBase64 = [Convert]::ToBase64String( [Text.Encoding]::UTF8.GetBytes($text) )
+		if ($base64 -ne $backToBase64) {
+			throw "config is not properly base64 encoded"
+		}
+		$conf = $text.Split([environment]::NewLine) | Parse-Ini
 	}
-	$conf = $text.Split([environment]::NewLine) | Parse-Ini
-}
-catch {
-	Write-Host "Error while reading config registry value HKEY_LOCAL_MACHINE\SOFTWARE\Nivlheim\config:"
-	Write-Host $error[0]
-	exit 1
+	catch {
+		Write-Host "Error while reading config registry value HKEY_LOCAL_MACHINE\SOFTWARE\Nivlheim\config:"
+		Write-Host $error[0]
+		exit 1
+	}
 }
 
 # Compute the server url.
@@ -459,12 +461,6 @@ if ($server -ne "") {
 	$actualserver = $server
 }
 $serverbaseurl = "https://$actualserver/cgi-bin/" # must have trailing slash
-
-if ($dryrun) {
-	# Override with config from a local file
-	$conf = Get-Content "client.conf" | Parse-Ini
-	# ... and don't verify or request a certificate
-} else {
 
 # Default certificate file path
 $certpath = "C:\Program Files (x86)\Nivlheim\var\nivlheim.p12"
@@ -486,8 +482,8 @@ $haveCert = $false
 try {
 	[System.IO.File]::OpenRead($certpath).Close()
 	if ((Get-Item $certpath).length -gt 0kb) {
-	$haveCert = $true
-}
+		$haveCert = $true
+	}
 }
 catch {}
 
@@ -578,37 +574,37 @@ if (-not $cert.Issuer.Contains("Nivlheim")) {
 	exit 1
 }
 
-} #================ End of certificate processing =========
+#================ End of certificate processing =========
 
 # Create a temporary directory structure for storing files.
-$tmpdir = $env:TEMP + "\nivlheim_tmp"
+$tmpdir = $env:TEMP + "/nivlheim_tmp"
 try {
 	$r = Remove-Item -Path $tmpdir -Recurse -Force -ErrorAction:SilentlyContinue
 } catch {}
 $r = New-Item -Path $tmpdir -ItemType directory -Force
-$r = New-Item -Path "$tmpdir\files" -ItemType directory -Force
-$r = New-Item -Path "$tmpdir\commands" -ItemType directory -Force
+$r = New-Item -Path "$tmpdir/files" -ItemType directory -Force
+$r = New-Item -Path "$tmpdir/commands" -ItemType directory -Force
 
 # Collect files
 if ($conf.ContainsKey("files")) {
-	if ($dryrun) {
+	if ($testmode) {
 		Write-Host "`nProcessing [files]"
 	}
 	foreach ($filename in $conf["files"].Keys) {
-		if ($dryrun) {
+		if ($testmode) {
 			Write-Host $filename
 		}
 		$withoutDrive = Split-Path -Path $filename -NoQualifier
 		$parent = Split-Path -Path $withoutDrive -Parent
 		if (-not (CanAccessPath $filename)) {
-			if ($dryrun) { Write-Host "Not found: $filename" }
+			if ($testmode) { Write-Host "Not found: $filename" }
 			continue
 		}
 		try {
-			if (-Not (Test-Path "$tmpdir\files$parent")) {
-				$r = New-Item "$tmpdir\files$parent" -ItemType directory
+			if (-Not (Test-Path "$tmpdir/files$parent")) {
+				$r = New-Item "$tmpdir/files$parent" -ItemType directory
 			}
-			Copy-Item -Path $filename -Destination "$tmpdir\files$withoutDrive"
+			Copy-Item -Path $filename -Destination "$tmpdir/files$withoutDrive"
 		}
 		catch {
 			Write-Host $error[0]
@@ -619,15 +615,15 @@ if ($conf.ContainsKey("files")) {
 # Run all the commands, and save the output to files
 $enc = [System.Text.Encoding]::UTF8
 if ($conf.ContainsKey("commands")) {
-	if ($dryrun) {
+	if ($testmode) {
 		Write-Host "`nProcessing [commands]"
 	}
 	foreach ($cmd in $conf["commands"].Keys) {
-		if ($dryrun) {
+		if ($testmode) {
 			Write-Host $cmd
 		}
 		$short = shortencmd($cmd)
-		$filename = "$tmpdir\commands\" + $short
+		$filename = "$tmpdir/commands/" + $short
 		echo $cmd > $filename
 		try {
 			Invoke-Expression -Command "$cmd" >> $filename 2>&1
@@ -640,15 +636,15 @@ if ($conf.ContainsKey("commands")) {
 
 # Run all the aliased commands
 if ($conf.ContainsKey("commandalias")) {
-	if ($dryrun) {
+	if ($testmode) {
 		Write-Host "`nProcessing [commandalias]"
 	}
 	foreach ($alias in $conf["commandalias"].Keys) {
-		if ($dryrun) {
+		if ($testmode) {
 			Write-Host $alias
 		}
 		$cmd = $conf["commandalias"][$alias]
-		$filename = "$tmpdir\commands\" + $alias
+		$filename = "$tmpdir/commands/" + $alias
 		echo $alias > $filename
 		try {
 			Invoke-Expression -Command "$cmd" >> $filename 2>&1
@@ -658,18 +654,18 @@ if ($conf.ContainsKey("commandalias")) {
 		}
 	}
 }
-if ($dryrun) {
+if ($testmode) {
 	Write-Host ""
 }
 
 # Create a zip file
-$zipname = $env:TEMP + "\nivlheim-archive.zip"
+$zipname = "$env:TEMP/nivlheim-archive.zip"
 try {
 	Remove-Item -Path $zipname -Force -ErrorAction:SilentlyContinue
 } catch {}
 $r = zipfolder $tmpdir $zipname
 
-if (-Not $dryrun) {
+if (-Not $testmode) {
 # create a signature for the zip file
 $bytes = [IO.File]::ReadAllBytes($zipname)
 $oid = [System.Security.Cryptography.CryptoConfig]::MapNameToOID("SHA1")
@@ -690,7 +686,7 @@ try {
 # read nonce if it exists
 try {
 	$p = Split-Path -Parent $certpath
-	$nonce = [IO.File]::ReadAllLines($p + "\nonce.txt")[0]
+	$nonce = [IO.File]::ReadAllLines($p + "/nonce.txt")[0]
 } catch {
 	$nonce = 0
 }
@@ -709,20 +705,18 @@ try {
 	Write-Output "Response from server:" $r
 	if ( [string]($r) -match 'nonce=(\d+)' ) {
 		$p = Split-Path -Parent $certpath
-		[IO.File]::WriteAllText($p + "\nonce.txt", $matches[1])
+		[IO.File]::WriteAllText($p + "/nonce.txt", $matches[1])
 	}
 }
 catch {
 	Write-Output $error[0]
 	exit 1
 }
-} # end of if-not-dryrun
+} # end of if-not-testmode
 
 # Cleanup. Remove the zip file and temporary directory
 $r = Remove-Item -path $tmpdir -recurse -force
-if ($dryrun) { Write-Host "Leaving $zipname" } else {
-	$r = Remove-Item -path $zipname -force
-}
+$r = Remove-Item -path $zipname -force
 
 }
 catch {
@@ -730,7 +724,7 @@ catch {
 	exit 1
 }
 finally {
-	if (-Not $dryrun) {
+	if (-Not $testmode) {
 		Stop-Transcript
 	}
 }

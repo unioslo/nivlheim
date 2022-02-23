@@ -16,6 +16,11 @@ services:
       - NIVLHEIM_PGUSER=nivlheim
       - NIVLHEIM_PGPASSWORD=notsecret
       - NIVLHEIM_PGDATABASE=nivlheim
+    healthcheck:
+      test: ["CMD", "curl", "-kf", "https://localhost/cgi-bin/ping"]
+      interval: 60s
+      timeout: 10s
+      start_period: 15s
 
   nivlheimapi:
     depends_on:
