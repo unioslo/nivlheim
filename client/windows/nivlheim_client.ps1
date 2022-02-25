@@ -375,13 +375,13 @@ function ParseAndSaveCertificateFromResult($r) {
 	# Receive the PEM cert and key too
 	if ($r -match "(?s)(-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----)") {
 		$p = Split-Path -Parent $certpath
-		[IO.File]::WriteAllText($p + "\nivlheim.crt", $matches[1])
+		[IO.File]::WriteAllText($p + "/nivlheim.crt", $matches[1])
 	} else {
 		Write-Host "Failed to obtain a PEM certificate file"
 	}
 	if ($r -match "(?s)(-----BEGIN RSA PRIVATE KEY-----.*-----END RSA PRIVATE KEY-----)") {
 		$p = Split-Path -Parent $certpath
-		[IO.File]::WriteAllText($p + "\nivlheim.key", $matches[1])
+		[IO.File]::WriteAllText($p + "/nivlheim.key", $matches[1])
 	} else {
 		Write-Host "Failed to obtain a PEM key file"
 	}
@@ -665,7 +665,6 @@ try {
 } catch {}
 $r = zipfolder $tmpdir $zipname
 
-if (-Not $testmode) {
 # create a signature for the zip file
 $bytes = [IO.File]::ReadAllBytes($zipname)
 $oid = [System.Security.Cryptography.CryptoConfig]::MapNameToOID("SHA1")
@@ -712,7 +711,6 @@ catch {
 	Write-Output $error[0]
 	exit 1
 }
-} # end of if-not-testmode
 
 # Cleanup. Remove the zip file and temporary directory
 $r = Remove-Item -path $tmpdir -recurse -force

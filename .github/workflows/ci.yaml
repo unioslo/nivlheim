@@ -121,6 +121,7 @@ jobs:
           - change_ca.sh
           - client_timing.sh
           - clones.sh
+          - powershell.sh
     steps:
     - name: Checkout
       uses: actions/checkout@v2
@@ -147,19 +148,6 @@ jobs:
     - name: Stop containers
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
-
-  # test-powershell:
-  #   name: Test Powershell client
-  #   needs: [build, buildwww, buildclient]
-  #   runs-on: windows-latest
-  #   steps:
-  #   - name: Checkout
-  #     uses: actions/checkout@v2
-  #   - name: Run the test script
-  #     run: tests/test_powershell.ps1
-  #   - name: Test basic connectivity
-  #     if: failure()
-  #     run: Test-NetConnection -ComputerName bilderbygger.uio.no -Port 443
 
   publish:
     if: ${{ github.ref == 'refs/heads/master' || startsWith(github.ref, 'refs/tags/') }}
