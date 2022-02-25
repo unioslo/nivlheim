@@ -44,8 +44,7 @@ if [ ! -f default_cert.pem ] || [ ! -f default_key.pem ]; then
 	  -pkeyopt rsa_keygen_bits:4096
 	# certificate request
 	openssl req -new -key default_key.pem -out csr -days 365 \
-	  -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost" \
-	  -addext "subjectAltName = DNS:nivlheimweb"
+	  -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
 	# sign the request
 	openssl ca -batch -in csr -cert CA/nivlheimca.crt -keyfile CA/nivlheimca.key \
 	  -out default_cert.pem -config /etc/nivlheim/openssl_ca.conf
