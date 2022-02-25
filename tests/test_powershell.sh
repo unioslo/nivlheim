@@ -65,6 +65,7 @@ echo ""
 # Set the hostname to the commonname, to prevent a renewal of the certificate, just in case
 $PSQL -c "UPDATE hostinfo SET hostname=commonname, os_hostname=commonname FROM certificates WHERE certfp=fingerprint"
 
+# Second run
 echo "Run the client again..."
 docker exec pwsh pwsh -Command '/nivlheim_client.ps1 -testmode:1'
 A=$($PSQL --no-align -t -c "select count(*) from certificates" | tr -d '\r\n')
@@ -76,8 +77,19 @@ if (($A != 1)); then
 	exit 1
 fi
 
+# Third run
 echo "Provoke a renewal of the cert. Do this by changing the hostname in the database."
 $PSQL -c "UPDATE hostinfo SET hostname='abcdef'"
 docker exec pwsh pwsh -Command '/nivlheim_client.ps1 -testmode:1'
+
+# Verify that the version hardcoded in the Powershell script is equal to the version found in the VERSION file in the repository
+V1=$(cat ../../VERSION)
+V2=$(grep "Set-Variable version" nivlheim_client.ps1 | awk '{print $6}' | tr -d '"')
+if [[ "$V1" != "$V2" ]]; then
+	echo ""
+	echo "Version mismatch!"
+	echo "The version hardcoded in the Powershell script is $V2, but the version found in the VERSION file in the repository is $V1"
+	exit 1
+fi
 
 echo "Everything worked!"
