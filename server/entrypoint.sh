@@ -43,6 +43,7 @@ if [ ! -f default_cert.pem ] || [ ! -f default_key.pem ]; then
 	openssl genpkey -outform PEM -out default_key.pem -algorithm RSA \
 	  -pkeyopt rsa_keygen_bits:4096
 	# certificate request
+	export COMMONNAME=localhost
 	openssl req -new -key default_key.pem -out csr -days 365 \
 	  -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=localhost"
 	# sign the request

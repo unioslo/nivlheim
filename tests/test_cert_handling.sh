@@ -22,6 +22,9 @@ function finish {
 }
 trap finish EXIT
 
+# The following line is not necessary when running on a GitHub runner, but when running locally you might keep a server between runs
+$PSQL -c "delete from files; delete from hostinfo; delete from certificates; ALTER SEQUENCE certificates_certid_seq RESTART WITH 1;"
+
 # Whitelist the private network address ranges
 curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=192.168.0.0/16'
 curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.16.0.0/12'
@@ -65,6 +68,18 @@ if ! docker run --rm  --entrypoint openssl -v clientvar:/var nivlheimclient pkcs
 fi
 if [[ $(docker run --rm  --entrypoint stat -v clientvar:/var nivlheimclient -c "%a" /var/nivlheim/pkcs8.key) != "600" ]]; then
 	echo "pkcs8.key should have permissions 600"
+	exit 1
+fi
+
+# Verify that the certificate contains Subject Alternative Name, and that it matches Common Name
+docker run --rm  --entrypoint openssl -v clientvar:/var nivlheimclient x509 -in /var/nivlheim/my.crt -noout -text > $tempdir/cert
+NAME=$(sed -n 's/^.*Subject:.*CN\s*=\s*\(\S*\)/\1/p' < $tempdir/cert)
+if [[ "$NAME" == "" ]]; then
+	echo "Didn't find the Common Name in the client certificate."
+	exit 1
+fi
+if ! grep -Pzo "X509v3 extensions:\n\s*X509v3 Subject Alternative Name:\s*\n\s*DNS:$NAME\s*\n" $tempdir/cert; then
+	echo "Didn't find the correct Subject Alternative Name in the client certificate."
 	exit 1
 fi
 
@@ -135,6 +150,18 @@ if [[ "$chain" != "$expect" ]]; then
 	cat /tmp/first
 	echo "================= client output (2nd time): ==========="
 	cat /tmp/second
+	exit 1
+fi
+
+# The current certificate was made by renewcert.
+# Verify again that the certificate contains Subject Alternative Name, and that it matches Common Name
+docker run --rm  --entrypoint openssl -v clientvar:/var nivlheimclient x509 -in /var/nivlheim/my.crt -noout -text > $tempdir/cert
+if ! grep -q 'Subject:.*CN\s*=\s*ghijkl$' $tempdir/cert; then
+	echo "Didn't find the correct Common Name in the client certificate."
+	exit 1
+fi
+if ! grep -Pzo 'X509v3 extensions:\n\s*X509v3 Subject Alternative Name:\s*\n\s*DNS:ghijkl\s*\n' $tempdir/cert; then
+	echo "Didn't find the correct Subject Alternative Name in the client certificate."
 	exit 1
 fi
 

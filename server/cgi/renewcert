@@ -106,9 +106,11 @@ $logger->debug("Hostname is: $hostname");
 eval {
 	# Generate client key
 	my $cmd = "openssl genrsa -out $keyfile 4096 2>/dev/null";
-
 	(system($cmd) == 0 and -f $keyfile) or die "Key generation failed: $?";
 	$logger->debug("Key OK.");
+
+	# The openssl config gets the name from the environment
+	$ENV{'COMMONNAME'} = $hostname;
 
 	# Generate client certificate request
 	$cmd = "openssl req -new -key $keyfile -out $csrfile -config $opensslconf";
@@ -125,7 +127,7 @@ eval {
 	# openssl will store the pem-file in the certs directory (see openssl_ca.conf)
 	$cmd = "openssl ca -batch -in $csrfile -cert $confdir/CA/nivlheimca.crt"
 		." -keyfile $confdir/CA/nivlheimca.key"
-		." -subj '/C=NO/ST=Norway/O=UiO/OU=USIT/CN=$hostname'"
+		." -extensions req_ext"
 		." -out $crtfile -config $opensslconf 2>/var/log/nivlheim/sign.log";
 	if (!(system($cmd) == 0 and -f $crtfile)) {
 		$logger->debug($cmd);

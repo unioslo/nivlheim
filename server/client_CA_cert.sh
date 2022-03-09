@@ -56,6 +56,7 @@ if [[ $CREATE -eq 1 ]]; then
 
 		# Generate a new certificate
 		rm -f old_*
+		export COMMONNAME=Nivlheim2022
 		openssl genrsa -out new_nivlheimca.key 4096 >/dev/null 2>&1
 		openssl req -new -key new_nivlheimca.key -out new_nivlheimca.csr -subj "/C=NO/ST=Oslo/L=Oslo/O=UiO/OU=USIT/CN=Nivlheim$RANDOM"
 		openssl x509 -req -days 365 -in new_nivlheimca.csr -out new_nivlheimca.crt -signkey new_nivlheimca.key >/dev/null 2>&1
