@@ -87,23 +87,43 @@ if [[ "$trust" != "t" ]]; then
 fi
 
 # Wait for the files to be parsed
-echo "Wait for the files to be parsed..."
-sleep 20
+echo "Waiting for the files to be parsed"
+OK=0
+for try in {1..20}; do
+	sleep 3
+	echo -n "."
+	count=$($PSQL --no-align -t -c "SELECT count(*) FROM files WHERE NOT parsed" | tr -d '\r\n')
+	if [[ "$count" -eq "0" ]]; then
+		OK=1
+		break
+	fi
+done
+if [ $OK -eq 0 ]; then
+	echo "The files were never parsed."
+	exit 1
+fi
+echo
 
 # Trigger the job that gives the machine a hostname
 echo "Triggering a job so Nivlheim will assign a hostname"
 curl -sSf -X POST 'http://localhost:4040/api/internal/triggerJob/handleDNSchangesJob'
 
-# Give it time to work
-sleep 5
-
-# The host should have a hostname now
+# The host should get a hostname now
 echo "Looking for the hostname in the database"
-names=$($PSQL --no-align -t -c "SELECT count(*) FROM hostinfo WHERE hostname IS NOT NULL" | tr -d '\r\n')
-if [[ "$names" -lt "1" ]]; then
+OK=0
+for try in {1..40}; do
+	sleep 3
+	echo -n "."
+	names=$($PSQL --no-align -t -c "SELECT count(*) FROM hostinfo WHERE hostname IS NOT NULL" | tr -d '\r\n')
+	if [[ "$names" -ge "1" ]]; then
+		OK=1
+		break
+	fi
+done
+if [ $OK -eq 0 ]; then
 	echo "The host didn't get a name in Nivlheim."
-	printlogs
 	exit 1
 fi
+echo
 
 echo "Test result: OK"
