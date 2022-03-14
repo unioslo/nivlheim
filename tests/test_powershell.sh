@@ -43,11 +43,31 @@ docker exec pwsh pwsh -Command 'Invoke-Webrequest -Uri "https://localhost/cgi-bi
 # Run the client
 docker exec pwsh pwsh -Command '/nivlheim_client.ps1 -testmode:1'
 
+# Wait for the files to be read and parsed
+echo "Waiting for the files to be parsed"
+OK=0
+for try in {1..20}; do
+	sleep 3
+	echo -n "."
+	count=$($PSQL --no-align -t -c "SELECT count(*) FROM files WHERE parsed" | tr -d '\r\n')
+	if [[ "$count" -gt "0" ]]; then
+		OK=1
+		break
+	fi
+done
+if [ $OK -eq 0 ]; then
+	echo "The files were never parsed."
+	$PSQL -c "select filename, length(content), parsed, os_hostname from files"
+	$PSQL -c "select * from tasks"
+	exit 1
+fi
+echo
+
 # Trigger the job that gives the machine a hostname
 echo "Triggering a job so Nivlheim will assign a hostname"
 curl -sSf -X POST 'http://localhost:4040/api/internal/triggerJob/handleDNSchangesJob'
 
-# Verify that the server got the data
+# Wait until the machine shows up in hostinfo
 echo "Waiting for the machine to show up in hostinfo"
 OK=0
 for try in {1..20}; do

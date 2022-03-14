@@ -92,14 +92,16 @@ OK=0
 for try in {1..20}; do
 	sleep 3
 	echo -n "."
-	count=$($PSQL --no-align -t -c "SELECT count(*) FROM files WHERE NOT parsed" | tr -d '\r\n')
-	if [[ "$count" -eq "0" ]]; then
+	count=$($PSQL --no-align -t -c "SELECT count(*) FROM files WHERE parsed" | tr -d '\r\n')
+	if [[ "$count" -gt "0" ]]; then
 		OK=1
 		break
 	fi
 done
 if [ $OK -eq 0 ]; then
 	echo "The files were never parsed."
+	$PSQL -c "select filename, length(content), parsed, os_hostname from files"
+	$PSQL -c "select * from tasks"
 	exit 1
 fi
 echo

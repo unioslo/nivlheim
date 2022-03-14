@@ -10,6 +10,7 @@
 echo "------------- Testing certificate handling ------------"
 set -e
 cd `dirname $0`  # cd to the dir where the test script is
+PSQL=../ci/docker/psql.sh
 
 # Put a marker in the httpd access log
 curl -sSkf 'https://localhost/====_Testing_certificate_handling_====' 2>/dev/null || true
@@ -67,6 +68,26 @@ if [[ $(docker run --rm  --entrypoint stat -v clientvar:/var nivlheimclient -c "
 	exit 1
 fi
 
+# Wait for the files to be read and parsed
+echo "Waiting for the files to be parsed"
+OK=0
+for try in {1..20}; do
+	sleep 3
+	echo -n "."
+	count=$($PSQL --no-align -t -c "SELECT count(*) FROM files WHERE parsed" | tr -d '\r\n')
+	if [[ "$count" -gt "0" ]]; then
+		OK=1
+		break
+	fi
+done
+if [ $OK -eq 0 ]; then
+	echo "The files were never parsed."
+	$PSQL -c "select filename, length(content), parsed, os_hostname from files"
+	$PSQL -c "select * from tasks"
+	exit 1
+fi
+echo
+
 # Trigger the job that gives the machine a hostname
 echo "Triggering a job so Nivlheim will assign a hostname"
 curl -sSf -X POST 'http://localhost:4040/api/internal/triggerJob/handleDNSchangesJob'
@@ -90,7 +111,6 @@ fi
 echo ""
 
 # Let's see what's in hostinfo
-PSQL=../ci/docker/psql.sh
 $PSQL -e -c "SELECT hostname,certfp FROM hostinfo"
 
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.

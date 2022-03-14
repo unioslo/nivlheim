@@ -145,6 +145,14 @@ jobs:
     - name: Retrieve logs from Docker
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" logs
+    - name: Retrieve server logs
+      run: |
+        echo "------- access_log -------------------------------"
+        docker exec docker_nivlheimweb_1 grep -v 127.0.0.1 /var/log/httpd/access_log
+        echo "------- error_log --------------------------------"
+        docker exec docker_nivlheimweb_1 cat /var/log/httpd/error_log
+        echo "------- system.log--------------------------------"
+        docker exec docker_nivlheimweb_1 cat /var/log/nivlheim/system.log || true
     - name: Stop containers
       if: always()
       run: docker-compose -f "ci/docker/docker-compose.yml" down
