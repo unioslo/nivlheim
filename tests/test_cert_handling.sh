@@ -67,6 +67,10 @@ if [[ $(docker run --rm  --entrypoint stat -v clientvar:/var nivlheimclient -c "
 	exit 1
 fi
 
+# Trigger the job that gives the machine a hostname
+echo "Triggering a job so Nivlheim will assign a hostname"
+curl -sSf -X POST 'http://localhost:4040/api/internal/triggerJob/handleDNSchangesJob'
+
 # wait until the machine shows up in hostinfo
 echo "Waiting for the machine to show up in hostinfo"
 OK=0
@@ -120,9 +124,6 @@ if ! grep -q 'ghijkl' $tempdir/grepout; then
 	echo "The grep API returned unexpected results:"
 	cat $tempdir/grepout
 	$PSQL -e -c "SELECT hostname,certfp FROM hostinfo"
-	#echo ""
-	#echo "journal:"
-	#journalctl -u nivlheim
 	exit 1
 fi
 

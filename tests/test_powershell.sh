@@ -43,6 +43,10 @@ docker exec pwsh pwsh -Command 'Invoke-Webrequest -Uri "https://localhost/cgi-bi
 # Run the client
 docker exec pwsh pwsh -Command '/nivlheim_client.ps1 -testmode:1'
 
+# Trigger the job that gives the machine a hostname
+echo "Triggering a job so Nivlheim will assign a hostname"
+curl -sSf -X POST 'http://localhost:4040/api/internal/triggerJob/handleDNSchangesJob'
+
 # Verify that the server got the data
 echo "Waiting for the machine to show up in hostinfo"
 OK=0
