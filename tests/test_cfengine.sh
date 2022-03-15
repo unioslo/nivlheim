@@ -124,6 +124,7 @@ for try in {1..40}; do
 done
 if [ $OK -eq 0 ]; then
 	echo "The host didn't get a name in Nivlheim."
+	printlogs
 	exit 1
 fi
 echo
