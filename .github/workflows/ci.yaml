@@ -222,6 +222,7 @@ jobs:
     name: Webhook to local builders
     needs: [test-scripts]
     runs-on: ubuntu-latest
+    continue-on-error: true
     steps:
       - name: HTTP request
         run: curl -sS "http://nivlheim-test.uio.no/hook.pl?commit=${GITHUB_SHA}&branch=${GITHUB_REF_NAME}"
