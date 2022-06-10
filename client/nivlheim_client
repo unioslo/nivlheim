@@ -640,7 +640,7 @@ sub ssl_connect($$$) {
 sub split_url($) {
 	my $url = shift;
 	# FQDN
-	if ($url =~ m#(https?)://([a-z0-9]+\.[a-z0-9]+\.[a-z]{2,3})(:(\d+))?(/.*)#) {
+	if ($url =~ m#(https?)://([a-z0-9\-]+\.[a-z0-9\-]+\.[a-z]{2,3})(:(\d+))?(/.*)#) {
 		my $proto = $1;
 		my $host = $2;
 		my $port = $4;
@@ -901,7 +901,7 @@ sub parse_certificate_response($) {
 	if ($response =~ /(-----BEGIN CERTIFICATE-----.*-----END CERTIFICATE-----)/s) {
 		$cert = $1;
 	}
-	if ($response =~ /(-----BEGIN RSA PRIVATE KEY-----.*-----END RSA PRIVATE KEY-----)/s) {
+	if ($response =~ /(-----BEGIN (?:RSA )?PRIVATE KEY-----.*-----END (?:RSA )?PRIVATE KEY-----)/s) {
 		$key = $1;
 	}
 	if (!defined($cert) || !defined($key)) {

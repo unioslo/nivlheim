@@ -32,7 +32,7 @@ param(
 	[bool]$nosleep = $false
 )
 
-Set-Variable version -option Constant -value "2.7.11"
+Set-Variable version -option Constant -value "2.7.12"
 Set-Variable useragent -option Constant -value "NivlheimPowershellClient/$version"
 Set-PSDebug -strict
 Set-StrictMode -version "Latest"	# http://technet.microsoft.com/en-us/library/hh849692.aspx
@@ -365,6 +365,7 @@ function ParseAndSaveCertificateFromResult($r) {
 		} catch {
 			Write-Host "Unable to write to the certificate file $certpath"
 			Write-Host $error[0]
+			return $false
 		}
 	}
 	else {
@@ -378,12 +379,14 @@ function ParseAndSaveCertificateFromResult($r) {
 		[IO.File]::WriteAllText($p + "/nivlheim.crt", $matches[1])
 	} else {
 		Write-Host "Failed to obtain a PEM certificate file"
+		return $false
 	}
-	if ($r -match "(?s)(-----BEGIN RSA PRIVATE KEY-----.*-----END RSA PRIVATE KEY-----)") {
+	if ($r -match "(?s)(-----BEGIN (?:RSA )?PRIVATE KEY-----.*-----END (?:RSA )?PRIVATE KEY-----)") {
 		$p = Split-Path -Parent $certpath
 		[IO.File]::WriteAllText($p + "/nivlheim.key", $matches[1])
 	} else {
 		Write-Host "Failed to obtain a PEM key file"
+		return $false
 	}
 	return $true
 }
