@@ -38,10 +38,10 @@ docker exec docker_nivlheimweb_1 sh -c 'rm -f /var/www/nivlheim/certs/*'
 
 # Run the client. This will call reqcert and post
 echo "Running the client"
-if ! docker run --rm --network host -v clientvar:/var nivlheimclient --debug >/tmp/output 2>&1; then
+if ! docker run --rm --network host -v clientvar:/var nivlheimclient --debug >$tempdir/output 2>&1; then
     echo "The client failed to post data successfully:"
 	echo "--------------------------------------------"
-	cat /tmp/output
+	cat $tempdir/output
 	echo "access_log: --------------------------------"
 	docker exec docker_nivlheimweb_1 cat /var/log/httpd/access_log
 	echo "error_log: ---------------------------------"
@@ -130,11 +130,11 @@ $PSQL -e -c "SELECT hostname,certfp FROM hostinfo"
 
 # Provoke a renewal of the cert. Do this by changing the hostname in the database.
 $PSQL -c "UPDATE hostinfo SET hostname='abcdef'"
-docker run --rm --network host -v clientvar:/var nivlheimclient --debug > /tmp/first 2>&1
+docker run --rm --network host -v clientvar:/var nivlheimclient --debug > $tempdir/first 2>&1
 # one more time
 sleep 3
 $PSQL -c "UPDATE hostinfo SET hostname='ghijkl'"
-docker run --rm --network host -v clientvar:/var nivlheimclient --debug > /tmp/second 2>&1
+docker run --rm --network host -v clientvar:/var nivlheimclient --debug > $tempdir/second 2>&1
 
 # Verify the certificate chain
 chain=$($PSQL --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
@@ -147,9 +147,9 @@ if [[ "$chain" != "$expect" ]]; then
 	echo "================= httpd access log:  =================="
 	docker exec docker_nivlheimweb_1 tail -20 /var/log/httpd/access_log
 	echo "================= client output (1st time): ==========="
-	cat /tmp/first
+	cat $tempdir/first
 	echo "================= client output (2nd time): ==========="
-	cat /tmp/second
+	cat $tempdir/second
 	exit 1
 fi
 
