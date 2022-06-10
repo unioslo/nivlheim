@@ -286,6 +286,11 @@ func TestOSdetection(t *testing.T) {
 			content:  "Red Hat Enterprise Linux release 8.0 (Ootpa)",
 		},
 		{
+			osLabel:  "AlmaLinux 8",
+			filename: "/etc/redhat-release",
+			content:  "AlmaLinux release 8.6 (Sky Tiger)",
+		},
+		{
 			osLabel:  "Fedora 27",
 			filename: "/etc/redhat-release",
 			content:  "Fedora release 27 (Twenty Seven)",
@@ -311,7 +316,7 @@ ProductVersion: 10.13.3
 BuildVersion:   17D102`,
 		},
 		{
-			osLabel: "macOS 11.2",
+			osLabel:  "macOS 11.2",
 			filename: "/usr/bin/sw_vers",
 			content: `ProductName:	macOS
 ProductVersion:	11.2.1

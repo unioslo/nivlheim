@@ -173,6 +173,12 @@ func parseFile(database *sql.DB, fileID int64) {
 				m = centos.FindStringSubmatch(content.String)
 				if m != nil {
 					os = "CentOS " + m[1]
+				} else {
+					alma := regexp.MustCompile("^AlmaLinux release (\\d+)")
+					m = alma.FindStringSubmatch(content.String)
+					if m != nil {
+						os = "AlmaLinux " + m[1]
+					}
 				}
 			}
 		}
