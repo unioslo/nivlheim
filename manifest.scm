@@ -5,6 +5,7 @@
              (guix packages)
              (guix gexp)
              ((guix git-download) #:select (git-predicate))
+             (gnu packages certs)
              (uio packages nivlheim))
 
 (define %checkout (dirname (current-filename)))
@@ -36,7 +37,8 @@
       (string=? ref "HEAD")))
 
 (packages->manifest
- (list (package
+ (list nss-certs                        ;CA certificates
+       (package
          ;; Return a variant of Nivlheim that uses the local checkout as
          ;; source, and with a custom version based on the contents of
          ;; the VERSION file and the current branch.
