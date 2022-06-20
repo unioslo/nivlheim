@@ -36,16 +36,22 @@
       ;; when not on a branch.
       (string=? ref "HEAD")))
 
+(define %nivlheim
+  (package
+    (inherit nivlheim)
+    ;; Custom variant of Nivlheim that uses the local checkout as source,
+    ;; and with "version" set to the contents of the VERSION file and
+    ;; current branch.
+    (version (if (or (string=? ref "master") (ref-is-tag? ref))
+                 version
+                 (string-append version "-" ref)))
+    (source (local-file %checkout
+                        #:recursive? #t
+                        #:select? (git-predicate %checkout)))
+    ;; Propagate nss-certs to ensure /etc/ssl/certs is available.
+    (propagated-inputs
+     (append (list nss-certs)
+             (package-propagated-inputs nivlheim)))))
+
 (packages->manifest
- (list nss-certs                        ;CA certificates
-       (package
-         ;; Return a variant of Nivlheim that uses the local checkout as
-         ;; source, and with a custom version based on the contents of
-         ;; the VERSION file and the current branch.
-         (inherit nivlheim)
-         (version (if (or (string=? ref "master") (ref-is-tag? ref))
-                      version
-                      (string-append version "-" ref)))
-         (source (local-file %checkout
-                             #:recursive? #t
-                             #:select? (git-predicate %checkout))))))
+ (list %nivlheim))
