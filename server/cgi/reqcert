@@ -254,7 +254,13 @@ eval {
 	print; print while (<F>);
 	close(F);
 	open(F, $keyfile) or die "Can't read key file";
-	print while (<F>);
+	#print while (<F>);
+	# We need the header to be PKCS#1 format for now
+	# https://stackoverflow.com/questions/20065304/differences-between-begin-rsa-private-key-and-begin-private-key
+	while (<F>) {
+		s/PRIVATE KEY/RSA PRIVATE KEY/;
+		print;
+	}
 	close(F);
 
 	# Display the P12-file, base64-encoded
