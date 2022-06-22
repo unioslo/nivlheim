@@ -148,7 +148,7 @@ func parseFile(database *sql.DB, fileID int64) {
 	if filename.String == "/etc/redhat-release" {
 		var os, osEdition string
 		rhel := regexp.MustCompile("^Red Hat Enterprise Linux (\\w+)" +
-			".*(Tikanga|Santiago|Maipo|Ootpa)")
+			".*(Tikanga|Santiago|Maipo|Ootpa|Plow)")
 		m := rhel.FindStringSubmatch(content.String)
 		if m != nil {
 			osEdition = m[1]
@@ -162,6 +162,9 @@ func parseFile(database *sql.DB, fileID int64) {
 			case "Ootpa":
 				os = "RHEL 8"
 				osEdition = "" // RHEL 8 doesn't come in workstation+server editions like the previous versions
+			case "Plow":
+				os = "RHEL 9"
+				osEdition = ""
 			}
 		} else {
 			fedora := regexp.MustCompile("^Fedora release (\\d+)")

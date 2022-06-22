@@ -286,6 +286,11 @@ func TestOSdetection(t *testing.T) {
 			content:  "Red Hat Enterprise Linux release 8.0 (Ootpa)",
 		},
 		{
+			osLabel:  "RHEL 9",
+			filename: "/etc/redhat-release",
+			content:  "Red Hat Enterprise Linux release 9.0 (Plow)",
+		},
+		{
 			osLabel:  "AlmaLinux 8",
 			filename: "/etc/redhat-release",
 			content:  "AlmaLinux release 8.6 (Sky Tiger)",
