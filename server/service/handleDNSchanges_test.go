@@ -81,7 +81,7 @@ func TestHandleDNSchanges(t *testing.T) {
 		// this host will be renamed based on DNS PTR record for the ip address
 		testname{
 			certfp:     "a",
-			ipAddress:  "129.240.202.63",
+			ipAddress:  "129.240.130.240",
 			osHostname: "bottleneck.bestchoice.com",
 			expected:   "callisto.uio.no",
 		},
