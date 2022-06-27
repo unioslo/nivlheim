@@ -43,7 +43,7 @@ const sessionCookieName = "nivlheimSession"
 // Returns nil otherwise.
 // This function does not create a new session.
 func getSessionFromRequest(req *http.Request) *Session {
-	if isLocal(req) {
+	if isLocal(req) && devmode {
 		// Browsers have non-standard behavior with cookies toward localhost,
 		// so session mgmt with cookies doesn't work when developing locally.
 		// For development, let's just return the one and only session anyway.
@@ -98,9 +98,9 @@ func newSession(w http.ResponseWriter, req *http.Request) *Session {
 	defer sessionMutex.Unlock()
 	sPtr := new(Session)
 	sPtr.lastUsed = time.Now()
-	if isLocal(req) {
-		// If local connection, assume development environment.
-		// Make sure there's only one active session
+	if isLocal(req) && devmode {
+		// development environment
+		// make sure there's only one active session
 		sessions = make(map[string]*Session, 0)
 	}
 	sessions[newID] = sPtr
@@ -110,9 +110,9 @@ func newSession(w http.ResponseWriter, req *http.Request) *Session {
 func deleteSession(req *http.Request) {
 	sessionMutex.Lock()
 	defer sessionMutex.Unlock()
-	if isLocal(req) {
-		// If local connection, assume development environment.
-		// There's only supposed to be one session, so delete all.
+	if isLocal(req) && devmode {
+		// If local connection and development environment,
+		// there's only supposed to be one session, so delete all.
 		sessions = make(map[string]*Session, 0)
 	} else {
 		cookie, err := req.Cookie(sessionCookieName)
