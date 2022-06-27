@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"io/ioutil"
 	"os"
+	"os/user"
 	"regexp"
-	"runtime"
 	"testing"
 )
 
@@ -14,14 +14,27 @@ import (
 // temporary tablespace that cleans up after the connection is closed.
 // The function runs all the SQL scripts to create tables etc.
 func getDBconnForTesting(t *testing.T) *sql.DB {
-	// Create a database connection
-	var dataSource string
-	if runtime.GOOS == "windows" {
-		dataSource = "sslmode=disable host=127.0.0.1 port=5432"
-	} else {
-		dataSource = "sslmode=disable host=/var/run/postgresql"
+	// username
+	user, err := user.Current()
+	if err != nil {
+		t.Fatalf(err.Error())
 	}
-	db, err := sql.Open("postgres", dataSource)
+
+	// defaults for testing
+	var config = &Config{
+		PGdatabase: user.Username,
+		PGuser:     user.Username,
+		PGpassword: "",
+	}
+
+	// Look for configuration overrides in the environment.
+	UpdateConfigFromEnvironment(config)
+
+	// Create a database connection
+	dbConnectionString := fmt.Sprintf(
+		"host=127.0.0.1 port=5432 dbname=%s user=%s password='%s' sslmode=disable",
+		config.PGdatabase, config.PGuser, config.PGpassword)
+	db, err := sql.Open("postgres", dbConnectionString)
 	if err != nil {
 		t.Fatal(err)
 	}
