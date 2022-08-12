@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"log"
 	"math/rand"
 	"reflect"
 	"strconv"
@@ -115,6 +116,7 @@ func RunStatementsInTransaction(db *sql.DB, statements []string, args ...interfa
 	return RunInTransaction(db, func(tx *sql.Tx) error {
 		for _, st := range statements {
 			if _, err := tx.Exec(st, args...); err != nil {
+				log.Printf("Statement that failed: %s", st)
 				return err
 			}
 		}

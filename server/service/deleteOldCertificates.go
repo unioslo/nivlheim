@@ -2,6 +2,7 @@ package main
 
 import (
 	"database/sql"
+	"log"
 	"time"
 
 	"github.com/unioslo/nivlheim/server/service/utility"
@@ -23,11 +24,11 @@ func (p deleteOldCertificatesJob) Run(db *sql.DB) {
 	// - expired (past the "not after" date)
 	// - not referenced from any files/hostinfo rows
 	// - not referenced by any other certificate in the table (through the "previous" column) that was in turn referenced by files/hostinfo
-	utility.RunStatementsInTransaction(db, []string{
+	err := utility.RunStatementsInTransaction(db, []string{
 		// First, find certificates in use, create a temporary table
 		`SELECT * INTO TEMP TABLE certs_in_use FROM (
 			WITH RECURSIVE previouscerts AS (
-				SELECT certid,previous FROM certificates WHERE fingerprint IN (SELECT distinct certfp FROM files)
+				SELECT certid,previous FROM certificates WHERE fingerprint IN (SELECT distinct certfp FROM files UNION SELECT distinct certfp FROM hostinfo)
 				UNION
 				SELECT certid,previous FROM certificates c, files f WHERE c.certid=f.originalcertid
 				UNION
@@ -39,12 +40,12 @@ func (p deleteOldCertificatesJob) Run(db *sql.DB) {
 		FROM certificates c
 		LEFT JOIN certs_in_use use ON c.certid=use.certid
 		WHERE to_timestamp( (regexp_match(cert,'Not After : (.* GMT)'))[1], 'Mon DD HH24:MI:SS YYYY') < now() AND use.certid IS NULL`,
-		// Create an index because the certid field is referenced in the files table and would slow down the delete operation
-		`CREATE INDEX CONCURRENTLY IF NOT EXISTS deleteOldCertificatesJob ON files(originalcertid)`,
 		// Delete the certificates
 		`DELETE FROM certificates WHERE certid IN (SELECT certid FROM certs_to_be_deleted)`,
 		// Last, drop the temp tables and index
 		`DROP TABLE certs_in_use, certs_to_be_deleted`,
-		`DROP INDEX deleteOldCertificatesJob`,
 	})
+	if err != nil {
+		log.Panic(err)
+	}
 }
