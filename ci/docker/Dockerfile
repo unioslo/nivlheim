@@ -21,7 +21,7 @@ RUN dnf install -y httpd mod_ssl openssl perl procps-ng \
 COPY server/openssl_ca.conf server/log4perl.conf /etc/nivlheim/
 COPY server/client_CA_cert.sh /usr/bin/
 COPY server/httpd_ssl.conf /etc/httpd/conf.d/ssl.conf
-RUN sed -i "s|Listen 80|Listen 8080|g" /etc/httpd/conf/httpd.conf
+COPY server/httpd.conf /etc/httpd/conf/httpd.conf
 
 # cgi scripts
 COPY server/cgi/ping server/cgi/reqcert server/cgi/processarchive /var/www/cgi-bin/
