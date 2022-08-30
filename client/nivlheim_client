@@ -198,7 +198,9 @@ if (!%config) {
 
 # Set certain options from the config file if they aren't already set.
 if (!defined($opt{ca_file}) || $opt{ca_file} eq '') {
-	$opt{ca_file} = $config{'settings'}{'server_ssl_ca'};
+	if(defined($config{'settings'}{'server_ssl_ca'})) {
+		$opt{ca_file} = $config{'settings'}{'server_ssl_ca'};
+	}
 }
 
 # Use default options if nothing else is specified.
