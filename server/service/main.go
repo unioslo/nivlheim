@@ -15,6 +15,7 @@ import (
 	"runtime"
 	"syscall"
 	"time"
+
 	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
@@ -47,6 +48,7 @@ var devmode bool
 // Embed the database patches for schema migration.
 //go:embed database/*.sql
 var databasePatches embed.FS
+
 func migrateDatabase(db *sql.DB, currentPatchLevel int, targetPatchLevel int) (err error) {
 	if currentPatchLevel > targetPatchLevel {
 		return errors.New("I'm too old for this.")
@@ -158,7 +160,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchLevel int
-	const requirePatchLevel = 6
+	const requirePatchLevel = 7
 	err = db.QueryRow("SELECT patchlevel FROM db").Scan(&patchLevel)
 	if err != nil {
 		patchLevel = 0

@@ -1,0 +1,17 @@
+on: [pull_request]
+
+name: PR checks
+jobs:
+  pr_checks:
+    name: Pull request checks
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+      - name: Checkout master
+        uses: actions/checkout@v3
+        with:
+          ref: master
+          path: master
+      - name: Script
+        run: ci/pr_checks.sh
