@@ -562,11 +562,11 @@ if (-not (CanAccessPath $certpath)) {
 	exit 1
 }
 $flags = [System.Security.Cryptography.X509Certificates.X509KeyStorageFlags]"MachineKeySet,Exportable"
+$cert = $null
 try {
-	# Legacy code, the server might set an (unnecessary) password on the certificate
-	$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "passord123", $flags)
-} catch {
 	$cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($certpath, "", $flags)
+} catch {
+	Write-Host $error[0]
 }
 if (IsNull $cert) {
 	Write-Host "Unable to load $certpath"
