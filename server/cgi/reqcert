@@ -241,8 +241,9 @@ eval {
 		"WHERE fingerprint=?", undef, ($new_fingerprint, $new_fingerprint));
 
 	# Generate a P12 file
-	$cmd = "openssl pkcs12 -export -out $p12file -inkey $keyfile -in $crtfile "
-		. "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
+	$cmd = "openssl pkcs12 -export -certpbe PBE-SHA1-3DES -keypbe PBE-SHA1-3DES -nomac "
+	     . "-out $p12file -inkey $keyfile -in $crtfile "
+	     . "-CAfile $confdir/CA/nivlheimca.crt -password pass:";
 	if (!(system($cmd) == 0 and -f $p12file)) {
 		$logger->debug($cmd);
 		die "P12 failed: $?";
