@@ -1,0 +1,27 @@
+## Build
+FROM golang:buster AS build
+
+WORKDIR /app
+
+COPY go.mod ./
+COPY go.sum ./
+RUN go mod download
+
+COPY *.go ./
+COPY ./database ./database
+
+RUN go build -o /nivlheim
+
+## Deploy
+FROM ubuntu:latest
+MAINTAINER iti-dia@usit.uio.no
+LABEL no.uio.contact=usit-gid@usit.uio.no
+LABEL description="Main Nivlheim server exposing API"
+
+EXPOSE 4040
+
+WORKDIR /
+
+COPY --from=build /nivlheim /nivlheim
+
+ENTRYPOINT ["/nivlheim"]
