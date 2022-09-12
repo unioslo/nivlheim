@@ -14,18 +14,7 @@ else
 	OK=0
 fi
 
-echo -n "The version number is equal everywhere:                  "
-A=`grep -oP "VERSION = '\K[0-9.]+(?=')" client/nivlheim_client`
-B=`cat VERSION`
-C=`grep -oP 'Set-Variable version -option Constant -value "\K[0-9.]+(?=")' client/windows/nivlheim_client.ps1`
-if [[ "$A" == "$B" && "$B" == "$C" ]]; then
-	echo "OK"
-else
-	echo "FAIL"
-	OK=0
-fi
-
-echo -n "The version number has been updated:                     "
+echo -n "The version number has been updated in VERSION:          "
 A=`cat VERSION`
 if [ -f master/VERSION ]; then
 	B=`cat master/VERSION`
@@ -33,6 +22,42 @@ else
 	B=`git show master:VERSION`
 fi
 if [[ "$A" != "$B" ]]; then
+	echo "OK"
+else
+	echo "FAIL"
+	OK=0
+fi
+
+echo -n "Correct version number in the Linux client:              "
+B=`grep -oP "VERSION = '\K[0-9.]+(?=')" client/nivlheim_client`
+if [[ "$A" == "$B" ]]; then
+	echo "OK"
+else
+	echo "FAIL"
+	OK=0
+fi
+
+echo -n "Correct version number in the Powershell client:         "
+B=`grep -oP 'Set-Variable version -option Constant -value "\K[0-9.]+(?=")' client/windows/nivlheim_client.ps1`
+if [[ "$A" == "$B" ]]; then
+	echo "OK"
+else
+	echo "FAIL"
+	OK=0
+fi
+
+echo -n "Correct version number in the Debian package:            "
+B=`grep -oP 'Standards-Version: \K[0-9.]+' debian/control`
+if [[ "$A" == "$B" ]]; then
+	echo "OK"
+else
+	echo "FAIL"
+	OK=0
+fi
+
+
+echo -n "Updated Debian changelog:                                "
+if head -1 debian/changelog | grep -q -s $A; then
 	echo "OK"
 else
 	echo "FAIL"
