@@ -1,9 +1,9 @@
-nivlheim (2.7.13-1) stretch; urgency=low
+nivlheim (2.7.13-1) buster; urgency=low
 
   * Upstream changes
   * Depend on libyaml-perl
 
- -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Mon, 12 Sepc 2022 15:57:00 +0200
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Mon, 12 Sep 2022 15:57:00 +0200
 
 nivlheim (2.6.3-1) stretch; urgency=low
 

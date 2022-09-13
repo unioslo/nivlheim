@@ -1,10 +1,10 @@
 Source: nivlheim
 Section: admin
-Priority: extra
-Maintainer: Petter Reinholdtsen <petter.reinholdtsen@usit.uio.no>
-Build-Depends: debhelper (>= 9~),
+Priority: optional
+Maintainer: Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+Build-Depends: debhelper (>= 11~),
 	       quilt
-Standards-Version: 2.7.13
+Standards-Version: 4.1.1
 Homepage: https://github.com/unioslo/nivlheim
 Vcs-Git: git://github.com/unioslo/nivlheim.git
 Vcs-Browser: https://github.com/unioslo/nivlheim

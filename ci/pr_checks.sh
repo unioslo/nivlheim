@@ -46,16 +46,6 @@ else
 	OK=0
 fi
 
-echo -n "Correct version number in the Debian package:            "
-B=`grep -oP 'Standards-Version: \K[0-9.]+' debian/control`
-if [[ "$A" == "$B" ]]; then
-	echo "OK"
-else
-	echo "FAIL"
-	OK=0
-fi
-
-
 echo -n "Updated Debian changelog:                                "
 if head -1 debian/changelog | grep -q -s $A; then
 	echo "OK"
