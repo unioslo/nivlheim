@@ -5,11 +5,11 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"nivlheim/utility"
 	"regexp"
 	"sort"
 	"strings"
 
-	"github.com/unioslo/nivlheim/server/service/utility"
 	"golang.org/x/oauth2"
 )
 
@@ -171,7 +171,7 @@ func handleOauth2Redirect(w http.ResponseWriter, req *http.Request) {
 		// but is likely to be harmless in other environments.
 		var otherUsername string
 		if strings.HasSuffix(session.userinfo.Username, "-drift") {
-			otherUsername = session.userinfo.Username[0:len(session.userinfo.Username)-6]
+			otherUsername = session.userinfo.Username[0 : len(session.userinfo.Username)-6]
 		} else {
 			otherUsername = session.userinfo.Username + "-drift"
 		}

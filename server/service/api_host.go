@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"fmt"
 	"net/http"
+	"nivlheim/utility"
 	"regexp"
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type apiMethodHost struct {

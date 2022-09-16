@@ -1,10 +1,9 @@
 package main
 
 import (
+	"nivlheim/utility"
 	"os"
 	"testing"
-
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 func TestTransaction(t *testing.T) {

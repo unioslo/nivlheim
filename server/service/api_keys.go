@@ -7,13 +7,13 @@ import (
 	"net"
 	"net/http"
 	"net/url"
+	"nivlheim/utility"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type apiMethodKeys struct {

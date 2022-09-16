@@ -4,11 +4,11 @@ import (
 	"database/sql"
 	"log"
 	"net"
+	"nivlheim/utility"
 	"strings"
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type handleDNSchangesJob struct{}

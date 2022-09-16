@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"nivlheim/utility"
 	"os"
 	"os/signal"
 	"reflect"
@@ -15,8 +16,6 @@ import (
 	"runtime"
 	"syscall"
 	"time"
-
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 // A Job is an internal piece of code that gets run periodically by this program

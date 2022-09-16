@@ -4,8 +4,7 @@ import (
 	"fmt"
 	"regexp"
 
-	ldap "gopkg.in/ldap.v3"
-	//ldap "github.com/go-ldap/ldap/v3"
+	ldap "github.com/go-ldap/ldap/v3"
 )
 
 type LDAPUser struct {

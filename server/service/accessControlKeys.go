@@ -5,12 +5,12 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"nivlheim/utility"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/lib/pq"
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type APIkey string

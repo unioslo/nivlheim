@@ -1,11 +1,10 @@
-module main.go
+module nivlheim
 
 go 1.17
 
 require (
 	github.com/go-ldap/ldap/v3 v3.4.4
 	github.com/lib/pq v1.10.6
-	github.com/unioslo/nivlheim v0.0.0-20220830063202-8000eac1e3c9
 	golang.org/x/oauth2 v0.0.0-20220822191816-0ebed06d0094
 )
 

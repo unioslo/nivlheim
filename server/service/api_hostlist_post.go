@@ -8,10 +8,9 @@ import (
 	"io/ioutil"
 	"log"
 	"net/http"
+	"nivlheim/utility"
 	"strings"
 	"time"
-
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 var apiHostListWritableFields = map[string]string{

@@ -3,10 +3,10 @@ package main
 import (
 	"database/sql"
 	"net/http"
+	"nivlheim/utility"
 	"sync"
 	"time"
 
-	"github.com/unioslo/nivlheim/server/service/utility"
 	"golang.org/x/oauth2"
 )
 

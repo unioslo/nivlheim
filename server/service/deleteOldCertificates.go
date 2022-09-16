@@ -3,9 +3,8 @@ package main
 import (
 	"database/sql"
 	"log"
+	"nivlheim/utility"
 	"time"
-
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type deleteOldCertificatesJob struct{}

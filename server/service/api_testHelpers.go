@@ -5,10 +5,9 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"nivlheim/utility"
 	"strings"
 	"testing"
-
-	"github.com/unioslo/nivlheim/server/service/utility"
 )
 
 type apiCall struct {
