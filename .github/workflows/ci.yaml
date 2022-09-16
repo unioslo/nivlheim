@@ -21,55 +21,27 @@ jobs:
         ports:
           - 5432:5432
     steps:
-      - name: Checkout
-        uses: actions/checkout@v2
-      - name: Guix cache
-        uses: actions/cache@v2
-        with:
-          # Note: /gnu/store may exceed the limit of 5GiB, so don't
-          # cache it.  TODO: Selective caching with 'guix archive'?
-          path: |
-            ~/.cache/guix
-          key: guix-cache-${{ github.sha }}
-          restore-keys: |
-            guix-cache-
-      - name: Read channels.scm
-        run: |
-          echo "CHANNELS<<EOF" >> $GITHUB_ENV
-          cat ci/channels.scm >> $GITHUB_ENV
-          echo EOF >> $GITHUB_ENV
-      - name: Install Guix
-        uses: PromyLOPH/guix-install-action@v1
-        with:
-          channels: "${{ env.CHANNELS }}"
-      - name: Build Nivlheim
-        run: |
-          guix build -m manifest.scm
-      - name: Start the server
-        run: |
-          guix shell -m manifest.scm -- nivlheim &
-        env:
-          NIVLHEIM_PGHOST: localhost
-          NIVLHEIM_PGUSER: nivlheim
-          NIVLHEIM_PGPASSWORD: postgres
-          NIVLHEIM_PGDATABASE: nivlheim
-          NIVLHEIM_PGSSLMODE: disable
-      - name: Test API
-        run: |
-          # Give the server some time to initialize.
-          sleep 5
-          curl http://localhost:4040/api/v2/status
-      - name: Pack container image
-        run: |
-          guix pack -f docker --root=nivlheim-image.tar.gz \
-            --entry-point=bin/nivlheim \
-            -S /etc/profile=etc/profile \
-            -m manifest.scm
-      - name: Upload artifact
-        uses: actions/upload-artifact@v2
-        with:
-          name: nivlheim-image.tar.gz
-          path: nivlheim-image.tar.gz
+    - name: Checkout
+      uses: actions/checkout@v2
+    - name: Run Go tests
+      run: |
+        cd server/service
+        go test -v
+      env:
+        NIVLHEIM_PGHOST: localhost
+        NIVLHEIM_PGUSER: nivlheim
+        NIVLHEIM_PGPASSWORD: postgres
+        NIVLHEIM_PGDATABASE: nivlheim
+        NIVLHEIM_PGSSLMODE: disable
+    - name: Docker build
+      run: docker build --file ci/docker/api_Dockerfile --tag nivlheim:latest server/service
+    - name: Docker save
+      run: docker save nivlheim | gzip > nivlheim-image.tar.gz
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: nivlheim-image.tar.gz
+        path: nivlheim-image.tar.gz
 
   buildwww:
     name: Build httpd+cgi image
