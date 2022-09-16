@@ -111,7 +111,7 @@ outer:
 
 		// Possibly filter out hosts with undetermined hostnames
 		if config.HideUnknownHosts {
-			if _,ok := certfp2hostname[certfp]; !ok {
+			if _, ok := certfp2hostname[certfp]; !ok {
 				continue
 			}
 		}

@@ -107,7 +107,7 @@ func (vars *apiMethodSearchPage) ServeHTTP(w http.ResponseWriter, req *http.Requ
 	statement := "SELECT certfp FROM hostinfo"
 	whereAnd := "WHERE"
 	if !access.HasAccessToAllGroups() {
-		statement += " " + whereAnd + " ownergroup IN ("+access.GetGroupListForSQLWHERE()+")"
+		statement += " " + whereAnd + " ownergroup IN (" + access.GetGroupListForSQLWHERE() + ")"
 		whereAnd = "AND"
 	}
 	if config.HideUnknownHosts {

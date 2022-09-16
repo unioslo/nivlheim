@@ -106,7 +106,7 @@ func (vars *apiMethodHostList) ServeGET(w http.ResponseWriter, req *http.Request
 	temp := make([]string, 0, len(apiHostListStandardFields))
 	for _, f := range apiHostListStandardFields {
 		if f.expression != "" {
-			temp = append(temp, f.expression + " AS " + f.columnName)
+			temp = append(temp, f.expression+" AS "+f.columnName)
 		} else {
 			temp = append(temp, f.columnName)
 		}

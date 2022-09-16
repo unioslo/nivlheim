@@ -66,7 +66,7 @@ func updateConfig(config *Config, key string, value string) {
 // Options in the file must have the same name as fields in the struct,
 // disregarding upper/lowercase.
 // Options with names that aren't recognized are ignored.
-func UpdateConfigFromFile(config *Config, configFileName string) (error) {
+func UpdateConfigFromFile(config *Config, configFileName string) error {
 	// Open the config file
 	file, err := os.Open(configFileName)
 	if err != nil {

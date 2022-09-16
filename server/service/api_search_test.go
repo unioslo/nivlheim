@@ -113,29 +113,29 @@ func TestSearchCaseSensitivity(t *testing.T) {
 		// Test a search that returns ip address and hostname
 		{
 			methodAndPath: "GET /api/v2/search?q=night&fields=ipAddress,hostname",
-			expectStatus: http.StatusOK,
-			expectJSON: `[{"ipAddress":"` + ip2 + `","hostname":"`+hostname2+`"}]`,
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"ipAddress":"` + ip2 + `","hostname":"` + hostname2 + `"}]`,
 		},
 		{
 			methodAndPath: "GET /api/v2/msearch?q1=night&fields=ipAddress,hostname",
-			expectStatus: http.StatusOK,
-			expectJSON: `[{"ipAddress":"` + ip2 + `","hostname":"`+hostname2+`"}]`,
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"ipAddress":"` + ip2 + `","hostname":"` + hostname2 + `"}]`,
 		},
 		// A search that returns two hosts
 		{
 			methodAndPath: "GET /api/v2/search?q=sugar&fields=hostname",
-			expectStatus: http.StatusOK,
-			expectJSON: `[{"hostname":"`+hostname2+`"},{"hostname":"`+hostname+`"}]`,
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"hostname":"` + hostname2 + `"},{"hostname":"` + hostname + `"}]`,
 		},
 		{
 			methodAndPath: "GET /api/v2/msearch?q1=sugar&fields=hostname",
-			expectStatus: http.StatusOK,
-			expectJSON: `[{"hostname":"`+hostname+`"},{"hostname":"`+hostname2+`"}]`,
+			expectStatus:  http.StatusOK,
+			expectJSON:    `[{"hostname":"` + hostname + `"},{"hostname":"` + hostname2 + `"}]`,
 		},
 		{
 			methodAndPath: "GET /api/v2/grep?q=sugar",
-			expectStatus: http.StatusOK,
-			expectContent: hostname2+":"+filename+":"+content2+"\n"+hostname+":"+filename+":"+content,
+			expectStatus:  http.StatusOK,
+			expectContent: hostname2 + ":" + filename + ":" + content2 + "\n" + hostname + ":" + filename + ":" + content,
 		},
 	}
 
@@ -143,7 +143,7 @@ func TestSearchCaseSensitivity(t *testing.T) {
 	testAPIcalls(t, api, tests)
 
 	// Also run the tests with option HideUnknownHosts=true
-	config.HideUnknownHosts=true
+	config.HideUnknownHosts = true
 	// Add a host without a name, that shouldn't show up in the results
 	certfp3 := "CCCCCC"
 	_, err = db.Exec("INSERT INTO files(fileid,filename,certfp,content,ipaddr) "+
@@ -159,5 +159,5 @@ func TestSearchCaseSensitivity(t *testing.T) {
 	}
 	addFileToFastSearch(fileID+2, certfp3, filename, content)
 	testAPIcalls(t, api, tests)
-	config.HideUnknownHosts=false
+	config.HideUnknownHosts = false
 }
