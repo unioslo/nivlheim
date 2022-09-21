@@ -1,5 +1,6 @@
 ## Build
 FROM golang:buster AS build
+ARG version
 
 WORKDIR /app
 
@@ -10,7 +11,7 @@ COPY *.go ./
 COPY ./database ./database
 COPY ./utility ./utility
 
-RUN go build -o /nivlheim
+RUN go build -o /nivlheim -ldflags "-X main.version=${version:-UNDEFINED}"
 
 ## Deploy
 FROM ubuntu:latest
@@ -22,6 +23,7 @@ EXPOSE 4040
 
 WORKDIR /
 
+RUN apt-get update -qq && apt-get install -yqq ca-certificates
 COPY --from=build /nivlheim /nivlheim
 
 ENTRYPOINT ["/nivlheim"]
