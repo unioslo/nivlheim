@@ -34,7 +34,13 @@ jobs:
         NIVLHEIM_PGDATABASE: nivlheim
         NIVLHEIM_PGSSLMODE: disable
     - name: Docker build
-      run: docker build --file ci/docker/api_Dockerfile --tag nivlheim:latest --build-arg version=`cat VERSION` server/service
+      run: |
+        VERSION=`cat VERSION`
+        if [[ "$GITHUB_REF_NAME" != "master" ]]; then
+          VERSION="$VERSION-$GITHUB_REF_NAME"
+        fi
+        echo "version=$VERSION"
+        docker build --file ci/docker/api_Dockerfile --tag nivlheim:latest --build-arg version=$VERSION server/service
     - name: Docker save
       run: docker save nivlheim | gzip > nivlheim-image.tar.gz
     - name: Upload artifact
