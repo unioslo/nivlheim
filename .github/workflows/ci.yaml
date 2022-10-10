@@ -204,3 +204,34 @@ jobs:
     steps:
       - name: HTTP request
         run: curl -sS "http://nivlheim-test.uio.no/hook.pl?commit=${GITHUB_SHA}&branch=${GITHUB_REF_NAME}"
+
+  release:
+    if: ${{ github.ref == 'refs/heads/master' }}
+    name: Tag and release
+    needs: [test-scripts]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 50
+      - name: Create a version tag
+        id: tagstep
+        uses: salsify/action-detect-and-tag-new-version@v2
+        with:
+          version-command: cat VERSION
+      - name: Generate changelog
+        if: steps.tagstep.outputs.tag != ''
+        id: changelog
+        uses: jaywcjlove/changelog-generator@main
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          filter: '[R|r]elease[d]\s+[v|V]\d(\.\d+){0,2}'
+      - name: Create a new release
+        if: steps.tagstep.outputs.tag != ''
+        uses: softprops/action-gh-release@v1
+        with:
+          body: ${{ steps.changelog.outputs.changelog }}
+          draft: false
+          prerelease: false
+          tag_name: ${{ steps.tagstep.outputs.tag }}
+          generate_release_notes: true
