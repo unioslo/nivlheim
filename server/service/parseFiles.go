@@ -301,7 +301,7 @@ func parseFile(database *sql.DB, fileID int64) {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0
 		}
-		_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2,serialno=$3"+
+		_, err = tx.Exec("UPDATE hostinfo SET manufacturer=$1,product=$2,serialno=$3 "+
 			"WHERE certfp=$4", manufacturer, product, serial, certfp.String)
 		return
 	}
@@ -319,7 +319,7 @@ func parseFile(database *sql.DB, fileID int64) {
 			serial.String = m[1]
 			serial.Valid = len(serial.String) > 0
 		}
-		_, err = tx.Exec("UPDATE hostinfo SET manufacturer='Apple',product=$1,serialno=$2"+
+		_, err = tx.Exec("UPDATE hostinfo SET manufacturer='Apple',product=$1,serialno=$2 "+
 			"WHERE certfp=$3", product, serial, certfp.String)
 		return
 	}
