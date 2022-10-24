@@ -205,6 +205,23 @@ if ! grep -qi "revoked" $tempdir/renewresult; then
 	exit 1
 fi
 
+# Run with other paths for cert/key, verify that cert, key, pkcs8 and nonce files were created there.
+echo "Running the client with another path for cert and key, empty config, and server given by argument"
+mkdir -p $tempdir/foo; rm -f $tempdir/foo/*
+touch $tempdir/foo/emptyfile
+if ! docker run --rm --network host --mount type=bind,source=$tempdir/foo,target=/foo nivlheimclient \
+  --ssl-cert /foo/a.crt --ssl-key /foo/a.key -c /foo/emptyfile --server localhost --debug >$tempdir/output2 2>&1; then
+    echo "The client failed to post data successfully when run with cert/key arguments:"
+	echo "--------------------------------------------"
+	cat $tempdir/output2
+    exit 1
+fi
+if [ ! -f $tempdir/foo/a.crt ] || [ ! -f $tempdir/foo/a.key ] ||  [ ! -f $tempdir/foo/pkcs8.key ] || [ ! -f $tempdir/foo/nonce ]; then
+	echo "Some output files are missing. These are present:"
+	ls $tempdir/foo
+	exit 1;
+fi
+
 # Check logs for errors
 if docker exec -t docker_nivlheimweb_1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
     exit 1

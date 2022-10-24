@@ -79,6 +79,7 @@ my $HELP = <<'END_HELP';
 
 OPTIONS:
    -c, --config    Specify configuration file
+   -s, --server    Specify server hostname
    --ssl-ca        SSL CA file
    --ssl-cert      SSL CERT file
    --ssl-key       SSL key file
@@ -101,6 +102,7 @@ END_LICENSE
 # Get options
 my %opt;
 GetOptions('c|config=s' => \$opt{config},
+	   's|server=s'     => \$opt{server},
 	   'ssl-ca=s'       => \$opt{ca_file},
 	   'ssl-cert=s'     => \$opt{cert_file},
 	   'ssl-key=s'      => \$opt{key_file},
@@ -210,14 +212,18 @@ foreach (keys %defaultopt) {
 	}
 }
 
-# Verify that we have a server url. It must have trailing slash.
-if (!defined($config{'settings'}) || !defined($config{'settings'}{'server'})) {
+# Verify that a "server" argument or config option was given
+if (defined($opt{server})) {
+	$server_url = 'https://' . $opt{server} . '/cgi-bin/';
+} elsif (defined($config{'settings'}{'server'})) {
+	$server_url = 'https://' . $config{'settings'}{'server'} . '/cgi-bin/';
+} else {
 	print "The config file $configfile must have a section [settings] "
 		 ."that contains a \"server\" option "
 		 ."with the hostname or ip address of the server.\n";
+	print "Alternatively, you may pass it as an argument with -s / --server.\n";
 	exit 1;
 }
-$server_url = 'https://' . $config{'settings'}{'server'} . '/cgi-bin/';
 
 # Show options in effect
 if ($opt{debug}) {
@@ -393,7 +399,7 @@ elsif ($have_cert && !$cert_works) {
 	}
 }
 
-createPKCS8() unless (-f "/var/nivlheim/pkcs8.key");
+createPKCS8() unless (-f dirname($opt{key_file})."/pkcs8.key");
 
 # Determine which files to send
 my @filelist = @{$config{'files'}} if defined($config{'files'});
@@ -514,7 +520,7 @@ print "Signed the archive file\n" if ($opt{debug});
 
 # nonce
 my $nonce = 0;
-my $noncefile = "/var/nivlheim/nonce";
+my $noncefile = dirname($opt{key_file})."/nonce";
 if (-r $noncefile) {
 	open(my $F, $noncefile);
 	$nonce = <$F>;
@@ -913,8 +919,9 @@ sub parse_certificate_response($) {
 }
 
 sub createPKCS8() {
-	system("openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in /var/nivlheim/my.key -out /var/nivlheim/pkcs8.key");
-	chmod(0600, "/var/nivlheim/pkcs8.key");
+	my $dir = dirname($opt{key_file});
+	system("openssl pkcs8 -topk8 -inform PEM -outform PEM -nocrypt -in ".$opt{key_file}." -out $dir/pkcs8.key");
+	chmod(0600, "$dir/pkcs8.key");
 }
 
 sub sign_with_cfengine_key() {
