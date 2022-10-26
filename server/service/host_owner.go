@@ -59,6 +59,10 @@ func (job determineHostOwnershipJob) Run(db *sql.DB) {
 	}
 	pluginAccess.AllowOnlyLocalhost()
 	tempKey := GenerateTemporaryAPIKey(pluginAccess)
+	defer func() {
+		// When the function exits, even if panic, make the key expire right away
+		pluginAccess.expires = time.Now()
+	}()
 	// Loop through those hosts and call the plugin to determine ownership for each of them
 	for _, host := range list {
 		if devmode {
@@ -83,7 +87,7 @@ func (job determineHostOwnershipJob) Run(db *sql.DB) {
 		// Check the http status
 		if resp.StatusCode > 299 {
 			// oops, the statuscode indicates an error
-			continue
+			log.Panicf("http status %d from host owner plugin", resp.StatusCode)
 		}
 		// Parse the response from the plugin. Should be one line of text
 		// that only contains the owner group name, nothing else.
@@ -93,7 +97,4 @@ func (job determineHostOwnershipJob) Run(db *sql.DB) {
 				"WHERE certfp=$2", ownerGroup, host.certfp)
 		}
 	}
-	// All done. Now make the key expire right away
-	pluginAccess.expires = time.Now()
-
 }
