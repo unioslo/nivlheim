@@ -132,6 +132,10 @@ func TestParseFilesWindows(t *testing.T) {
 				"VersionString": "Microsoft Windows NT 10.0.17763.0"
 			}`,
 		},
+		{
+			filename: "(Get-WmiObject Win32_OperatingSystem).Caption",
+			content:  "Microsoft Windows 10 Enterprise\r\n",
+		},
 	}
 	for _, f := range testfiles {
 		_, err := db.Exec("INSERT INTO files(certfp,filename,content,received) "+
@@ -146,10 +150,10 @@ func TestParseFilesWindows(t *testing.T) {
 	job.Run(db)
 
 	// verify the results
-	var kernel, manufacturer, product, serial sql.NullString
-	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno "+
+	var kernel, manufacturer, product, serial, edition sql.NullString
+	err := db.QueryRow("SELECT kernel,manufacturer,product,serialno,os_edition "+
 		"FROM hostinfo WHERE certfp='1234'").
-		Scan(&kernel, &manufacturer, &product, &serial)
+		Scan(&kernel, &manufacturer, &product, &serial, &edition)
 	if err == sql.ErrNoRows {
 		t.Fatal("No hostinfo row found")
 	}
@@ -175,6 +179,11 @@ func TestParseFilesWindows(t *testing.T) {
 	expectedKernel := "10.0.17763.0"
 	if kernel.String != expectedKernel {
 		t.Errorf("Kernel = %s, expected %s", kernel.String, expectedKernel)
+	}
+
+	expectedEdition := "Enterprise"
+	if edition.String != expectedEdition {
+		t.Errorf("OS Edition = %s, expected %s", edition.String, expectedEdition)
 	}
 }
 
