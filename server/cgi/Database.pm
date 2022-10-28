@@ -7,8 +7,7 @@ sub connect_to_db() {
 	$dbparams{'PGPORT'} = 5432; # default
 
 	# Try to read connection parameters from /etc/nivlheim/server.conf
-	open(my $F, "/etc/nivlheim/server.conf");
-	if ($F) {
+	if (open(my $F, "/etc/nivlheim/server.conf")) {
 		while (<$F>) {
 			if (/^([pP[gG][a-zA-Z]+)=(.*)/) {
 				$dbparams{uc $1} = $2;
