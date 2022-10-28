@@ -1,8 +1,8 @@
-nivlheim (2.7.15-1) buster; urgency=low
+nivlheim (2.7.16-1) buster; urgency=low
 
   * Upstream changes, no changes in the client
 
- -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Mon, 10 Oct 2022 13:55:00 +0200
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Web, 26 Oct 2022 17:03:00 +0200
 
 nivlheim (2.7.13-1) buster; urgency=low
 
