@@ -1,8 +1,9 @@
 nivlheim (2.7.16-1) buster; urgency=low
 
-  * Upstream changes, no changes in the client
+  * Added a --server option to the client
+  * Removed hard-coded references to /var/nivlheim
 
- -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Web, 26 Oct 2022 17:03:00 +0200
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Wed, 26 Oct 2022 17:03:00 +0200
 
 nivlheim (2.7.13-1) buster; urgency=low
 
