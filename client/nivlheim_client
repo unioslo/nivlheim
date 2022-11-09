@@ -648,11 +648,11 @@ sub ssl_connect($$$) {
 sub split_url($) {
 	my $url = shift;
 	# FQDN
-	if ($url =~ m#(https?)://([a-z0-9\-]+\.[a-z0-9\-]+\.[a-z]{2,3})(:(\d+))?(/.*)#) {
+	if ($url =~ m#(https?)://(([a-z0-9\-]+\.)*([a-z0-9\-]+))(:(\d+))?(/.*)#) {
 		my $proto = $1;
 		my $host = $2;
-		my $port = $4;
-		my $path = $5;
+		my $port = $6;
+		my $path = $7;
 		if (!defined($port)) {
 			if ($proto eq 'http') { $port = 80; }
 			elsif ($proto eq 'https') { $port = 443; }
@@ -666,19 +666,6 @@ sub split_url($) {
 		my $host = $2;
 		my $port = $4;
 		my $path = $5;
-		if (!defined($port)) {
-			if ($proto eq 'http') { $port = 80; }
-			elsif ($proto eq 'https') { $port = 443; }
-			else { return (); }
-		}
-		return ($proto,$host,$port,$path);
-	}
-	# localhost
-	elsif ($url =~ m#(https?)://localhost(:(\d+))?(/.*)#) {
-		my $proto = $1;
-		my $host = 'localhost';
-		my $port = $3;
-		my $path = $4;
 		if (!defined($port)) {
 			if ($proto eq 'http') { $port = 80; }
 			elsif ($proto eq 'https') { $port = 443; }
