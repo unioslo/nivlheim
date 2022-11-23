@@ -647,38 +647,36 @@ sub ssl_connect($$$) {
 
 sub split_url($) {
 	my $url = shift;
-	# FQDN
-	if ($url =~ m#(https?)://([a-z0-9\-]+\.[a-z0-9\-]+\.[a-z]{2,3})(:(\d+))?(/.*)#) {
-		my $proto = $1;
-		my $host = $2;
-		my $port = $4;
-		my $path = $5;
-		if (!defined($port)) {
-			if ($proto eq 'http') { $port = 80; }
-			elsif ($proto eq 'https') { $port = 443; }
-			else { return (); }
-		}
-		return ($proto,$host,$port,$path);
-	}
-	# IPv4-address
-	elsif ($url =~ m#(https?)://([0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3})(:(\d+))?(/.*)#) {
-		my $proto = $1;
-		my $host = $2;
-		my $port = $4;
-		my $path = $5;
-		if (!defined($port)) {
-			if ($proto eq 'http') { $port = 80; }
-			elsif ($proto eq 'https') { $port = 443; }
-			else { return (); }
-		}
-		return ($proto,$host,$port,$path);
-	}
-	# localhost
-	elsif ($url =~ m#(https?)://localhost(:(\d+))?(/.*)#) {
-		my $proto = $1;
-		my $host = 'localhost';
-		my $port = $3;
-		my $path = $4;
+
+	# This regex can be broken down into the following components
+	#
+	# (?:(?P<scheme>https?):\/\/)?
+	# (?:(?P<user>[^:@]+)(?::(?P<pass>[^@]+))?@)?
+	# (?P<host>[^:\/]+)
+	# (?::(?P<port>\d+))?
+	# (?:(?P<path>\/[^\?\#]+))?
+	# (?:\?(?P<query>[^#]+))?
+	# (?:#(?P<fragment>.+))?
+	# $
+	#
+	# For all components except host, we create a non-capturing group `(?:` ,
+	# and make it optional with `?` at the end. We create a named capture group
+	# for the component we're after, we put the preceeding or trailing
+	# bits and bobs (e.g.  # `://`, `:`, `@`, `?` or `#`) that help identify
+	# the component outside the named group. We'll (opportunistically without
+	# further validation) capture anything up to said bits and bobs (e.g. [^:@]+)
+	#
+	# For host we're saying that after optional scheme and userinfo captures,
+	# anything until `:` (port) or `/` (path) is part of the host. Which works
+	# out for hostnames and IPv4 addresses. (Not so much for IPv6)
+	#
+
+	if ($url =~ /(?:(?P<scheme>https?):\/\/)?(?:(?P<user>[^:@]+)(?::(?P<pass>[^@]+))?@)?(?P<host>[^:\/]+)(?::(?P<port>\d+))?(?:(?P<path>\/[^\?#]+))?(?:\?(?P<query>[^#]+))?(?:#(?P<fragment>.+))?$/) {
+		my $proto = $+{scheme};
+		my $host = $+{host};
+		my $port = $+{port};
+		my $path = $+{path};
+
 		if (!defined($port)) {
 			if ($proto eq 'http') { $port = 80; }
 			elsif ($proto eq 'https') { $port = 443; }
