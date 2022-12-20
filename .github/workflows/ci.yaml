@@ -1,5 +1,8 @@
-# Since the workflow is triggered on every push to all branches, there's no need to trigger on pull request
-on: [push]
+on:
+  push:
+  pull_request:
+    types: [opened, reopened, synchronize]
+  workflow_dispatch:
 
 name: CI
 jobs:
