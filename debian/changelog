@@ -1,3 +1,9 @@
+nivlheim (2.7.17-1) buster; urgency=low
+
+  * Allow more complex domain names in the server URL by improving split_url
+
+ -- Erik Berg <erik.berg@usit.uio.no>  Wed, 23 Nov 2022 16:58:43 +0200
+
 nivlheim (2.7.16-1) buster; urgency=low
 
   * Added a --server option to the client
