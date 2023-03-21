@@ -168,18 +168,18 @@ func TestHandleDNSchanges(t *testing.T) {
 		// (using DNS)
 		testname{
 			certfp:     "m",
-			ipAddress:  "129.240.12.7",
-			hostname:   sql.NullString{Valid: true, String: "sauron.uio.no"},
-			osHostname: "sauron.uio.no",
+			ipAddress:  "129.240.114.36",
+			hostname:   sql.NullString{Valid: true, String: "morgoth.uio.no"},
+			osHostname: "morgoth.uio.no",
 			lastseen:   time.Date(2020, 1, 1, 11, 0, 0, 0, time.UTC),
 			expected:   "",
 		},
 		testname{
 			certfp:     "n",
-			ipAddress:  "129.240.12.7",
-			osHostname: "sauron.uio.no",
+			ipAddress:  "129.240.114.36",
+			osHostname: "morgoth.uio.no",
 			lastseen:   time.Date(2020, 1, 1, 12, 0, 0, 0, time.UTC),
-			expected:   "sauron.uio.no",
+			expected:   "morgoth.uio.no",
 		},
 		// Test: one host takes over the hostname from another host because of a newer lastseen value
 		// (NOT using DNS)
