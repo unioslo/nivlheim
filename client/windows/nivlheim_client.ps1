@@ -109,6 +109,26 @@ function Bind-IPEndPointCallback([System.Net.IPAddress]$ip,$port) {
 function http($uri, $method = "get", $timeoutSeconds = 60, $clientCert = $null, $params = $null) {
 	Write-Host $method.ToUpper() $uri
 
+	# Use Invoke-Webrequest if we can.
+	# https://learn.microsoft.com/en-us/powershell/scripting/install/powershell-support-lifecycle?view=powershell-7.2#release-history
+	$ver = [Decimal]"$($PSVersionTable.PSVersion.Major).$($PSVersionTable.PSVersion.Minor)"
+	if ($ver -ge 7.2) {
+		$params = @{
+			Uri = $uri
+			Method = $method
+			TimeoutSec = $timeoutSeconds
+			Form = $params
+		}
+		if ($clientCert) {
+			$params.Certificate = $clientCert
+		}
+		$result = Invoke-Webrequest @params
+		Write-Host "Status:" $result.StatusCode $result.StatusDescription
+		return $result.Content
+	}
+
+	############ Below is the old code that's using System.Net.HttpWebRequest ###############
+
 	if ($method -ne "get" -and $method -ne "post") {
 		throw "Unknown HTTP method: $method"
 	}

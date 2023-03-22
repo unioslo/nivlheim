@@ -18,13 +18,11 @@ trap cleanup EXIT
 # The following line is not necessary when running on a GitHub runner, but when running locally you might keep a server between runs
 $PSQL -c "delete from files; delete from hostinfo; delete from certificates"
 
-# Fetch the CA certificate from the server.
-# It was used to sign the web server ssl certificate.
-docker cp docker_nivlheimweb_1:/var/www/nivlheim/CA/nivlheimca.crt /tmp
+# Run a Powershell container, and run sleep so it doesn't exit right away
+echo -n "Powershell container ID: "
+docker run --rm -t --detach --network host --name pwsh mcr.microsoft.com/powershell pwsh -Command 'sleep 120'
 
-# Create a Powershell container (but don't start it)
-docker create --rm -t --network host --name pwsh mcr.microsoft.com/powershell pwsh -Command 'sleep 120'
-docker cp /tmp/nivlheimca.crt pwsh:/usr/local/share/ca-certificates/
+# Copy the Nivlheim client script and config into the Powershell container
 docker cp nivlheim_client.ps1 pwsh:/
 docker cp test.conf pwsh:/client.conf
 
@@ -33,12 +31,18 @@ curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=19
 curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=172.16.0.0/12'
 curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=10.0.0.0/8'
 
-# Start the container
-docker start pwsh >/dev/null
+# Fetch the CA certificate from the Nivlheim web server container.
+# It was used to sign the web server ssl certificate.
+docker cp docker_nivlheimweb_1:/var/www/nivlheim/CA/nivlheimca.crt /tmp
 
-# Update the CA certificates in the container so the Nivlheim CA is in effect
+# Update the CA certificates in the Powershell container so the Nivlheim CA is trusted.
+# If not, web requests to the nivlheim server won't work.
+docker cp /tmp/nivlheimca.crt pwsh:/usr/local/share/ca-certificates/
 docker exec pwsh pwsh -Command 'update-ca-certificates'
-docker exec pwsh pwsh -Command 'Invoke-Webrequest -Uri "https://localhost/cgi-bin/ping"'
+
+# Test that it works
+echo "Run a web request to see that the Nivlheim CA is recognized"
+docker exec pwsh pwsh -Command 'Invoke-Webrequest -Uri "https://localhost/cgi-bin/ping" | select StatusCode, StatusDescription, Content'
 
 # Run the client
 docker exec pwsh pwsh -Command '/nivlheim_client.ps1 -testmode:1'
