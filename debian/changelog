@@ -1,3 +1,9 @@
+nivlheim (2.7.18-1) buster; urgency=low
+
+  * Changes in the Powershell client and container building scripts
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Fri, 24 Mar 2023 10:43:00 +0100
+
 nivlheim (2.7.17-1) buster; urgency=low
 
   * Allow more complex domain names in the server URL by improving split_url

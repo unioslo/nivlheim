@@ -199,14 +199,14 @@ jobs:
           docker tag nivlheim-www:latest "$IMAGE_ID:$TAG_NAME"
           docker push "$IMAGE_ID:$TAG_NAME"
 
-  cd_hook:
-    name: Webhook to local builders
-    needs: [test-scripts]
-    runs-on: ubuntu-latest
-    continue-on-error: true
-    steps:
-      - name: HTTP request
-        run: curl -sS "http://nivlheim-test.uio.no/hook.pl?commit=${GITHUB_SHA}&branch=${GITHUB_REF_NAME}"
+#  cd_hook:
+#    name: Webhook to local builders
+#    needs: [test-scripts]
+#    runs-on: ubuntu-latest
+#    continue-on-error: true
+#    steps:
+#      - name: HTTP request
+#        run: curl -sS "http://nivlheim-test.uio.no/hook.pl?commit=${GITHUB_SHA}&branch=${GITHUB_REF_NAME}"
 
   release:
     if: ${{ github.ref == 'refs/heads/master' }}
