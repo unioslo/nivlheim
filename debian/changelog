@@ -1,4 +1,4 @@
-nivlheim (2.7.18-1) buster; urgency=low
+nivlheim (2.7.19-1) buster; urgency=low
 
   * Changes in the Powershell client and container building scripts
 
