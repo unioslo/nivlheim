@@ -139,15 +139,15 @@ func TestHandleDNSchanges(t *testing.T) {
 			certfp:           "i",
 			ipAddress:        "1.2.3.4",
 			osHostname:       "shouldnt.matter.no.no.no",
-			overrideHostname: sql.NullString{String: "saruman.uio.no", Valid: true},
-			expected:         "saruman.uio.no",
+			overrideHostname: sql.NullString{String: "gothmog.uio.no", Valid: true},
+			expected:         "gothmog.uio.no",
 		},
 		// Although this host has correct DNS PTR and OS hostname,
 		// it shouldn't take over the name, since another host has it in override_hostname
 		testname{
 			certfp:     "j",
-			ipAddress:  "129.240.118.67",
-			osHostname: "saruman.uio.no",
+			ipAddress:  "129.240.114.52",
+			osHostname: "gothmog.uio.no",
 			expected:   "",
 		},
 		// Testing a machine without IP address ... could happen if it is added by an external service
@@ -229,8 +229,8 @@ func TestHandleDNSchanges(t *testing.T) {
 			t.Fatal(err)
 		}
 		if hostname.String != test.expected {
-			t.Errorf("Got hostname \"%s\", expected \"%s\"", hostname.String,
-				test.expected)
+			t.Errorf("Got hostname \"%s\", expected \"%s\" (certfp=%s)", hostname.String,
+				test.expected, test.certfp)
 		}
 	}
 	// Run again
@@ -245,8 +245,8 @@ func TestHandleDNSchanges(t *testing.T) {
 			t.Fatal(err)
 		}
 		if hostname.String != test.expected {
-			t.Errorf("Got hostname \"%s\", expected \"%s\"", hostname.String,
-				test.expected)
+			t.Errorf("Got hostname \"%s\", expected \"%s\" (certfp=%s)", hostname.String,
+				test.expected, test.certfp)
 		}
 	}
 }
