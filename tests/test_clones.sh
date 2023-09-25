@@ -9,6 +9,7 @@
 echo "------------ Testing cloned machines ------------"
 set -e
 cd `dirname $0`
+PSQL=../ci/docker/psql.sh
 
 function printlogs() {
 	echo "------- access_log -------------------------------"
@@ -33,6 +34,9 @@ function finish {
 	rm -rf "$tempdir"
 }
 trap finish EXIT
+
+# The following line is not necessary when running on a GitHub runner, but when running locally you might keep a server between runs
+$PSQL -c "delete from files; delete from hostinfo; delete from certificates; ALTER SEQUENCE certificates_certid_seq RESTART WITH 1;"
 
 # Whitelist the private network address ranges
 curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=192.168.0.0/16'
@@ -93,9 +97,8 @@ if docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log | 
 fi
 
 # Check that the database table contains 1 cert which is revoked
-PSQL=../ci/docker/psql.sh
 chain=$($PSQL -X --no-align -t -c "SELECT certid,revoked,first FROM certificates ORDER BY certid")
-expect=$(echo -e "1|t|1\r\n")
+expect=$(echo -e "1|t|1\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "The certificate list differ from expectation:"
 	$PSQL -e -X -c "SELECT certid,revoked,first FROM certificates ORDER BY certid"
