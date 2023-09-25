@@ -138,7 +138,7 @@ docker run --rm --network host -v clientvar:/var nivlheimclient --debug > $tempd
 
 # Verify the certificate chain
 chain=$($PSQL --no-align -t -c "SELECT certid,first,previous FROM certificates ORDER BY certid")
-expect=$(echo -e "1|1|\r\n2|1|1\r\n3|1|2\r\n")
+expect=$(echo -e "1|1|\n2|1|1\n3|1|2\n")
 if [[ "$chain" != "$expect" ]]; then
 	echo "Certificate chain differs from expected value:"
 	echo "$chain"

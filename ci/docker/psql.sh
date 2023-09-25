@@ -1,6 +1,6 @@
 #!/bin/bash
-I="-i "
+I="-it "
 if [[ "$*" == *"-c"* ]]; then
     I=""
 fi
-docker exec $I -t docker_postgres_1 psql -U nivlheim -h localhost -d nivlheim "$@"
+docker exec $I -e PGCONNECT_TIMEOUT=30 docker_postgres_1 psql -U nivlheim -h localhost -d nivlheim "$@"
