@@ -1,3 +1,9 @@
+nivlheim (2.7.20-1) buster; urgency=low
+
+  * Changes in the server code
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Fri, 25 Oct 2023 16:35:00 +0100
+
 nivlheim (2.7.19-1) buster; urgency=low
 
   * Changes in the Powershell client and container building scripts
