@@ -43,7 +43,7 @@ func (vars *apiMethodSecurePing) ServeHTTP(w http.ResponseWriter, req *http.Requ
         return
     }
 
-    cacert := getCert(string(ca))
+    cacert := getCert(ca)
     if cacert == nil {
         http.Error(w, "The server encountered an error. Please try again later.", http.StatusInternalServerError)
         return
@@ -62,7 +62,7 @@ func (vars *apiMethodSecurePing) ServeHTTP(w http.ResponseWriter, req *http.Requ
     match := regexp.MustCompile("(?s)(-{5}BEGIN CERTIFICATE-{5})(.*)(-{5}END CERTIFICATE-{5})")
     pemContent2 := match.ReplaceAll([]byte(pemContent), []byte("$1\n$2\n$3"))
 
-    cert := getCert(string(pemContent2))
+    cert := getCert(pemContent2)
     if cert == nil {
         http.Error(w, "The server encountered an error. Please try again later.", http.StatusInternalServerError)
         return
@@ -75,7 +75,7 @@ func (vars *apiMethodSecurePing) ServeHTTP(w http.ResponseWriter, req *http.Requ
     err = vars.db.QueryRow("SELECT revoked FROM certificates WHERE fingerprint=$1", fingerprint).Scan(&revoked)
     if err != nil {
         if err == sql.ErrNoRows {
-            log.Println("Could not find certificate in database when checking revocation status. Fingerprint: ", fingerprint)
+            log.Printf("Could not find certificate in database when checking revocation status. Fingerprint: %s", fingerprint)
             http.Error(w, "The server encountered an error. Please try again later.", http.StatusInternalServerError)
             return
         } else {
@@ -98,16 +98,14 @@ func (vars *apiMethodSecurePing) ServeHTTP(w http.ResponseWriter, req *http.Requ
     err = vars.db.QueryRow("SELECT hostname FROM hostinfo WHERE certfp=$1", fingerprint).Scan(&hostname)
     if err != nil {
         if err == sql.ErrNoRows {
-            log.Println("Could not find certificate in database when checking hostname. Fingerprint: ", fingerprint)
-            http.Error(w, "The server encountered an error. Please try again later.", http.StatusInternalServerError)
-            return
+            log.Printf("Could not find certificate in database when checking hostname. Fingerprint: %s", fingerprint)
         } else {
             log.Println(err.Error())
             http.Error(w, "The server encountered an error. Please try again later.", http.StatusInternalServerError)
             return
         }
     }
-    if hostname != string(cn) {
+    if len(hostname) > 0 && hostname != string(cn) {
         http.Error(w, "Please renew your certificate.", http.StatusForbidden)
         return
     }

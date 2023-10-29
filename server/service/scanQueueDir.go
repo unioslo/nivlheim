@@ -20,11 +20,8 @@ func (s scanQueueDirJob) HowOften() time.Duration {
 }
 
 func (s scanQueueDirJob) Run(db *sql.DB) {
-	// The "post" cgi script will leave files in this directory.
-	const queuedir = "/var/www/nivlheim/queue"
-
 	// Scan the directory for new files and create tasks for them
-	files, err := ioutil.ReadDir(queuedir)
+	files, err := ioutil.ReadDir(config.QueueDir)
 	if err != nil {
 		log.Panic(err)
 	}
@@ -34,16 +31,14 @@ func (s scanQueueDirJob) Run(db *sql.DB) {
 			// nope.
 			continue
 		}
-		taskurl := "http://nivlheimweb:8080/cgi-bin/processarchive?file=" +
-			f.Name()
 		// New task
 		var err error
 		if postgresSupportsOnConflict {
 			_, err = db.Exec("INSERT INTO tasks(url) VALUES($1)"+
-				" ON CONFLICT DO NOTHING", taskurl)
+				" ON CONFLICT DO NOTHING", f.Name())
 		} else {
 			_, err = db.Exec("INSERT INTO tasks(url) SELECT $1 WHERE "+
-				"(SELECT count(*) FROM tasks WHERE url=$1) = 0", taskurl)
+				"(SELECT count(*) FROM tasks WHERE url=$1) = 0", f.Name())
 		}
 		if err != nil {
 			log.Println(err.Error())

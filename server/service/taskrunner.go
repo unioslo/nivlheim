@@ -122,17 +122,10 @@ func taskRunner(db *sql.DB, devmode bool) {
 }
 
 func executeTask(db *sql.DB, task Task) {
-	resp, err := http.Get(task.url)
+	err := processArchive(task.url, db)
 	if err == nil {
-		task.status = resp.StatusCode
-		resp.Body.Close()
-		// If the http status indicates success, or permanent failure,
-		// the task can be deleted.
-		if (resp.StatusCode >= 200 && resp.StatusCode <= 299) ||
-			resp.StatusCode == 410 {
-			db.Exec("DELETE FROM tasks WHERE taskid=$1", task.taskid)
-			return
-		}
+		db.Exec("DELETE FROM tasks WHERE taskid=$1", task.taskid)
+		return
 	} else {
 		task.status = 1
 	}

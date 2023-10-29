@@ -69,8 +69,15 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	api.Handle("/api/v2/status", &apiMethodStatus{db: theDB})
 	api.HandleFunc("/api/v2/userinfo", apiGetUserInfo)
 
+    api.HandleFunc("/cgi-bin/ping", apiPing)
+    api.Handle("/cgi-bin/reqcert", &apiMethodReqCert{db: theDB})
+    api.Handle("/cgi-bin/secure/renewcert", &apiMethodRenewCert{db: theDB})
+    api.Handle("/cgi-bin/secure/ping", &apiMethodSecurePing{db: theDB})
+    api.Handle("/cgi-bin/secure/post", &apiMethodPostArchive{db: theDB})
+
 	// Add CSRF protection to all the api functions
 	mux.Handle("/api/v2/", wrapCSRFprotection(api))
+    mux.Handle("/cgi-bin/", wrapCSRFprotection(api))
 
 	// Oauth2-related endpoints
 	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
