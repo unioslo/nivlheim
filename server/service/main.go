@@ -116,6 +116,21 @@ func main() {
 	// Look for configuration overrides in the environment.
 	UpdateConfigFromEnvironment(config)
 
+	// Create directories if they don't exist
+	dirs := [4]string{config.QueueDir, config.ConfDir, config.UploadDir, config.CFEngineKeyDir}
+	for _, dir := range dirs {
+		if dir != "" {
+			if _, err := os.Stat(dir); os.IsNotExist(err) {
+				err = os.MkdirAll(dir, 0777)
+				if err != nil {
+					log.Printf("Error creating %s: %s", dir, err)
+				} else {
+					log.Printf("Created directory %s", dir)
+				}
+			}
+		}
+	}
+
 	// Connect to database
 	var dbConnectionString string
 	if config.PGhost != "" {
@@ -159,7 +174,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchLevel int
-	const requirePatchLevel = 7
+	const requirePatchLevel = 8
 	err = db.QueryRow("SELECT patchlevel FROM db").Scan(&patchLevel)
 	if err != nil {
 		patchLevel = 0
