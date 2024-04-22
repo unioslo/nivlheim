@@ -1,8 +1,8 @@
-nivlheim (2.7.22-1) buster; urgency=low
+nivlheim (2.7.23-1) buster; urgency=low
 
   * Changes in the server code (Dependabot patches)
 
- -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Thu, 18 Apr 2024 10:27:00 +0200
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Mon, 22 Apr 2024 09:30:00 +0200
 
 nivlheim (2.7.20-1) buster; urgency=low
 

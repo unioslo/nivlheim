@@ -67,7 +67,7 @@ my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
-my $VERSION = '2.7.22';
+my $VERSION = '2.7.23';
 
 # Usage text
 my $USAGE = <<"END_USAGE";
