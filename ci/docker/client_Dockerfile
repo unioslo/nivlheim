@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM fedora:39
 MAINTAINER iti-dia@usit.uio.no
 LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Nivlheim client, used for CI and testing"

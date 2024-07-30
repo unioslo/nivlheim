@@ -1,4 +1,4 @@
-FROM fedora:latest
+FROM fedora:39
 MAINTAINER iti-dia@usit.uio.no
 EXPOSE 80 443
 LABEL no.uio.contact=usit-gid@usit.uio.no
