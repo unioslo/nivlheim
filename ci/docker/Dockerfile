@@ -1,11 +1,11 @@
-FROM fedora:39
+FROM fedora:latest
 MAINTAINER iti-dia@usit.uio.no
 EXPOSE 80 443
 LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server with CGI scripts for Nivlheim"
 ARG BRANCH=""
 
-RUN dnf install -y httpd mod_ssl openssl perl procps-ng \
+RUN dnf install -y httpd mod_ssl perl procps-ng \
 		unzip file bind-utils npm \
 		perl-Archive-Tar perl-Archive-Zip perl-CGI perl-Crypt-OpenSSL-X509 \
 		perl-DBD-Pg perl-DBI perl-Digest-CRC perl-Encode \
@@ -13,6 +13,7 @@ RUN dnf install -y httpd mod_ssl openssl perl procps-ng \
 		perl-JSON perl-Log-Log4perl perl-Log-Dispatch perl-Log-Dispatch-FileRotate \
 		perl-Net-CIDR perl-Net-DNS perl-Net-IP \
 		perl-Proc-PID-File perl-Time-Piece \
+	&& dnf install -y --releasever=39 openssl \
 	&& dnf clean all \
 	&& rm -rf /var/cache/yum \
 	&& npm install -g handlebars
