@@ -11,7 +11,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       postgres:
-        image: postgres:11
+        image: postgres:15
         env:
           POSTGRES_USER: nivlheim
           POSTGRES_DB: nivlheim
@@ -47,7 +47,7 @@ jobs:
     - name: Docker save
       run: docker save nivlheim | gzip > nivlheim-image.tar.gz
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nivlheim-image.tar.gz
         path: nivlheim-image.tar.gz
@@ -105,9 +105,9 @@ jobs:
           - powershell.sh
     steps:
     - name: Checkout
-      uses: actions/checkout@v3
+      uses: actions/checkout@v4
     - name: Download artifacts
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       # the name input parameter is not provided, so all artifacts will be downloaded
     - name: Load images
       run: |
