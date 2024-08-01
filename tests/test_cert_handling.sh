@@ -209,7 +209,7 @@ fi
 echo "Running the client with another path for cert and key, empty config, and server given by argument"
 mkdir -p $tempdir/foo; rm -f $tempdir/foo/*
 touch $tempdir/foo/emptyfile
-if ! docker run --rm --network host --mount type=bind,source=$tempdir/foo,target=/foo nivlheimclient \
+if ! docker run --rm --network host -v $tempdir/foo:/foo:Z nivlheimclient \
   --ssl-cert /foo/a.crt --ssl-key /foo/a.key -c /foo/emptyfile --server localhost --debug >$tempdir/output2 2>&1; then
     echo "The client failed to post data successfully when run with cert/key arguments:"
 	echo "--------------------------------------------"
