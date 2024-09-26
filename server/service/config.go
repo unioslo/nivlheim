@@ -28,6 +28,12 @@ type Config struct {
 	LDAPAdminGroup              string
 	AllAccessGroups             []string
 	HostOwnerPluginURL          string
+	CFEngineKeyDir              string
+	ConfDir                     string
+	QueueDir                    string
+	UploadDir                   string
+	CACertFile                  string
+	CAKeyFile                   string
 	PGhost, PGdatabase, PGuser  string
 	PGpassword, PGsslmode       string
 	PGport                      int

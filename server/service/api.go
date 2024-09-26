@@ -69,8 +69,16 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	api.Handle("/api/v2/status", &apiMethodStatus{db: theDB})
 	api.HandleFunc("/api/v2/userinfo", apiGetUserInfo)
 
+	// called by the nivlheim client, ported from perl
+	api.HandleFunc("/cgi-bin/ping", apiPing)
+	api.Handle("/cgi-bin/reqcert", &apiMethodReqCert{db: theDB})
+	api.Handle("/cgi-bin/secure/renewcert", &apiMethodRenewCert{db: theDB})
+	api.Handle("/cgi-bin/secure/ping", &apiMethodSecurePing{db: theDB})
+	api.Handle("/cgi-bin/secure/post", &apiMethodPostArchive{db: theDB})
+
 	// Add CSRF protection to all the api functions
 	mux.Handle("/api/v2/", wrapCSRFprotection(api))
+	mux.Handle("/cgi-bin/", wrapCSRFprotection(api))
 
 	// Oauth2-related endpoints
 	mux.HandleFunc("/api/oauth2/start", startOauth2Login)
@@ -80,8 +88,6 @@ func createAPImuxer(theDB *sql.DB, devmode bool) *http.ServeMux {
 	// internal API functions. Only allowed from localhost.
 	internal := http.NewServeMux()
 	internal.HandleFunc("/api/internal/triggerJob/", runJob)
-	internal.HandleFunc("/api/internal/unsetCurrent", unsetCurrent)
-	internal.HandleFunc("/api/internal/countFiles", countFiles)
 	internal.HandleFunc("/api/internal/replaceCertificate", replaceCertificate)
 	mux.Handle("/api/internal/", wrapOnlyAllowLocal(internal))
 

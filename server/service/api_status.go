@@ -74,8 +74,7 @@ func (vars *apiMethodStatus) ServeHTTP(w http.ResponseWriter, req *http.Request)
 	// IncomingQueueSize
 	// TODO optimize for large directories
 	status.IncomingQueueSize = -1
-	const queuedir = "/var/www/nivlheim/queue"
-	f, err := os.Open(queuedir)
+	f, err := os.Open(config.QueueDir)
 	if err == nil {
 		defer f.Close()
 		names, err := f.Readdirnames(0)
