@@ -23,15 +23,30 @@ type apiMethodPostArchive struct {
 	db *sql.DB
 }
 
-const MAX_UPLOAD_SIZE = 1024 * 1024
+const MAX_UPLOAD_SIZE = 1024 * 1024 * 10
 
 func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	ipAddr := strings.SplitN(req.Header.Get("X-Forwarded-For"), ":", 2)[0] // host:port
 	log.Printf("post from %s\n", ipAddr)
 
+	contentType := req.Header.Get("Content-Type")
+
 	req.Body = http.MaxBytesReader(w, req.Body, MAX_UPLOAD_SIZE)
-	if err := req.ParseMultipartForm(MAX_UPLOAD_SIZE); err != nil {
-		http.Error(w, "The uploaded file is too big. Please choose a file that's less than 1MB in size", http.StatusBadRequest)
+
+	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		if err := req.ParseForm(); err != nil {
+			log.Printf("Could not parse form: %s", err.Error())
+			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			return
+		}
+	} else if strings.HasPrefix(contentType, "multipart/form-data") {
+		if err := req.ParseMultipartForm(MAX_UPLOAD_SIZE); err != nil {
+			log.Printf("Could not parse multipart form: %s", err.Error())
+			http.Error(w, "The uploaded file is too big. Please choose a file that's less than 10MB in size", http.StatusBadRequest)
+			return
+		}
+	} else {
+		http.Error(w, "Unsupported content type", http.StatusUnsupportedMediaType)
 		return
 	}
 
@@ -125,28 +140,58 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 	var signatureFile string
 	var metaFile string
 
-	var rFile string
-	var b64 bool
-
-	if _, ok := req.MultipartForm.File["archive"]; ok {
-		rFile = "archive"
-		b64 = false
-	} else if _, ok := req.MultipartForm.File["archive_base64"]; ok {
-		rFile = "archive_base64"
-		b64 = true
-	} else {
-		log.Printf("missing file upload parameter 'archive' or 'archive_base64' (%s)", fingerprint)
-		http.Error(w, "File missing", http.StatusBadRequest)
-		return
-	}
-
-	file, _, err := req.FormFile(rFile)
+	dst, err := os.Create(archiveFile)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
+		log.Printf("Could not create archive file: %s", err.Error())
+		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	defer file.Close()
+	defer dst.Close()
+
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if _, ok := req.MultipartForm.File["archive"]; ok {
+			rFile := "archive"
+			file, _, err := req.FormFile(rFile)
+
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			defer file.Close()
+
+			_, err = io.Copy(dst, file)
+
+			if err != nil {
+				log.Printf("Could not write archive file: %s", err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+		} else {
+			log.Printf("missing file upload parameter 'archive' (%s)", fingerprint)
+			http.Error(w, "File missing", http.StatusBadRequest)
+			return
+		}
+	} else if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		rFile := "archive_base64"
+		file := req.FormValue(rFile)
+		if file != "" {
+			decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
+			_, err = io.Copy(dst, decoder)
+			if err != nil {
+				log.Printf("Could not write archive file: %s", err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+		} else {
+			log.Printf("missing file upload parameter 'archive_base64' (%s)", fingerprint)
+			http.Error(w, "File missing", http.StatusBadRequest)
+			return
+		}
+	}
 
 	defer func() {
 		if fileExists(archiveFile) {
@@ -169,28 +214,6 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 		}
 	}()
 
-	dst, err := os.Create(archiveFile)
-	if err != nil {
-		log.Printf("Could not create archive file: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	defer dst.Close()
-
-	if b64 {
-		decoder := base64.NewDecoder(base64.StdEncoding, file)
-		_, err = io.Copy(dst, decoder)
-	} else {
-		_, err = io.Copy(dst, file)
-	}
-
-	if err != nil {
-		log.Printf("Could not write archive file: %s", err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
-
 	dstInfo, err := dst.Stat()
 	if err != nil {
 		log.Printf("Could not stat archive file: %s", err.Error())
@@ -200,7 +223,7 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	log.Printf("[%s] received archive file (%d bytes)", shortHost2, dstInfo.Size())
 
-	file, err = os.Open(archiveFile)
+	file, err := os.Open(archiveFile)
 	if err != nil {
 		log.Printf("Could not open archive file: %s", err.Error())
 		http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -268,25 +291,6 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	signatureFile = archiveFile + ".sign"
 
-	if _, ok := req.MultipartForm.File["signature"]; ok {
-		rFile = "signature"
-		b64 = false
-	} else if _, ok := req.MultipartForm.File["signature_base64"]; ok {
-		rFile = "signature_base64"
-		b64 = true
-	} else {
-		http.Error(w, "File missing", http.StatusBadRequest)
-		return
-	}
-
-	file, _, err = req.FormFile(rFile)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
-
-	defer file.Close()
-
 	dst, err = os.Create(signatureFile)
 	if err != nil {
 		log.Printf("Could not create signature file (%s): %s", fingerprint, err.Error())
@@ -296,17 +300,47 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	defer dst.Close()
 
-	if b64 {
-		decoder := base64.NewDecoder(base64.StdEncoding, file)
-		_, err = io.Copy(dst, decoder)
-	} else {
-		_, err = io.Copy(dst, file)
-	}
+	if strings.HasPrefix(contentType, "multipart/form-data") {
+		if _, ok := req.MultipartForm.File["signature"]; ok {
+			rFile := "signature"
+			file, _, err := req.FormFile(rFile)
 
-	if err != nil {
-		log.Printf("Could not write signature file (%s): %s", fingerprint, err.Error())
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+			if err != nil {
+				http.Error(w, err.Error(), http.StatusBadRequest)
+				return
+			}
+
+			defer file.Close()
+
+			_, err = io.Copy(dst, file)
+
+			if err != nil {
+				log.Printf("Could not write archive file: %s", err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+
+		} else {
+			log.Printf("missing file upload parameter 'signature' (%s)", fingerprint)
+			http.Error(w, "File missing", http.StatusBadRequest)
+			return
+		}
+	} else if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
+		rFile := "signature_base64"
+		file := req.FormValue(rFile)
+		if file != "" {
+			decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
+			_, err = io.Copy(dst, decoder)
+			if err != nil {
+				log.Printf("Could not write signature file (%s): %s", fingerprint, err.Error())
+				http.Error(w, err.Error(), http.StatusInternalServerError)
+				return
+			}
+		} else {
+			log.Printf("missing file upload parameter 'signature_base64' (%s)", fingerprint)
+			http.Error(w, "File missing", http.StatusBadRequest)
+			return
+		}
 	}
 
 	dstInfo, err = dst.Stat()
