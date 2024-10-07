@@ -159,7 +159,7 @@ func main() {
 
 	// Verify the schema patch level
 	var patchLevel int
-	const requirePatchLevel = 7
+	const requirePatchLevel = 8
 	err = db.QueryRow("SELECT patchlevel FROM db").Scan(&patchLevel)
 	if err != nil {
 		patchLevel = 0
