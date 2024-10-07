@@ -35,14 +35,14 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	if strings.HasPrefix(contentType, "application/x-www-form-urlencoded") {
 		if err := req.ParseForm(); err != nil {
-			log.Printf("Could not parse form: %s", err.Error())
-			http.Error(w, "Error parsing form", http.StatusBadRequest)
+			log.Printf("Could not parse form or file too big: %s", err.Error())
+			http.Error(w, "Error parsing form or file is too big. Please choose a file that's less than 10MB in size", http.StatusBadRequest)
 			return
 		}
 	} else if strings.HasPrefix(contentType, "multipart/form-data") {
 		if err := req.ParseMultipartForm(MAX_UPLOAD_SIZE); err != nil {
-			log.Printf("Could not parse multipart form: %s", err.Error())
-			http.Error(w, "The uploaded file is too big. Please choose a file that's less than 10MB in size", http.StatusBadRequest)
+			log.Printf("Could not parse multipart form or file too big: %s", err.Error())
+			http.Error(w, "Error parsing form or file is too big. Please choose a file that's less than 10MB in size", http.StatusBadRequest)
 			return
 		}
 	} else {
