@@ -33,7 +33,7 @@ curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=10
 
 # Fetch the CA certificate from the Nivlheim web server container.
 # It was used to sign the web server ssl certificate.
-docker cp docker_nivlheimweb_1:/var/www/nivlheim/CA/nivlheimca.crt /tmp
+docker cp docker-nivlheimweb-1:/var/www/nivlheim/CA/nivlheimca.crt /tmp
 
 # Update the CA certificates in the Powershell container so the Nivlheim CA is trusted.
 # If not, web requests to the nivlheim server won't work.

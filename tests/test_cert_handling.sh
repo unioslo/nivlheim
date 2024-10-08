@@ -34,7 +34,7 @@ curl -sS -X POST 'http://localhost:4040/api/v2/settings/ipranges' -d 'ipRange=10
 docker volume rm clientvar -f > /dev/null
 
 # Remove any previous cert files on the server
-docker exec docker_nivlheimweb_1 sh -c 'rm -f /var/www/nivlheim/certs/*'
+docker exec docker-nivlheimweb-1 sh -c 'rm -f /var/www/nivlheim/certs/*'
 
 # Run the client. This will call reqcert and post
 echo "Running the client"
@@ -43,14 +43,14 @@ if ! docker run --rm --network host -v clientvar:/var nivlheimclient --debug >$t
 	echo "--------------------------------------------"
 	cat $tempdir/output
 	echo "access_log: --------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/httpd/access_log
+	docker exec docker-nivlheimweb-1 cat /var/log/httpd/access_log
 	echo "error_log: ---------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/httpd/error_log
+	docker exec docker-nivlheimweb-1 cat /var/log/httpd/error_log
     exit 1
 fi
 
 # Verify that reqcert didn't leave any files
-OUTPUT=$(docker exec -t docker_nivlheimweb_1 ls -1 /var/www/nivlheim/certs)
+OUTPUT=$(docker exec -t docker-nivlheimweb-1 ls -1 /var/www/nivlheim/certs)
 if [[ "$OUTPUT" != "" ]]; then
 	echo "Certificate files are left after reqcert:"
 	echo $OUTPUT
@@ -145,7 +145,7 @@ if [[ "$chain" != "$expect" ]]; then
 	echo "Details:"
 	$PSQL -c "SELECT certid,issued,first,previous,fingerprint FROM certificates ORDER BY certid"
 	echo "================= httpd access log:  =================="
-	docker exec docker_nivlheimweb_1 tail -20 /var/log/httpd/access_log
+	docker exec docker-nivlheimweb-1 tail -20 /var/log/httpd/access_log
 	echo "================= client output (1st time): ==========="
 	cat $tempdir/first
 	echo "================= client output (2nd time): ==========="
@@ -175,7 +175,7 @@ if ! grep -q 'ghijkl' $tempdir/grepout; then
 fi
 
 # Verify that renewcert didn't leave any files
-OUTPUT=$(docker exec -t docker_nivlheimweb_1 ls -1 /var/www/nivlheim/certs)
+OUTPUT=$(docker exec -t docker-nivlheimweb-1 ls -1 /var/www/nivlheim/certs)
 if [[ "$OUTPUT" != "" ]]; then
 	echo "Certificate files are left after renewcert:"
 	echo $OUTPUT
@@ -223,13 +223,13 @@ if [ ! -f $tempdir/foo/a.crt ] || [ ! -f $tempdir/foo/a.key ] ||  [ ! -f $tempdi
 fi
 
 # Check logs for errors
-if docker exec -t docker_nivlheimweb_1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
+if docker exec -t docker-nivlheimweb-1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
     exit 1
 fi
-if docker logs docker_nivlheimapi_1 2>&1 | grep -i error; then
+if docker logs docker-nivlheimapi-1 2>&1 | grep -i error; then
     exit 1
 fi
-if docker exec -t docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
+if docker exec -t docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
     exit 1
 fi
 

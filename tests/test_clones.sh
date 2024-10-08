@@ -13,13 +13,13 @@ PSQL=../ci/docker/psql.sh
 
 function printlogs() {
 	echo "------- access_log -------------------------------"
-	docker exec docker_nivlheimweb_1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
+	docker exec docker-nivlheimweb-1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
 	echo "------- error_log --------------------------------"
-	docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log || true
+	docker exec docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log || true
 	echo "------- system.log--------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/nivlheim/system.log || true
+	docker exec docker-nivlheimweb-1 cat /var/log/nivlheim/system.log || true
 	echo "------- docker logs ------------------------------"
-	docker logs docker_nivlheimapi_1 || true
+	docker logs docker-nivlheimapi-1 || true
 }
 
 # tempdir
@@ -86,13 +86,13 @@ then
 fi
 
 # Check for errors
-if docker exec docker_nivlheimweb_1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
+if docker exec docker-nivlheimweb-1 grep -A1 "ERROR" /var/log/nivlheim/system.log; then
 	exit 1
 fi
-if docker logs docker_nivlheimapi_1 2>&1 | grep -i error; then
+if docker logs docker-nivlheimapi-1 2>&1 | grep -i error; then
 	exit 1
 fi
-if docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
+if docker exec docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log | grep -v 'random state'; then
 	exit 1
 fi
 

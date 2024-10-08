@@ -6,13 +6,13 @@ cd `dirname $0`
 
 function printlogs() {
 	echo "------- access_log -------------------------------"
-	docker exec docker_nivlheimweb_1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
+	docker exec docker-nivlheimweb-1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
 	echo "------- error_log --------------------------------"
-	docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log || true
+	docker exec docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log || true
 	echo "------- system.log--------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/nivlheim/system.log || true
+	docker exec docker-nivlheimweb-1 cat /var/log/nivlheim/system.log || true
 	echo "------- docker logs ------------------------------"
-	docker logs docker_nivlheimapi_1 || true
+	docker logs docker-nivlheimapi-1 || true
 }
 
 # tempdir
