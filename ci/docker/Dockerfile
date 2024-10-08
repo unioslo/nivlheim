@@ -4,8 +4,9 @@ LABEL no.uio.contact=usit-gid@usit.uio.no
 LABEL description="Web server for Nivlheim"
 ARG BRANCH=""
 
-RUN dnf install -y httpd mod_ssl openssl procps-ng \
+RUN dnf install -y httpd mod_ssl procps-ng \
 		unzip file bind-utils npm \
+	&& dnf install -y --releasever=39 openssl \
 	&& dnf clean all \
 	&& rm -rf /var/cache/yum \
 	&& npm install -g handlebars
