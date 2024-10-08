@@ -7,7 +7,7 @@ if [ `whoami` != "root" ]; then
 fi
 
 # make dirs
-mkdir -p /var/www/nivlheim/{db,certs,CA,queue}
+mkdir -p /var/www/nivlheim/{db,certs,CA,queue,upload}
 mkdir -p /var/log/nivlheim
 mkdir -p /var/log/httpd
 
