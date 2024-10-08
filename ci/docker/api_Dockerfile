@@ -4,12 +4,12 @@ ARG version
 
 WORKDIR /app
 
-COPY go.mod go.sum ./
+COPY server/service/go.mod server/service/go.sum ./
 RUN go mod download
 
-COPY *.go ./
-COPY ./database ./database
-COPY ./utility ./utility
+COPY server/service/*.go ./
+COPY server/service/database ./database
+COPY server/service/utility ./utility
 
 RUN go build -o /nivlheim -ldflags "-X main.version=${version:-UNDEFINED}"
 
@@ -25,5 +25,6 @@ WORKDIR /
 
 RUN apt-get update -qq && apt-get install -yqq ca-certificates
 COPY --from=build /nivlheim /nivlheim
+COPY server/server.conf /etc/nivlheim/server.conf
 
 ENTRYPOINT ["/nivlheim"]
