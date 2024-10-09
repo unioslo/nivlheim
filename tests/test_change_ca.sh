@@ -82,9 +82,9 @@ fi
 docker exec docker-nivlheimweb-1 /usr/bin/client_CA_cert.sh --force-activate --verbose
 
 # Verify that the old client certificate still works
-docker exec docker-nivlheimweb-1 cp -a /var/www/cgi-bin/ping /var/www/cgi-bin/secure/foo
-if ! docker exec easyvar curl -sSkf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
-	https://localhost/cgi-bin/secure/foo; then
+echo "Expecting http status 400 if it works, 403 if it doesn't"
+if ! docker exec easyvar curl -sSkfI --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+	https://localhost/cgi-bin/secure/ping | grep "HTTP/1.1 400 Bad Request"; then
 	echo "The client cert didn't work after a new CA was activated."
 	printlogs
 	exit 1
