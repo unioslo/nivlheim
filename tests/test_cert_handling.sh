@@ -192,9 +192,12 @@ if docker run --rm -v clientvar:/var --network host --entrypoint curl nivlheimcl
 fi
 # Test post (it will get a 403 anyway, because the nonce is missing)
 docker run --rm -v clientvar:/var --network host --entrypoint curl nivlheimclient -sk --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+	-H 'Content-Type: application/x-www-form-urlencoded' \
 	https://localhost/cgi-bin/secure/post > $tempdir/postresult || true
 if ! grep -qi "revoked" $tempdir/postresult; then
 	echo "Post worked even though cert was blacklisted."
+	echo "---------- response: -----------------"
+	cat $tempdir/postresult
 	exit 1
 fi
 # Test renew
@@ -202,6 +205,8 @@ docker run --rm -v clientvar:/var --network host --entrypoint curl nivlheimclien
 	https://localhost/cgi-bin/secure/renewcert > $tempdir/renewresult || true
 if ! grep -qi "revoked" $tempdir/renewresult; then
 	echo "Renewcert worked even though cert was blacklisted."
+	echo "---------- response: -----------------"
+	cat $tempdir/renewresult
 	exit 1
 fi
 
