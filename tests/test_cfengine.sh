@@ -5,9 +5,6 @@ set -e
 cd `dirname $0`
 PSQL=../ci/docker/psql.sh
 
-# Configure where reqcert will look for CFEngine keys
-docker exec docker-nivlheimapi-1 sh -c 'echo "CFEngineKeyDir=/var/cfekeys" >> /etc/nivlheim/server.conf'
-
 # Try to run the client without CFEngine signature or any form of pre-approval.
 # Should result in it being put on the waiting list.
 echo "Running the client without any trust"
