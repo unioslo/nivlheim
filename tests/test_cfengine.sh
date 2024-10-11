@@ -5,9 +5,6 @@ set -e
 cd `dirname $0`
 PSQL=../ci/docker/psql.sh
 
-# Configure where reqcert will look for CFEngine keys
-docker exec docker_nivlheimweb_1 sh -c 'echo "CFEngineKeyDir=/var/cfekeys" >> /etc/nivlheim/server.conf'
-
 # Try to run the client without CFEngine signature or any form of pre-approval.
 # Should result in it being put on the waiting list.
 echo "Running the client without any trust"
@@ -31,20 +28,20 @@ trap finish EXIT
 docker cp cfengine.priv banana:/var/cfengine/ppkeys/localhost.priv
 docker cp cfengine.pub banana:/var/cfengine/ppkeys/localhost.pub
 # and the public key will also be used by the server
-docker exec docker_nivlheimweb_1 mkdir -p /var/cfekeys
-docker cp cfengine.pub docker_nivlheimweb_1:/var/cfekeys/root-MD5=01234567890123456789012345678932.pub   # default value for a machine without cf-key
+docker exec docker-nivlheimapi-1 mkdir -p /var/cfekeys
+docker cp cfengine.pub docker-nivlheimapi-1:/var/cfekeys/root-MD5=01234567890123456789012345678932.pub   # default value for a machine without cf-key
 # Ensure the httpd process will have read access
-docker exec docker_nivlheimweb_1 chmod -R go+r /var/cfekeys
+docker exec docker-nivlheimapi-1 chmod -R go+r /var/cfekeys
 
 function printlogs() {
 	echo "------- access_log -------------------------------"
-	docker exec docker_nivlheimweb_1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
+	docker exec docker-nivlheimweb-1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
 	echo "------- error_log --------------------------------"
-	docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log || true
+	docker exec docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log || true
 	echo "------- system.log--------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/nivlheim/system.log || true
+	docker exec docker-nivlheimweb-1 cat /var/log/nivlheim/system.log || true
 	echo "------- docker logs ------------------------------"
-	docker logs docker_nivlheimapi_1 || true
+	docker logs docker-nivlheimapi-1 || true
 }
 
 # Run the client. This will call reqcert and post.

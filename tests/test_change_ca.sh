@@ -6,13 +6,13 @@ cd `dirname $0`
 
 function printlogs() {
 	echo "------- access_log -------------------------------"
-	docker exec docker_nivlheimweb_1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
+	docker exec docker-nivlheimweb-1 grep -v 127.0.0.1 /var/log/httpd/access_log || true
 	echo "------- error_log --------------------------------"
-	docker exec docker_nivlheimweb_1 grep "cgi:error" /var/log/httpd/error_log || true
+	docker exec docker-nivlheimweb-1 grep "cgi:error" /var/log/httpd/error_log || true
 	echo "------- system.log--------------------------------"
-	docker exec docker_nivlheimweb_1 cat /var/log/nivlheim/system.log || true
+	docker exec docker-nivlheimweb-1 cat /var/log/nivlheim/system.log || true
 	echo "------- docker logs ------------------------------"
-	docker logs docker_nivlheimapi_1 || true
+	docker logs docker-nivlheimapi-1 || true
 }
 
 # Whitelist the private network address ranges
@@ -35,7 +35,7 @@ fi
 
 # Create a new CA certificate
 echo "Attempting to create a new CA certificate..."
-docker exec docker_nivlheimweb_1 /usr/bin/client_CA_cert.sh --force-create --verbose
+docker exec docker-nivlheimweb-1 /usr/bin/client_CA_cert.sh --force-create --verbose
 
 # Start a container that has the clientvar volume mounted, for easier access
 docker run -d --rm --name easyvar -v clientvar:/var --network host --entrypoint sh nivlheimclient -c 'tail -f /dev/null'
@@ -79,12 +79,12 @@ if [[ "$A" != "$B" ]]; then
 fi
 
 # Activate the new CA certificate
-docker exec docker_nivlheimweb_1 /usr/bin/client_CA_cert.sh --force-activate --verbose
+docker exec docker-nivlheimweb-1 /usr/bin/client_CA_cert.sh --force-activate --verbose
 
 # Verify that the old client certificate still works
-docker exec docker_nivlheimweb_1 cp -a /var/www/cgi-bin/ping /var/www/cgi-bin/secure/foo
-if ! docker exec easyvar curl -sSkf --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
-	https://localhost/cgi-bin/secure/foo; then
+echo "Expecting http status 400 if it works, 403 if it doesn't"
+if ! docker exec easyvar curl -sSkfI --cert /var/nivlheim/my.crt --key /var/nivlheim/my.key \
+	https://localhost/cgi-bin/secure/ping | grep "HTTP/1.1 400 Bad Request"; then
 	echo "The client cert didn't work after a new CA was activated."
 	printlogs
 	exit 1

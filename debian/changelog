@@ -1,3 +1,9 @@
+nivlheim (2.7.24-1) buster; urgency=low
+
+  * Changes in the server code (cgi scripts rewritten in Go)
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>  Thu, 10 Oct 2024 09:30:00 +0200
+
 nivlheim (2.7.23-1) buster; urgency=low
 
   * Changes in the server code (Dependabot patches)

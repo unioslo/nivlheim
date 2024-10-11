@@ -101,23 +101,21 @@ func processArchive(url string, db *sql.DB) (err error) {
 	   / There's a bug in the Windows client, in some cases it gives the hostname without the domain.
 	   / See: https://github.com/unioslo/nivlheim/issues/138 */
 	if !strings.Contains(metaData["os_hostname"], ".") {
+		// The file might not exist. In that case, do nothing.
 		file, err := os.Open(tempDir + "/commands/DomainName")
-		if err != nil {
-			log.Printf("Could not open file %s: %s", tempDir+"/commands/DomainName", err)
-			return nil
+		if err == nil {
+			defer file.Close()
+			scanner := bufio.NewScanner(file)
+			// first line is the command itself
+			scanner.Scan()
+			// second line is the output
+			scanner.Scan()
+			if err := scanner.Err(); err != nil {
+				return err
+			}
+			fqdn := metaData["hostname"] + "." + scanner.Text()
+			metaData["hostname"] = fqdn
 		}
-		defer file.Close()
-		scanner := bufio.NewScanner(file)
-		// first line is the command itself
-		scanner.Scan()
-		// second line is the output
-		scanner.Scan()
-		if err := scanner.Err(); err != nil {
-			return err
-		}
-
-		fqdn := metaData["hostname"] + "." + scanner.Text()
-		metaData["hostname"] = fqdn
 	}
 
 	curFiles := make(map[string]int64)
