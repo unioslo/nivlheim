@@ -1,6 +1,7 @@
 version: "3.9"
 services:
   nivlheimweb:
+    container_name: docker-nivlheimweb-1
     depends_on:
       - nivlheimapi
     image: nivlheim-www
@@ -22,6 +23,7 @@ services:
       start_period: 15s
 
   nivlheimapi:
+    container_name: docker-nivlheimapi-1
     depends_on:
       postgres:
         condition: service_healthy
