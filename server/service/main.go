@@ -116,6 +116,16 @@ func main() {
 	// Look for configuration overrides in the environment.
 	UpdateConfigFromEnvironment(config)
 
+	// Create directories if they don't exist
+	err = os.MkdirAll(config.QueueDir,0750)
+	if (err != nil) {
+		log.Print(err)
+	}
+	err = os.MkdirAll(config.UploadDir,0750)
+	if (err != nil) {
+		log.Print(err)
+	}
+
 	// Connect to database
 	var dbConnectionString string
 	if config.PGhost != "" {

@@ -1,4 +1,4 @@
-nivlheim (2.7.24-1) buster; urgency=low
+nivlheim (2.7.25-1) buster; urgency=low
 
   * Changes in the server code (cgi scripts rewritten in Go)
 
