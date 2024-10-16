@@ -149,7 +149,15 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	defer dst.Close()
 
-	if _, ok := req.MultipartForm.File["archive"]; ok {
+	if file := req.FormValue("archive_base64"); file != "" {
+		decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
+		_, err = io.Copy(dst, decoder)
+		if err != nil {
+			log.Printf("Could not write archive file: %s", err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if _, ok := req.MultipartForm.File["archive"]; ok {
 		rFile := "archive"
 		file, _, err := req.FormFile(rFile)
 		if err != nil {
@@ -158,14 +166,6 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 		}
 		defer file.Close()
 		_, err = io.Copy(dst, file)
-		if err != nil {
-			log.Printf("Could not write archive file: %s", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else if file := req.FormValue("archive_base64"); file != "" {
-		decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
-		_, err = io.Copy(dst, decoder)
 		if err != nil {
 			log.Printf("Could not write archive file: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -284,7 +284,15 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 
 	defer dst.Close()
 
-	if _, ok := req.MultipartForm.File["signature"]; ok {
+	if file := req.FormValue("signature_base64"); file != "" {
+		decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
+		_, err = io.Copy(dst, decoder)
+		if err != nil {
+			log.Printf("Could not write signature file (%s): %s", fingerprint, err.Error())
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if _, ok := req.MultipartForm.File["signature"]; ok {
 		rFile := "signature"
 		file, _, err := req.FormFile(rFile)
 		if err != nil {
@@ -295,14 +303,6 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 		_, err = io.Copy(dst, file)
 		if err != nil {
 			log.Printf("Could not write archive file: %s", err.Error())
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	} else if file := req.FormValue("signature_base64"); file != "" {
-		decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(file))
-		_, err = io.Copy(dst, decoder)
-		if err != nil {
-			log.Printf("Could not write signature file (%s): %s", fingerprint, err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
