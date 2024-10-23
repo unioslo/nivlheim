@@ -53,7 +53,7 @@ func TestHandleDNSchanges(t *testing.T) {
 	defer db.Close()
 	// Set up some test data
 	_, err := db.Exec("INSERT INTO ipranges(iprange,use_dns) " +
-		"VALUES('129.240.0.0/16',true),('193.157.111.0/24',false),('2001:700:110::/44',true)")
+		"VALUES('129.240.0.0/16',true),('193.157.111.0/24',false),('2001:700:110::/44',true),('2001:700:100::/44',true)")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -160,9 +160,9 @@ func TestHandleDNSchanges(t *testing.T) {
 		// IPv6
 		testname{
 			certfp:     "l",
-			ipAddress:  "2001:700:111:1::287",
+			ipAddress:  "2001:700:100:8070::39",
 			osHostname: "shouldnt.matter",
-			expected:   "p01-ns-prod01.tsd.usit.no",
+			expected:   "soria.uio.no",
 		},
 		// Test: one host takes over the hostname from another host because of a newer lastseen value
 		// (using DNS)
