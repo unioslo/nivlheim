@@ -1,3 +1,9 @@
+nivlheim (2.7.26-1) buster; urgency=low
+
+  * Fixed a bug when clients post files from a IPv6 address
+
+ -- Marius Pedersen <57487101+mapemapemape@users.noreply.github.com>
+
 nivlheim (2.7.25-1) buster; urgency=low
 
   * Changes in the server code (cgi scripts rewritten in Go)
