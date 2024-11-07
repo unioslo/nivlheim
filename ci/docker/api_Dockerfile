@@ -11,19 +11,18 @@ COPY server/service/*.go ./
 COPY server/service/database ./database
 COPY server/service/utility ./utility
 
-RUN go build -o /nivlheim -ldflags "-X main.version=${version:-UNDEFINED}"
+RUN CGO_ENABLED=0 go build -o /nivlheim -ldflags "-X main.version=${version:-UNDEFINED}"
 
 ## Deploy
-FROM ubuntu:latest
-MAINTAINER iti-dia@usit.uio.no
-LABEL no.uio.contact=usit-gid@usit.uio.no
+FROM alpine:3.18
+LABEL no.uio.contact=usit-dia@usit.uio.no
 LABEL description="Main Nivlheim server exposing API"
 
 EXPOSE 4040
 
 WORKDIR /
 
-RUN apt-get update -qq && apt-get install -yqq ca-certificates
+RUN apk --no-cache add ca-certificates
 COPY --from=build /nivlheim /nivlheim
 COPY server/server.conf /etc/nivlheim/server.conf
 

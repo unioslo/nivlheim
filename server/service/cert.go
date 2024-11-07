@@ -184,7 +184,7 @@ func (vars *apiMethodReqCert) ServeHTTP(w http.ResponseWriter, req *http.Request
 	caCRT := getCACRT(config.ConfDir + "/" + config.CACertFile)
 	caKey, err := getCAKey(config.ConfDir + "/" + config.CAKeyFile)
 	if err != nil {
-		log.Println("Failed to get CA key")
+		log.Printf("Failed to get CA key: %s", err.Error())
 		http.Error(w, "Failed to get CA key", http.StatusInternalServerError)
 		return
 	}
@@ -197,7 +197,7 @@ func (vars *apiMethodReqCert) ServeHTTP(w http.ResponseWriter, req *http.Request
 	}
 	clientDER, err := x509.ParseCertificate(clientCRT)
 	if err != nil {
-		log.Println("Failed to parse client certificate")
+		log.Printf("Failed to parse client certificate: %s", err.Error())
 		http.Error(w, "Failed to parse client certificate", http.StatusInternalServerError)
 		return
 	}
@@ -311,7 +311,7 @@ func (vars *apiMethodRenewCert) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	caCRT := getCACRT(config.ConfDir + "/" + config.CACertFile)
 	caKey, err := getCAKey(config.ConfDir + "/" + config.CAKeyFile)
 	if err != nil {
-		log.Println("Failed to get CA key")
+		log.Printf("Failed to get CA key: %s", err.Error())
 		http.Error(w, "Failed to get CA key", http.StatusInternalServerError)
 		return
 	}
@@ -323,7 +323,7 @@ func (vars *apiMethodRenewCert) ServeHTTP(w http.ResponseWriter, req *http.Reque
 	}
 	clientDER, err := x509.ParseCertificate(clientCRT)
 	if err != nil {
-		log.Println("Failed to parse client certificate")
+		log.Printf("Failed to parse client certificate: %s", err.Error())
 		http.Error(w, "Failed to parse client certificate", http.StatusInternalServerError)
 		return
 	}
@@ -506,11 +506,16 @@ func getCAKey(fileName string) (*rsa.PrivateKey, error) {
 func getKey(key []byte) (*rsa.PrivateKey, error) {
 	block, _ := pem.Decode(key)
 	if block == nil {
-		fmt.Println("failed to decode key")
+		return nil, errors.New("failed to decode key")
 	}
 	parsedKey, err := x509.ParsePKCS8PrivateKey(block.Bytes)
 	if err != nil {
-		fmt.Println("failed to parse key")
+		// Try another method
+		parsedKey, err = x509.ParsePKCS1PrivateKey(block.Bytes)
+		if err !=  nil {
+			fmt.Println("failed to parse key")
+			return nil, err
+		}
 	}
 	return parsedKey.(*rsa.PrivateKey), nil
 }
