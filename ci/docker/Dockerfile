@@ -1,21 +1,23 @@
-FROM fedora:latest
+FROM alpine:3.18
 EXPOSE 80 443
-LABEL no.uio.contact=usit-gid@usit.uio.no
+LABEL no.uio.contact=usit-dia@usit.uio.no
 LABEL description="Web server for Nivlheim"
 ARG BRANCH=""
 
-RUN dnf install -y httpd mod_ssl procps-ng \
-		unzip file bind-utils npm \
-	&& dnf install -y --releasever=39 openssl \
-	&& dnf clean all \
-	&& rm -rf /var/cache/yum \
-	&& npm install -g handlebars
+RUN apk update && apk upgrade \
+ 	&& apk add apache2 apache2-ssl apache2-utils apache2-proxy procps-ng unzip file bind-tools npm bash curl \
+ 	&& apk add openssl1.1-compat && rm /usr/bin/openssl && ln /usr/bin/openssl1.1 /usr/bin/openssl \
+ 	&& rm -rf /var/cache/apk/*
+RUN npm install -g handlebars
 
 # config
 COPY server/openssl_ca.conf /etc/nivlheim/
 COPY server/client_CA_cert.sh /usr/bin/
-COPY server/httpd_ssl.conf /etc/httpd/conf.d/ssl.conf
-COPY server/httpd.conf /etc/httpd/conf/httpd.conf
+COPY server/httpd_ssl.conf /etc/apache2/conf.d/ssl.conf
+COPY server/httpd.conf /etc/apache2/httpd.conf
+
+# before moving to Alping we used this log directory so let's continue with that
+RUN mkdir /var/log/httpd
 
 # copy the static web content
 COPY server/website /var/www/html/

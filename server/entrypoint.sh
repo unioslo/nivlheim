@@ -56,7 +56,7 @@ fi
 function sigterm()
 {
 	echo "Received SIGTERM"
-	kill -term `cat /var/run/httpd/httpd.pid`
+	kill -term `cat /var/run/apache2/httpd.pid`
 }
 trap sigterm SIGTERM
 

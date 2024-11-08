@@ -97,8 +97,8 @@ if [[ $ACTIVATE -eq 1 ]]; then
 		mv new_nivlheimca.csr nivlheimca.csr
 		mv new_nivlheimca.crt nivlheimca.crt
 		# signal httpd to gracefully restart, if it is running
-		if [[ -f /var/run/httpd/httpd.pid ]]; then
-			kill -usr1 `cat /var/run/httpd/httpd.pid`
+		if [[ -f /var/run/apache2/httpd.pid ]]; then
+			kill -usr1 `cat /var/run/apache2/httpd.pid`
 		fi
 	else
 		echo "There's no new CA certificate to activate"
