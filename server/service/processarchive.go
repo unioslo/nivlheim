@@ -28,7 +28,6 @@ func processArchive(url string, db *sql.DB) (err error) {
 	log.Printf("Processing archive %s", url)
 
 	file := config.QueueDir + "/" + url
-	log.Println(file)
 
 	if !fileExists(file) {
 		log.Printf("File %s does not exist", file)
@@ -76,7 +75,6 @@ func processArchive(url string, db *sql.DB) (err error) {
 		log.Println(err)
 	}
 	for _, f := range files {
-		log.Println("Removing ", f)
 		err = os.Remove(f)
 		if err != nil {
 			log.Println(err)
@@ -174,13 +172,11 @@ func processArchive(url string, db *sql.DB) (err error) {
 
 func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[string]int64, hostinfo int64, db *sql.DB, path string, tempdir string, de fs.DirEntry, err error) error {
 	if de.IsDir() {
-		log.Printf("Skipping directory %s", path)
 		return nil
 	}
 
 	// only process files under the "files" and "commands" directories
 	if !(strings.Contains(path, "/files/") || strings.Contains(path, "/commands/")) {
-		log.Printf("Skipping file %s", path)
 		return nil
 	}
 
@@ -235,7 +231,6 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 	}
 
 	if oldCrc.Valid && crc == oldCrc.Int32 {
-		log.Printf("Skipping file %s, no changes", fileName)
 		if hostinfo > 0 {
 			_, _ = db.Exec("UPDATE hostinfo SET lastseen = $1, clientversion = $2 "+
 				" WHERE certfp = $3 AND lastseen < $4", metadata["iso_received"], metadata["clientversion"],
@@ -262,7 +257,6 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 
 	// Set current to false for the previous version of this file
 	if _, ok := curfiles[fileName]; ok {
-		log.Printf("Setting current to false for %s", fileName)
 		_, _ = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current",
 			curfiles[fileName])
 		delete(curfiles, fileName)
@@ -284,7 +278,6 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 
 	// clear the "current" flag for files that weren't in this package
 	var notCurrent []int64
-	log.Println("Clear the current flag for deleted files")
 	for _, fileId := range curfiles {
 		_, _ = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current", fileId)
 		notCurrent = append(notCurrent, fileId)
@@ -294,7 +287,6 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 	// their "current" flag cleared, and can be removed from the
 	// in-memory search cache.
 	for _, id := range notCurrent {
-		log.Printf("id: %d", id)
 		removeFileFromFastSearch(id)
 	}
 
@@ -463,26 +455,36 @@ func unZip(dst string, fn string) error {
 			return err
 		}
 
-		var isUTF16 bytes.Buffer
-		_, err = io.CopyN(&isUTF16, fileInArchive, 2)
-		if err != nil {
-			return err
-		}
-		bom := isUTF16.Bytes()
-
-		pr := bytes.NewReader(bom)
-
-		if len(bom) == 2 && bom[0] == 0xFF && bom[1] == 0xFE { //UTF-16LE
-			scanner := bufio.NewScanner(transform.NewReader(io.MultiReader(pr, fileInArchive), unicode.UTF16(unicode.LittleEndian, unicode.UseBOM).NewDecoder()))
-			for scanner.Scan() {
-				dstFile.WriteString(scanner.Text() + "\r\n")
-			}
-		} else {
-			if _, err := io.Copy(dstFile, io.MultiReader(pr, fileInArchive)); err != nil {
+		if f.UncompressedSize64 < 2 {
+        // file is too small to have a BOM, just copy
+			_, err = io.Copy(dstFile, fileInArchive)
+			if err != nil {
 				return err
 			}
+			dstFile.Close()
+		} else {
+        // this file might be UTF-16, check for BOM
+			var isUTF16 bytes.Buffer
+			_, err = io.CopyN(&isUTF16, fileInArchive, 2)
+			if err != nil {
+				return err
+			}
+			bom := isUTF16.Bytes()
+
+			pr := bytes.NewReader(bom)
+
+			if len(bom) == 2 && bom[0] == 0xFF && bom[1] == 0xFE { //UTF-16LE
+				scanner := bufio.NewScanner(transform.NewReader(io.MultiReader(pr, fileInArchive), unicode.UTF16(unicode.LittleEndian, unicode.UseBOM).NewDecoder()))
+				for scanner.Scan() {
+					dstFile.WriteString(scanner.Text() + "\r\n")
+				}
+			} else {
+				if _, err := io.Copy(dstFile, io.MultiReader(pr, fileInArchive)); err != nil {
+					return err
+				}
+			}
+			dstFile.Close()
 		}
-		dstFile.Close()
 		err = os.Chtimes(filePath, f.Modified, f.Modified)
 		if err != nil {
 			log.Printf("Error setting mod time on %s: %s", filePath, err)

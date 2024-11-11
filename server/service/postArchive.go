@@ -227,7 +227,6 @@ func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Req
 	var size uint64 = 0
 
 	if filetype == "application/zip" {
-		log.Println("The archive is in Zip format")
 		match = regexp.MustCompile(`\.tgz$`)
 		newFile := match.ReplaceAll([]byte(archiveFile), []byte(".zip"))
 		os.Rename(archiveFile, string(newFile))
