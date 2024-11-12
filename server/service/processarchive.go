@@ -146,7 +146,7 @@ func processArchive(url string, db *sql.DB) (err error) {
 	// process each file, do this in a transaction in case of errors during processing
 	err = utility.RunInTransaction(db, func(tx *sql.Tx) error {
 		err = filepath.WalkDir(tempDir, func(path string, entry fs.DirEntry, err error) error {
-			return processFile(&unchangedFiles, metaData, curFiles, hostInfoExists, db, path, tempDir, entry, err)
+			return processFile(&unchangedFiles, metaData, curFiles, hostInfoExists, db, path, tempDir, entry)
 		})
 		if err != nil {
 			log.Printf("Error in processFile: %s", err)
@@ -170,7 +170,7 @@ func processArchive(url string, db *sql.DB) (err error) {
 	return nil
 }
 
-func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[string]int64, hostinfo int64, db *sql.DB, path string, tempdir string, de fs.DirEntry, err error) error {
+func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[string]int64, hostinfo int64, db *sql.DB, path string, tempdir string, de fs.DirEntry) error {
 	if de.IsDir() {
 		return nil
 	}
