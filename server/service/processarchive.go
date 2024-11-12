@@ -232,22 +232,34 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 
 	if oldCrc.Valid && crc == oldCrc.Int32 {
 		if hostinfo > 0 {
-			_, _ = db.Exec("UPDATE hostinfo SET lastseen = $1, clientversion = $2 "+
+			_, err = db.Exec("UPDATE hostinfo SET lastseen = $1, clientversion = $2 "+
 				" WHERE certfp = $3 AND lastseen < $4", metadata["iso_received"], metadata["clientversion"],
 				metadata["certfp"], metadata["iso_received"])
-			_, _ = db.Exec("UPDATE hostinfo SET ipaddr = $1, os_hostname= $2, dnsttl = null "+
+			if err != nil {
+				return err
+			}
+			_, err = db.Exec("UPDATE hostinfo SET ipaddr = $1, os_hostname= $2, dnsttl = null "+
 				" WHERE (ipaddr != $3 OR os_hostname != $4) AND certfp = $5", metadata["ip"],
 				metadata["os_hostname"], metadata["ip"], metadata["os_hostname"], metadata["certfp"])
+			if err != nil {
+				return err
+			}
 			*unchangedFiles++
 		} else {
 			/* There is NO hostinfo record.
 			/ It looks like the machine was archived and just now came back.
 			/ Set parsed=false so the file will be parsed again,
 			/ because the hostinfo values must be re-populated. */
-			_, _ = db.Exec("UPDATE files SET parsed = false WHERE fileid=$1", fileId)
+			_, err = db.Exec("UPDATE files SET parsed = false WHERE fileid=$1", fileId)
+			if err != nil {
+				return err
+			}
 		}
-		_, _ = db.Exec("UPDATE files SET current=true, received=NOW() WHERE fileid = $1 "+
+		_, err = db.Exec("UPDATE files SET current=true, received=NOW() WHERE fileid = $1 "+
 			"AND NOT current", fileId)
+		if err != nil {
+			return err
+		}
 		// sql set current flag for this file
 		delete(curfiles, fileName)
 		return nil
@@ -257,8 +269,11 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 
 	// Set current to false for the previous version of this file
 	if _, ok := curfiles[fileName]; ok {
-		_, _ = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current",
+		_, err = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current",
 			curfiles[fileName])
+		if err != nil {
+			return err
+		}
 		delete(curfiles, fileName)
 	}
 
@@ -279,7 +294,10 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 	// clear the "current" flag for files that weren't in this package
 	var notCurrent []int64
 	for _, fileId := range curfiles {
-		_, _ = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current", fileId)
+		_, err = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current", fileId)
+		if err != nil {
+			return err
+		}
 		notCurrent = append(notCurrent, fileId)
 	}
 
@@ -456,14 +474,14 @@ func unZip(dst string, fn string) error {
 		}
 
 		if f.UncompressedSize64 < 2 {
-        // file is too small to have a BOM, just copy
+			// file is too small to have a BOM, just copy
 			_, err = io.Copy(dstFile, fileInArchive)
 			if err != nil {
 				return err
 			}
 			dstFile.Close()
 		} else {
-        // this file might be UTF-16, check for BOM
+			// this file might be UTF-16, check for BOM
 			var isUTF16 bytes.Buffer
 			_, err = io.CopyN(&isUTF16, fileInArchive, 2)
 			if err != nil {
