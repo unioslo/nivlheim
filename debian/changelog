@@ -1,3 +1,9 @@
+nivlheim (2.7.28-1) buster; urgency=low
+
+  * Fixed a bug in the server code
+
+-- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+
 nivlheim (2.7.27-1) buster; urgency=low
 
   * Fixed a bug when parsing files in zip archive that are less than 2 bytes
