@@ -236,7 +236,7 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 				" WHERE certfp = $3 AND lastseen < $4", metadata["iso_received"], metadata["clientversion"],
 				metadata["certfp"], metadata["iso_received"])
 			_, _ = db.Exec("UPDATE hostinfo SET ipaddr = $1, os_hostname= $2, dnsttl = null "+
-				" WHERE (ipaddr != $3 || os_hostname != $4) AND certfp = $5", metadata["ip"],
+				" WHERE (ipaddr != $3 OR os_hostname != $4) AND certfp = $5", metadata["ip"],
 				metadata["os_hostname"], metadata["ip"], metadata["os_hostname"], metadata["certfp"])
 			*unchangedFiles++
 		} else {
