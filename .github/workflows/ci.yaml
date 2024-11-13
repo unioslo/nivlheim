@@ -103,6 +103,7 @@ jobs:
           - client_timing.sh
           - clones.sh
           - powershell.sh
+          - homepage.sh
     steps:
     - name: Checkout
       uses: actions/checkout@v4
