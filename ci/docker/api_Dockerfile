@@ -1,5 +1,5 @@
 ## Build
-FROM golang:buster AS build
+FROM golang:latest AS build
 ARG version
 
 WORKDIR /app
