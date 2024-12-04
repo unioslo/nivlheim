@@ -1,8 +1,14 @@
+nivlheim (2.7.30-1) buster; urgency=low
+
+  * Building the server with a newer Go version
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+
 nivlheim (2.7.29-1) buster; urgency=low
 
   * Fixed a bug in the server code
 
--- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
 
 nivlheim (2.7.27-1) buster; urgency=low
 
