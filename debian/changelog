@@ -1,3 +1,9 @@
+nivlheim (2.7.31-1) buster; urgency=low
+
+  * Updated libraries
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+
 nivlheim (2.7.30-1) buster; urgency=low
 
   * Building the server with a newer Go version
