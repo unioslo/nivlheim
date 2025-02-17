@@ -2,6 +2,7 @@ package main
 
 import (
 	"net"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -209,4 +210,69 @@ func TestApiAccessControl(t *testing.T) {
 	loadContentForFastSearch(db)
 	muxer := createAPImuxer(db, false)
 	testAPIcalls(t, muxer, tests)
+}
+
+func MockRequest(remoteAddr string, xForwardedFor []string) *http.Request {
+	req := &http.Request{
+		RemoteAddr: remoteAddr,
+		Header:     make(http.Header),
+	}
+	for _, v := range xForwardedFor {
+		req.Header.Add("X-Forwarded-For", v)
+	}
+	return req
+}
+
+func TestGetRealRemoteAddr(t *testing.T) {
+	// define tests
+	tests := []struct {
+		remoteAddr    string
+		xForwardedFor []string
+		want          string
+	}{
+		/* We want to test:
+		- addresses with/without port numbers
+		- addresses in [brackets]
+		- one and several elements in X-Forwarded-For
+		- RemoteAddr as localhost(loopback) and external
+		*/
+		{
+			remoteAddr:    "127.0.0.1:8080",
+			xForwardedFor: []string{"203.0.113.195:41237", "198.51.100.100:38523"},
+			want:          "198.51.100.100",
+		},
+		{
+			remoteAddr:    "127.0.0.1",
+			xForwardedFor: []string{"203.0.113.195"},
+			want:          "203.0.113.195",
+		},
+		{
+			remoteAddr:    "::1",
+			xForwardedFor: []string{"2001:db8:85a3:8d3:1319:8a2e:370:7348"},
+			want:          "2001:db8:85a3:8d3:1319:8a2e:370:7348",
+		},
+		{
+			remoteAddr:    "::1",
+			xForwardedFor: []string{"198.51.100.100:26321", "[2001:db8::1a2b:3c4d]:41237"},
+			want:          "2001:db8::1a2b:3c4d",
+		},
+		{
+			remoteAddr:    "[2001:db8::1a2b:3c4d]:1234",
+			xForwardedFor: []string{"203.0.113.195:41237", "198.51.100.100:38523"},
+			want:          "2001:db8::1a2b:3c4d",
+		},
+		{
+			remoteAddr:    "2001:db8::1a2b:3c4d",
+			xForwardedFor: []string{"203.0.113.195:41237", "198.51.100.100:38523"},
+			want:          "2001:db8::1a2b:3c4d",
+		},
+	}
+	// perform tests
+	for _, test := range tests {
+		req := MockRequest(test.remoteAddr, test.xForwardedFor)
+		result := getRealRemoteAddr(req).String()
+		if result != test.want {
+			t.Errorf("Expected getRealRemoteAddr to return %s, got %s", test.want, result)
+		}
+	}
 }

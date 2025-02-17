@@ -105,7 +105,7 @@ func runAPI(theDB *sql.DB, address string, devmode bool) {
 		h = wrapLog(wrapAllowLocalhostCORS(h))
 	}
 	log.Printf("Serving API requests on %s.\n", address)
-	err := http.ListenAndServe(fmt.Sprintf("%s", address), h)
+	err := http.ListenAndServe(address, h)
 	if err != nil {
 		log.Fatal(err.Error())
 	}
@@ -207,22 +207,8 @@ func isPrivateIP(ip net.IP) bool {
 
 // isLocal returns true if the http request originated from localhost or a private network address block.
 func isLocal(req *http.Request) bool {
-	// The X-Forwarded-For header can be set by the client,
-	// so just to be safe let's not trust any proxy connections.
-	if req.Header.Get("X-Forwarded-For") != "" {
-		return false
-	}
-	// req.RemoteAddr can contain a port
-	ipStr, _, err := net.SplitHostPort(req.RemoteAddr)
-	if err != nil {
-		ipStr = req.RemoteAddr
-	}
-	ip := net.ParseIP(ipStr)
-	if ip != nil {
-		return isPrivateIP(ip)
-	} else {
-		return false
-	}
+	ip := getRealRemoteAddr(req)
+	return ip != nil && isPrivateIP(ip)
 }
 
 func wrapOnlyAllowLocal(h http.Handler) http.Handler {
