@@ -45,7 +45,7 @@ type generalNames struct {
 }
 
 func (vars *apiMethodReqCert) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-    ipAddr := req.Header.Get("X-Forwarded-For")
+	ipAddr := getRealRemoteAddr(req).String()
 	log.Printf("Request for new certificate from %s", ipAddr)
 
 	trustedByCFE := false

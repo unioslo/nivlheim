@@ -26,7 +26,7 @@ type apiMethodPostArchive struct {
 const MAX_UPLOAD_SIZE = 1024 * 1024 * 10
 
 func (vars *apiMethodPostArchive) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	ipAddr := req.Header.Get("X-Forwarded-For")
+	ipAddr := getRealRemoteAddr(req).String()
 	log.Printf("post from %s\n", ipAddr)
 
 	contentType := req.Header.Get("Content-Type")

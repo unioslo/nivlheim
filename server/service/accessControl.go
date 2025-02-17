@@ -179,13 +179,22 @@ func wrapRequireAuth(h httpHandlerWithAccessProfile, db *sql.DB) http.Handler {
 	})
 }
 
+// This function is a wrapper around net.ParseIP that also calls net.SplitHostPort when necessary.
+func _parseIP(hostAndMaybePort string) net.IP {
+	ip := net.ParseIP(hostAndMaybePort)
+	if ip == nil {
+		host, _, _ := net.SplitHostPort(hostAndMaybePort)
+		ip = net.ParseIP(host)
+	}
+	return ip
+}
+
 // getRealRemoteAddr takes into account that a local webserver may be used
 // as a proxy, in which case RemoteAddr becomes 127.0.0.1 and we have to
 // look at the X-Forwarded-For header instead.
 func getRealRemoteAddr(req *http.Request) net.IP {
-	var remoteAddr = strings.SplitN(req.RemoteAddr, ":", 2)[0] // host:port
-	ip := net.ParseIP(remoteAddr)
-	if !ip.IsLoopback() {
+	ip := _parseIP(req.RemoteAddr)
+	if ip != nil && !ip.IsLoopback() {
 		return ip
 	}
 	ff, ok := req.Header["X-Forwarded-For"]
@@ -193,8 +202,11 @@ func getRealRemoteAddr(req *http.Request) net.IP {
 		// The client can pass its own value for the X-Forwarded-For header,
 		// which will then be the first element of the array.
 		// But the last element of the array will always be the address
-		// that contacted the last proxy server, which is probably what we want.
-		return net.ParseIP(ff[len(ff)-1])
+		// that contacted the last proxy server, which is probably what we want,
+		// since we assume there's only one proxy server (running on localhost).
+		lastElement := ff[len(ff)-1]
+		ip := _parseIP(lastElement)
+		return ip
 	}
 	return ip // can only be loopback at this point
 }
