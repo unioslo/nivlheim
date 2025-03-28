@@ -159,12 +159,24 @@ func processArchive(url string, db *sql.DB) (err error) {
 		return err
 	}
 
+	log.Println("Completed inserting new files into the database")
+
 	// Notify the system service/daemon that a number of files
 	// have been processed, so we can produce an accurate count of
 	// files-per-minute.
 	if unchangedFiles > 0 {
 		log.Printf("Unchanged files: %d", unchangedFiles)
 		pfib.Add(float64(unchangedFiles)) // pfib = parsed files interval buffer
+	}
+
+	// clear the "current" flag for files that weren't in this package,
+	// and also remove them from the search cache.
+	for _, fileId := range curFiles {
+		_, err = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current", fileId)
+		if err != nil {
+			return err
+		}
+		removeFileFromFastSearch(fileId)
 	}
 
 	return nil
@@ -287,25 +299,6 @@ func processFile(unchangedFiles *int, metadata map[string]string, curfiles map[s
 	if err != nil {
 		log.Println("Error inserting file: ", err)
 		return err
-	}
-
-	log.Println("Completed inserting new files into the database")
-
-	// clear the "current" flag for files that weren't in this package
-	var notCurrent []int64
-	for _, fileId := range curfiles {
-		_, err = db.Exec("UPDATE files SET current=false WHERE fileid = $1 AND current", fileId)
-		if err != nil {
-			return err
-		}
-		notCurrent = append(notCurrent, fileId)
-	}
-
-	// Notify the system service/daemon that some file(s) have had
-	// their "current" flag cleared, and can be removed from the
-	// in-memory search cache.
-	for _, id := range notCurrent {
-		removeFileFromFastSearch(id)
 	}
 
 	log.Printf("Visited: %s\n", path)

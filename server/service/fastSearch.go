@@ -12,8 +12,8 @@ import (
 
 var fsMutex sync.RWMutex
 var fsContent map[int64]string
-var fsID map[string]int64 // maps a key string to file id. The key is <certfp>:<filename>
-var fsKey map[int64]string
+var fsID map[string]int64  // maps a key string to file id. The key is <certfp>:<filename>
+var fsKey map[int64]string // the reverse of fsID
 var fsReady uint32
 
 func init() {
@@ -53,6 +53,7 @@ func loadContentForFastSearch(db *sql.DB) {
 	triggerJob(compareSearchCacheJob{})
 }
 
+// Adds (or replaces) a file in the in-memory search cache
 func addFileToFastSearch(fileID int64, certfp string, filename string, content string) {
 	fsMutex.Lock()
 	defer fsMutex.Unlock()
@@ -225,7 +226,7 @@ func (a hitList) Less(i, j int) bool { return a[i] > a[j] } // reverse sort
 func searchFiles(searchString string, filename string) ([]int64, map[string]int) {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
-	hits := make(hitList, 0, 0)
+	hits := make(hitList, 0)
 	distinctFilenames := make(map[string]int, 0)
 	for id, content := range fsContent {
 		if strings.Contains(content, searchString) {
@@ -250,7 +251,7 @@ func searchFiles(searchString string, filename string) ([]int64, map[string]int)
 func searchFilesWithFilter(searchString string, filename string, validCerts map[string]bool) ([]int64, map[string]int) {
 	fsMutex.RLock()
 	searchString = strings.ToLower(searchString)
-	hits := make(hitList, 0, 0)
+	hits := make(hitList, 0)
 	distinctFilenames := make(map[string]int, 0)
 	for key, id := range fsID {
 		// extract certfp and filename from key
