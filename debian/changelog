@@ -1,4 +1,10 @@
-nivlheim (2.7.32-1) buster; urgency=low
+nivlheim (2.7.33-1) buster; urgency=low
+
+  * Fixed a bug on the server side
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+ 
+ nivlheim (2.7.32-1) buster; urgency=low
 
   * Fixed RemoteAddr parsing on the server side and updated Go packages
   * Updated libraries
