@@ -8,7 +8,7 @@ PSQL=../ci/docker/psql.sh
 # Try to run the client without CFEngine signature or any form of pre-approval.
 # Should result in it being put on the waiting list.
 echo "Running the client without any trust"
-OUTPUT=$(docker run --rm --network host -v clientvar:/var nivlheimclient --nocfe --debug 2>&1) || true
+OUTPUT=$(docker run --rm --network host nivlheimclient --nocfe --debug 2>&1) || true
 A=$($PSQL --no-align -t -c "SELECT count(*) FROM waiting_for_approval")
 if [[ "$A" == "0" ]]; then
 	echo "The client should have been put on the waiting list, but wasn't..."
@@ -19,14 +19,16 @@ fi
 $PSQL -X --no-align -t -q -c "TRUNCATE TABLE waiting_for_approval"
 
 # Install a fake CFEngine key pair on a client container
-docker run --rm -v clientvar:/var --entrypoint sh nivlheimclient -c 'mkdir -p /var/cfengine/ppkeys'
-docker create --name banana --network host -v clientvar:/var nivlheimclient --debug
+docker create --name banana --network host nivlheimclient --debug
 function finish {
 	docker rm -f banana >/dev/null 2>&1 || true
+	rm -rf /tmp/cfengine
 }
 trap finish EXIT
-docker cp cfengine.priv banana:/var/cfengine/ppkeys/localhost.priv
-docker cp cfengine.pub banana:/var/cfengine/ppkeys/localhost.pub
+mkdir -p /tmp/cfengine/ppkeys
+cp cfengine.priv /tmp/cfengine/ppkeys/localhost.priv
+cp cfengine.pub  /tmp/cfengine/ppkeys/localhost.pub
+docker cp /tmp/cfengine banana:/var/cfengine
 # and the public key will also be used by the server
 docker exec docker-nivlheimapi-1 mkdir -p /var/cfekeys
 docker cp cfengine.pub docker-nivlheimapi-1:/var/cfekeys/root-MD5=01234567890123456789012345678932.pub   # default value for a machine without cf-key
