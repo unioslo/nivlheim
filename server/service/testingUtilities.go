@@ -17,7 +17,7 @@ func getDBconnForTesting(t *testing.T) *sql.DB {
 	// username
 	user, err := user.Current()
 	if err != nil {
-		t.Fatalf(err.Error())
+		t.Fatalf("%s", err.Error())
 	}
 
 	// defaults for testing
