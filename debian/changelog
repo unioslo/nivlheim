@@ -1,3 +1,9 @@
+nivlheim (2.7.35-1) buster; urgency=low
+
+  * Moved the client to /usr/bin
+
+ -- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+
 nivlheim (2.7.34-1) buster; urgency=low
 
   * Various unrelated changes and bugfixes on the server side

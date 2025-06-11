@@ -5,4 +5,4 @@ After=network-online.target
 
 [Service]
 Type=simple
-ExecStart=/usr/sbin/nivlheim_client
+ExecStart=/usr/bin/nivlheim_client
