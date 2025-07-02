@@ -1,3 +1,9 @@
+nivlheim (2.7.36-1) buster; urgency=low
+
+  * Upstream changes
+
+-- Øyvind Hagberg <oyvind.hagberg@usit.uio.no>
+
 nivlheim (2.7.35-1) buster; urgency=low
 
   * Moved the client to /usr/bin

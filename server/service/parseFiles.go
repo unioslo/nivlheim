@@ -11,6 +11,8 @@ import (
 	"time"
 
 	"github.com/lib/pq"
+	"golang.org/x/text/cases"
+	"golang.org/x/text/language"
 )
 
 type parseFilesJob struct{}
@@ -148,7 +150,7 @@ func parseFile(database *sql.DB, fileID int64) {
 	if filename.String == "/etc/redhat-release" {
 		var os, osEdition string
 		rhel := regexp.MustCompile("^Red Hat Enterprise Linux (\\w+)" +
-			".*(Tikanga|Santiago|Maipo|Ootpa|Plow)")
+			".*(Tikanga|Santiago|Maipo|Ootpa|Plow|Coughlan)")
 		m := rhel.FindStringSubmatch(content.String)
 		if m != nil {
 			osEdition = m[1]
@@ -165,19 +167,22 @@ func parseFile(database *sql.DB, fileID int64) {
 			case "Plow":
 				os = "RHEL 9"
 				osEdition = ""
+			case "Coughlan":
+				os = "RHEL 10"
+				osEdition = ""
 			}
 		} else {
-			fedora := regexp.MustCompile("^Fedora release (\\d+)")
+			fedora := regexp.MustCompile(`^Fedora release (\d+)`)
 			m = fedora.FindStringSubmatch(content.String)
 			if m != nil {
 				os = "Fedora " + m[1]
 			} else {
-				centos := regexp.MustCompile("^CentOS Linux release (\\d+)")
+				centos := regexp.MustCompile(`^CentOS Linux release (\d+)`)
 				m = centos.FindStringSubmatch(content.String)
 				if m != nil {
 					os = "CentOS " + m[1]
 				} else {
-					alma := regexp.MustCompile("^AlmaLinux release (\\d+)")
+					alma := regexp.MustCompile(`^AlmaLinux release (\d+)`)
 					m = alma.FindStringSubmatch(content.String)
 					if m != nil {
 						os = "AlmaLinux " + m[1]
@@ -198,7 +203,7 @@ func parseFile(database *sql.DB, fileID int64) {
 	edition := regexp.MustCompile("/usr/lib/os.release.d/os-release-([a-z]+)")
 	if m := edition.FindStringSubmatch(filename.String); m != nil {
 		_, err = tx.Exec("UPDATE hostinfo SET os_edition=$1 WHERE certfp=$2",
-			strings.Title(m[1]), certfp.String)
+			cases.Title(language.Und).String(m[1]), certfp.String)
 		return
 	}
 
@@ -206,13 +211,13 @@ func parseFile(database *sql.DB, fileID int64) {
 		ubuntuEdition := regexp.MustCompile("ubuntu-(desktop|server)")
 		if m := ubuntuEdition.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os_edition=$1 WHERE certfp=$2",
-				strings.Title(m[1]), certfp.String)
+				cases.Title(language.Und).String(m[1]), certfp.String)
 		}
 		return
 	}
 
 	if filename.String == "/etc/debian_version" {
-		re := regexp.MustCompile("^(\\d+)\\.")
+		re := regexp.MustCompile(`^(\d+)\.`)
 		if m := re.FindStringSubmatch(content.String); m != nil {
 			_, err = tx.Exec("UPDATE hostinfo SET os=$1, os_family='Linux' WHERE certfp=$2",
 				"Debian "+m[1], certfp.String)
@@ -287,13 +292,13 @@ func parseFile(database *sql.DB, fileID int64) {
 		if m := regexp.MustCompile(`Manufacturer: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			manufacturer.String = strings.TrimSpace(m[1])
-			manufacturer.String = strings.Title(strings.ToLower(manufacturer.String))
+			manufacturer.String = cases.Title(language.Und).String(strings.ToLower(manufacturer.String))
 			manufacturer.Valid = len(manufacturer.String) > 0
 		}
 		if m := regexp.MustCompile(`Product Name: (.*)`).
 			FindStringSubmatch(content.String); m != nil {
 			product.String = strings.TrimSpace(m[1])
-			product.String = strings.Title(strings.ToLower(product.String))
+			product.String = cases.Title(language.Und).String(strings.ToLower(product.String))
 			product.Valid = len(product.String) > 0
 		}
 		if m := regexp.MustCompile(`Serial Number: (.*)`).
@@ -432,7 +437,7 @@ func parseCustomFields(tx *sql.Tx, certfp string, filename string, content strin
 			continue
 		}
 		match := re.FindStringSubmatch(content)
-		if match == nil || len(match) < 2 {
+		if len(match) < 2 { // if match is nil, len(match) is 0
 			notfound = append(notfound, Item{fieldID: fieldID})
 			continue
 		}
