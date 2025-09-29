@@ -81,9 +81,9 @@ func TestHandleDNSchanges(t *testing.T) {
 		// this host will be renamed based on DNS PTR record for the ip address
 		testname{
 			certfp:     "a",
-			ipAddress:  "129.240.130.240",
-			osHostname: "bottleneck.bestchoice.com",
-			expected:   "callisto.uio.no",
+			ipAddress:  "129.240.130.130",
+			osHostname: "somehostname.example.com",
+			expected:   "ganymede.uio.no",
 		},
 		// this host is in an ip range where use_dns=false,
 		// so it will get the name the OS says it has
