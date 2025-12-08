@@ -49,6 +49,7 @@ sub extract_cmd($);
 my %defaultopt = (
 	'config'    => '/etc/nivlheim/client.yaml:/usr/local/etc/nivlheim/client.yaml', # configuration file
 	'ca_file'   => '/var/nivlheim/nivlheimca.crt'
+				 . ':/etc/pki/ca-trust/extracted/pem/tls-ca-bundle.pem:/etc/ssl/cert.pem'
 				 . ':/etc/ssl/certs/ca-certificates.crt:/etc/ssl/certs/ca-bundle.crt'
 				 . ':/etc/pki/tls/certs/ca-bundle.crt:/usr/local/etc/ssl/cert.pem',
 	'cert_file' => '/var/nivlheim/my.crt',
@@ -67,7 +68,7 @@ my $NAME    = 'nivlheim_client';
 my $AUTHOR  = 'Øyvind Hagberg';
 my $CONTACT = 'oyvind.hagberg@usit.uio.no';
 my $RIGHTS  = 'USIT/IT-DRIFT/GD/GID, University of Oslo, Norway';
-my $VERSION = '2.7.37';
+my $VERSION = '2.7.38';
 
 # Usage text
 my $USAGE = <<"END_USAGE";
